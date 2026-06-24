@@ -14,6 +14,7 @@ import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/quiz_repository.dart';
 import '../../data/repositories/review_repository.dart';
 import '../../data/repositories/stack_repository.dart';
+import '../../data/local/local_store.dart';
 import '../../data/services/ai_service.dart';
 import '../../data/services/app_session_service.dart';
 import '../../data/services/auth_service.dart';
@@ -21,6 +22,8 @@ import '../../data/services/heat_service.dart';
 import '../../data/services/metrics_service.dart';
 import '../../data/services/notification_service.dart';
 import '../../data/services/supabase_service.dart';
+import '../../data/services/sync_service.dart';
+import '../../data/services/sync_status_service.dart';
 import '../../data/services/tier_service.dart';
 
 class InitialBinding extends Bindings {
@@ -30,7 +33,10 @@ class InitialBinding extends Bindings {
       Get.isRegistered<SupabaseService>() &&
           Get.isRegistered<AuthService>() &&
           Get.isRegistered<TierService>() &&
-          Get.isRegistered<AppSessionService>(),
+          Get.isRegistered<AppSessionService>() &&
+          Get.isRegistered<LocalStore>() &&
+          Get.isRegistered<SyncStatusService>() &&
+          Get.isRegistered<SyncService>(),
       'Core singletons must be registered in main() before runApp.',
     );
 
@@ -44,13 +50,18 @@ class InitialBinding extends Bindings {
     // Repositories — the only data surface controllers talk to.
     Get.lazyPut<ProfileRepository>(() => ProfileRepository(Get.find()),
         fenix: true);
-    Get.lazyPut<BucketRepository>(() => BucketRepository(Get.find()),
+    Get.lazyPut<BucketRepository>(
+        () => BucketRepository(Get.find(), Get.find(), Get.find()),
         fenix: true);
-    Get.lazyPut<NodeRepository>(() => NodeRepository(Get.find()), fenix: true);
-    Get.lazyPut<ReviewRepository>(() => ReviewRepository(Get.find()),
+    Get.lazyPut<NodeRepository>(
+        () => NodeRepository(Get.find(), Get.find(), Get.find()),
+        fenix: true);
+    Get.lazyPut<ReviewRepository>(
+        () => ReviewRepository(Get.find(), Get.find(), Get.find()),
         fenix: true);
     Get.lazyPut<QuizRepository>(() => QuizRepository(Get.find()), fenix: true);
-    Get.lazyPut<StackRepository>(() => StackRepository(Get.find()),
+    Get.lazyPut<StackRepository>(
+        () => StackRepository(Get.find(), Get.find(), Get.find()),
         fenix: true);
     Get.lazyPut<InsightsRepository>(() => InsightsRepository(Get.find()),
         fenix: true);
