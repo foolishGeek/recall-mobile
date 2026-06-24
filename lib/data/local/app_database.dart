@@ -86,6 +86,16 @@ class SyncMeta extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
+/// Queued profile preference writes (last-write-wins per user). S09 offline path.
+class PendingProfilePrefs extends Table {
+  TextColumn get userId => text()();
+  TextColumn get payload => text()();
+  DateTimeColumn get clientTimestamp => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {userId};
+}
+
 @DriftDatabase(
   tables: [
     CachedBuckets,
@@ -94,6 +104,7 @@ class SyncMeta extends Table {
     CachedStackItems,
     PendingReviews,
     SyncMeta,
+    PendingProfilePrefs,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -101,5 +112,14 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'recall_cache'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(pendingProfilePrefs);
+          }
+        },
+      );
 }

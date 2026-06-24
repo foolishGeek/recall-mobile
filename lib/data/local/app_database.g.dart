@@ -2235,6 +2235,280 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   }
 }
 
+class $PendingProfilePrefsTable extends PendingProfilePrefs
+    with TableInfo<$PendingProfilePrefsTable, PendingProfilePref> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingProfilePrefsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _clientTimestampMeta = const VerificationMeta(
+    'clientTimestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> clientTimestamp =
+      GeneratedColumn<DateTime>(
+        'client_timestamp',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [userId, payload, clientTimestamp];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_profile_prefs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingProfilePref> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('client_timestamp')) {
+      context.handle(
+        _clientTimestampMeta,
+        clientTimestamp.isAcceptableOrUnknown(
+          data['client_timestamp']!,
+          _clientTimestampMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_clientTimestampMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {userId};
+  @override
+  PendingProfilePref map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingProfilePref(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      clientTimestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}client_timestamp'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingProfilePrefsTable createAlias(String alias) {
+    return $PendingProfilePrefsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingProfilePref extends DataClass
+    implements Insertable<PendingProfilePref> {
+  final String userId;
+  final String payload;
+  final DateTime clientTimestamp;
+  const PendingProfilePref({
+    required this.userId,
+    required this.payload,
+    required this.clientTimestamp,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['user_id'] = Variable<String>(userId);
+    map['payload'] = Variable<String>(payload);
+    map['client_timestamp'] = Variable<DateTime>(clientTimestamp);
+    return map;
+  }
+
+  PendingProfilePrefsCompanion toCompanion(bool nullToAbsent) {
+    return PendingProfilePrefsCompanion(
+      userId: Value(userId),
+      payload: Value(payload),
+      clientTimestamp: Value(clientTimestamp),
+    );
+  }
+
+  factory PendingProfilePref.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingProfilePref(
+      userId: serializer.fromJson<String>(json['userId']),
+      payload: serializer.fromJson<String>(json['payload']),
+      clientTimestamp: serializer.fromJson<DateTime>(json['clientTimestamp']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'userId': serializer.toJson<String>(userId),
+      'payload': serializer.toJson<String>(payload),
+      'clientTimestamp': serializer.toJson<DateTime>(clientTimestamp),
+    };
+  }
+
+  PendingProfilePref copyWith({
+    String? userId,
+    String? payload,
+    DateTime? clientTimestamp,
+  }) => PendingProfilePref(
+    userId: userId ?? this.userId,
+    payload: payload ?? this.payload,
+    clientTimestamp: clientTimestamp ?? this.clientTimestamp,
+  );
+  PendingProfilePref copyWithCompanion(PendingProfilePrefsCompanion data) {
+    return PendingProfilePref(
+      userId: data.userId.present ? data.userId.value : this.userId,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      clientTimestamp: data.clientTimestamp.present
+          ? data.clientTimestamp.value
+          : this.clientTimestamp,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingProfilePref(')
+          ..write('userId: $userId, ')
+          ..write('payload: $payload, ')
+          ..write('clientTimestamp: $clientTimestamp')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(userId, payload, clientTimestamp);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingProfilePref &&
+          other.userId == this.userId &&
+          other.payload == this.payload &&
+          other.clientTimestamp == this.clientTimestamp);
+}
+
+class PendingProfilePrefsCompanion extends UpdateCompanion<PendingProfilePref> {
+  final Value<String> userId;
+  final Value<String> payload;
+  final Value<DateTime> clientTimestamp;
+  final Value<int> rowid;
+  const PendingProfilePrefsCompanion({
+    this.userId = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.clientTimestamp = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PendingProfilePrefsCompanion.insert({
+    required String userId,
+    required String payload,
+    required DateTime clientTimestamp,
+    this.rowid = const Value.absent(),
+  }) : userId = Value(userId),
+       payload = Value(payload),
+       clientTimestamp = Value(clientTimestamp);
+  static Insertable<PendingProfilePref> custom({
+    Expression<String>? userId,
+    Expression<String>? payload,
+    Expression<DateTime>? clientTimestamp,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
+      if (payload != null) 'payload': payload,
+      if (clientTimestamp != null) 'client_timestamp': clientTimestamp,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PendingProfilePrefsCompanion copyWith({
+    Value<String>? userId,
+    Value<String>? payload,
+    Value<DateTime>? clientTimestamp,
+    Value<int>? rowid,
+  }) {
+    return PendingProfilePrefsCompanion(
+      userId: userId ?? this.userId,
+      payload: payload ?? this.payload,
+      clientTimestamp: clientTimestamp ?? this.clientTimestamp,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (clientTimestamp.present) {
+      map['client_timestamp'] = Variable<DateTime>(clientTimestamp.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingProfilePrefsCompanion(')
+          ..write('userId: $userId, ')
+          ..write('payload: $payload, ')
+          ..write('clientTimestamp: $clientTimestamp, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2246,6 +2520,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $PendingReviewsTable pendingReviews = $PendingReviewsTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
+  late final $PendingProfilePrefsTable pendingProfilePrefs =
+      $PendingProfilePrefsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2257,6 +2533,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     cachedStackItems,
     pendingReviews,
     syncMeta,
+    pendingProfilePrefs,
   ];
 }
 
@@ -3491,6 +3768,186 @@ typedef $$SyncMetaTableProcessedTableManager =
       SyncMetaData,
       PrefetchHooks Function()
     >;
+typedef $$PendingProfilePrefsTableCreateCompanionBuilder =
+    PendingProfilePrefsCompanion Function({
+      required String userId,
+      required String payload,
+      required DateTime clientTimestamp,
+      Value<int> rowid,
+    });
+typedef $$PendingProfilePrefsTableUpdateCompanionBuilder =
+    PendingProfilePrefsCompanion Function({
+      Value<String> userId,
+      Value<String> payload,
+      Value<DateTime> clientTimestamp,
+      Value<int> rowid,
+    });
+
+class $$PendingProfilePrefsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingProfilePrefsTable> {
+  $$PendingProfilePrefsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get clientTimestamp => $composableBuilder(
+    column: $table.clientTimestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingProfilePrefsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingProfilePrefsTable> {
+  $$PendingProfilePrefsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get clientTimestamp => $composableBuilder(
+    column: $table.clientTimestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingProfilePrefsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingProfilePrefsTable> {
+  $$PendingProfilePrefsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get clientTimestamp => $composableBuilder(
+    column: $table.clientTimestamp,
+    builder: (column) => column,
+  );
+}
+
+class $$PendingProfilePrefsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingProfilePrefsTable,
+          PendingProfilePref,
+          $$PendingProfilePrefsTableFilterComposer,
+          $$PendingProfilePrefsTableOrderingComposer,
+          $$PendingProfilePrefsTableAnnotationComposer,
+          $$PendingProfilePrefsTableCreateCompanionBuilder,
+          $$PendingProfilePrefsTableUpdateCompanionBuilder,
+          (
+            PendingProfilePref,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingProfilePrefsTable,
+              PendingProfilePref
+            >,
+          ),
+          PendingProfilePref,
+          PrefetchHooks Function()
+        > {
+  $$PendingProfilePrefsTableTableManager(
+    _$AppDatabase db,
+    $PendingProfilePrefsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingProfilePrefsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingProfilePrefsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingProfilePrefsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> userId = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<DateTime> clientTimestamp = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PendingProfilePrefsCompanion(
+                userId: userId,
+                payload: payload,
+                clientTimestamp: clientTimestamp,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String userId,
+                required String payload,
+                required DateTime clientTimestamp,
+                Value<int> rowid = const Value.absent(),
+              }) => PendingProfilePrefsCompanion.insert(
+                userId: userId,
+                payload: payload,
+                clientTimestamp: clientTimestamp,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingProfilePrefsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingProfilePrefsTable,
+      PendingProfilePref,
+      $$PendingProfilePrefsTableFilterComposer,
+      $$PendingProfilePrefsTableOrderingComposer,
+      $$PendingProfilePrefsTableAnnotationComposer,
+      $$PendingProfilePrefsTableCreateCompanionBuilder,
+      $$PendingProfilePrefsTableUpdateCompanionBuilder,
+      (
+        PendingProfilePref,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingProfilePrefsTable,
+          PendingProfilePref
+        >,
+      ),
+      PendingProfilePref,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3507,4 +3964,6 @@ class $AppDatabaseManager {
       $$PendingReviewsTableTableManager(_db, _db.pendingReviews);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
+  $$PendingProfilePrefsTableTableManager get pendingProfilePrefs =>
+      $$PendingProfilePrefsTableTableManager(_db, _db.pendingProfilePrefs);
 }

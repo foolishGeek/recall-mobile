@@ -2,12 +2,17 @@
 // only update preference columns (gamification/AI/billing columns are locked by
 // migration 00003 and written server-side).
 
+import '../local/local_store.dart';
 import '../models/models.dart';
+import '../services/repo_exception.dart';
 import '../services/supabase_service.dart';
 import 'base_repository.dart';
 
 class ProfileRepository extends BaseRepository {
-  ProfileRepository(SupabaseService supabase) : super(supabase, 'profile');
+  ProfileRepository(this._local, SupabaseService supabase)
+      : super(supabase, 'profile');
+
+  final LocalStore _local;
 
   Future<Profile?> fetchProfile(String userId) => guard(() async {
         final row = await supabase
@@ -16,6 +21,14 @@ class ProfileRepository extends BaseRepository {
             .eq('id', userId)
             .maybeSingle();
         return row == null ? null : Profile.fromJson(row);
+      });
+
+  /// Ensures `profiles` + `subscriptions` exist for the signed-in user (S09).
+  /// Idempotent — safe on every cold start and after OAuth sign-in.
+  Future<bool> ensureProfile() => guard(() async {
+        final result = await supabase.rpc('ensure_profile_rpc');
+        final map = asJsonMap(result);
+        return map['created'] == true;
       });
 
   Future<Subscription?> fetchSubscription(String userId) => guard(() async {
@@ -43,6 +56,44 @@ class ProfileRepository extends BaseRepository {
             .single();
         return Profile.fromJson(row);
       });
+
+  /// Tries a live update; on offline queues prefs for replay on reconnect [S09].
+  Future<Profile?> updatePreferencesResilient(
+    String userId,
+    Map<String, dynamic> changes, {
+    Profile? current,
+  }) async {
+    if (changes['onboarding_done'] == true) {
+      await _local.setCachedOnboardingDone(userId, true);
+    }
+    try {
+      return await updatePreferences(userId, changes);
+    } on RepoException catch (e) {
+      if (!e.isOffline) rethrow;
+      await _local.enqueueProfilePrefs(userId, changes);
+      return current?.copyWith(
+        onboardingDone: changes['onboarding_done'] as bool? ??
+            current.onboardingDone,
+        pushOptIn:
+            changes['push_opt_in'] as bool? ?? current.pushOptIn,
+        dropFrequency: changes['drop_frequency'] as String? ??
+            current.dropFrequency,
+      );
+    }
+  }
+
+  /// Resolves whether onboarding is complete: local cache, pending queue, then
+  /// server profile (after optional profile-prefs flush by caller).
+  Future<bool> resolveOnboardingDone(String userId) async {
+    if (await _local.cachedOnboardingDone(userId)) return true;
+    if (await _local.hasPendingOnboardingDone(userId)) return true;
+    final profile = await fetchProfile(userId);
+    final serverDone = profile?.onboardingDone ?? false;
+    if (serverDone) {
+      await _local.setCachedOnboardingDone(userId, true);
+    }
+    return serverDone;
+  }
 
   Future<int> fetchStacksCreatedThisMonth(String userId) => guard(() async {
         final value = await supabase.rpc('current_stack_usage_rpc');

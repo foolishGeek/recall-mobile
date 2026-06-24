@@ -23,6 +23,14 @@ class SyncService {
 
   bool _draining = false;
 
+  /// Flushes queued profile preference writes (e.g. onboarding_done). Safe to
+  /// call before AuthGate hydration on cold start.
+  Future<void> flushProfilePrefs() async {
+    if (!_local.isEnabled) return;
+    if (_supabase.currentUserId == null) return;
+    await _flushProfilePrefs();
+  }
+
   /// Replays every queued review in order. Re-entrant-safe: a second call while
   /// a drain is in flight returns immediately. Stops early (keeping the backlog)
   /// when the network drops; the connectivity listener resumes it on reconnect.
@@ -38,10 +46,32 @@ class SyncService {
         final keepGoing = await _replayOne(entry);
         if (!keepGoing) break;
       }
+      await _flushProfilePrefs();
     } finally {
       _draining = false;
       _status.setSyncing(false);
       _status.setPendingCount(await _local.pendingCount());
+    }
+  }
+
+  Future<void> _flushProfilePrefs() async {
+    final pending = await _local.pendingProfilePrefs();
+    for (final entry in pending) {
+      try {
+        await _supabase
+            .from('profiles')
+            .update(entry.changes)
+            .eq('id', entry.userId);
+        await _local.removePendingProfilePrefs(entry.userId);
+      } catch (e, st) {
+        final mapped = mapError(e, st);
+        if (mapped.isOffline) return;
+        await Sentry.captureException(
+          mapped.cause ?? mapped,
+          stackTrace: mapped.causeStackTrace ?? st,
+          withScope: (scope) => scope.setTag('feature', 'sync_profile_prefs'),
+        );
+      }
     }
   }
 

@@ -304,6 +304,80 @@ class LocalStore extends GetxService {
     return row.read<int>('c');
   }
 
+  // ------------------------------------------- offline profile prefs queue
+  /// Last-write-wins per user for preference columns (S09 onboarding path).
+  Future<void> enqueueProfilePrefs(
+    String userId,
+    Map<String, dynamic> changes,
+  ) async {
+    final db = _db;
+    if (db == null) return;
+    final ts = DateTime.now().toUtc();
+    await db.into(db.pendingProfilePrefs).insertOnConflictUpdate(
+          PendingProfilePrefsCompanion.insert(
+            userId: userId,
+            payload: jsonEncode(changes),
+            clientTimestamp: ts,
+          ),
+        );
+  }
+
+  Future<List<({String userId, Map<String, dynamic> changes})>>
+      pendingProfilePrefs() async {
+    final db = _db;
+    if (db == null) return const [];
+    final rows = await (db.select(db.pendingProfilePrefs)
+          ..orderBy([(t) => OrderingTerm.asc(t.clientTimestamp)]))
+        .get();
+    return rows
+        .map((r) => (
+              userId: r.userId,
+              changes: Map<String, dynamic>.from(_decode(r.payload)),
+            ))
+        .toList(growable: false);
+  }
+
+  Future<void> removePendingProfilePrefs(String userId) async {
+    final db = _db;
+    if (db == null) return;
+    await (db.delete(db.pendingProfilePrefs)
+          ..where((t) => t.userId.equals(userId)))
+        .go();
+  }
+
+  // ---------------------------------------- onboarding_done local cache (S09)
+  static String _onboardingDoneKey(String userId) => 'onboarding_done:$userId';
+
+  /// Device-local flag so returning users skip onboarding even if the server
+  /// read races the profile-prefs sync queue.
+  Future<bool> cachedOnboardingDone(String userId) async {
+    final db = _db;
+    if (db == null) return false;
+    final row = await (db.select(db.syncMeta)
+          ..where((t) => t.key.equals(_onboardingDoneKey(userId))))
+        .getSingleOrNull();
+    return row?.value == 'true';
+  }
+
+  Future<void> setCachedOnboardingDone(String userId, bool done) async {
+    final db = _db;
+    if (db == null) return;
+    await db.into(db.syncMeta).insertOnConflictUpdate(
+          SyncMetaCompanion.insert(
+            key: _onboardingDoneKey(userId),
+            value: done.toString(),
+          ),
+        );
+  }
+
+  Future<bool> hasPendingOnboardingDone(String userId) async {
+    final pending = await pendingProfilePrefs();
+    return pending.any(
+      (e) =>
+          e.userId == userId && e.changes['onboarding_done'] == true,
+    );
+  }
+
   @override
   void onClose() {
     _db?.close();
