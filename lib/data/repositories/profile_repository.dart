@@ -45,15 +45,7 @@ class ProfileRepository extends BaseRepository {
       });
 
   Future<int> fetchStacksCreatedThisMonth(String userId) => guard(() async {
-        final now = DateTime.now().toUtc();
-        final period = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-        final row = await supabase
-            .from('user_usage_monthly')
-            .select('stacks_created')
-            .eq('user_id', userId)
-            .eq('period', period)
-            .maybeSingle();
-        if (row == null) return 0;
-        return asInt(row['stacks_created']);
+        final value = await supabase.rpc('current_stack_usage_rpc');
+        return asInt(value);
       });
 }

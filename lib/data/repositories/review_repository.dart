@@ -1,23 +1,31 @@
-// Recall · ReviewRepository. Append-only review log [D-OFF-1]. Insert is
-// idempotent on `idempotency_key` (replay-safe); the 00003 trigger derives
-// streak/XP/daily_activity/achievements server-side. Returns models only.
+// Recall · ReviewRepository. Append-only review log [D-OFF-1]. The backend
+// `record_review_rpc` is the only writer for reviews + node scheduling state.
+// Mobile sends intent only; server returns the persisted review and node.
 
 import '../models/models.dart';
 import '../services/supabase_service.dart';
 import 'base_repository.dart';
 
+typedef ReviewRecordResult = ({Review review, Node node, bool duplicate});
+
 class ReviewRepository extends BaseRepository {
   ReviewRepository(SupabaseService supabase) : super(supabase, 'review');
 
-  /// Appends a review. Upsert with `ignoreDuplicates` makes offline replay safe:
-  /// a re-sent `idempotency_key` is a no-op rather than a conflict error.
-  Future<void> append(Review review) => guard(() async {
-        final payload = writable(review.toJson(), drop: {'id', 'created_at'});
-        await supabase.from('reviews').upsert(
-              payload,
-              onConflict: 'idempotency_key',
-              ignoreDuplicates: true,
-            );
+  /// Records a review through the backend-authoritative engine RPC. The RPC is
+  /// idempotent on `idempotency_key` and writes node scheduling fields.
+  Future<ReviewRecordResult> append(Review review) => guard(() async {
+        final result = await supabase.rpc(
+          'record_review_rpc',
+          params: {
+            'payload': writable(review.toJson(), drop: {'id', 'created_at'})
+          },
+        );
+        final map = asJsonMap(result);
+        return (
+          review: Review.fromJson(asJsonMap(map['review'])),
+          node: Node.fromJson(asJsonMap(map['node'])),
+          duplicate: asBool(map['duplicate']),
+        );
       });
 
   Future<List<Review>> fetchRecent(String userId, {int limit = 50}) =>

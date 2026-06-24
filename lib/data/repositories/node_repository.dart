@@ -1,5 +1,5 @@
 // Recall · NodeRepository. Node CRUD (soft-delete) plus assets and tags reads.
-// Scheduling fields are written here by the engine (S04). Returns models only.
+// Scheduling fields are backend-authoritative and are never patched by mobile.
 
 import '../models/models.dart';
 import '../services/supabase_service.dart';
@@ -7,6 +7,17 @@ import 'base_repository.dart';
 
 class NodeRepository extends BaseRepository {
   NodeRepository(SupabaseService supabase) : super(supabase, 'nodes');
+
+  static const _serverOwnedSchedulingFields = {
+    'stability',
+    'last_reviewed_at',
+    'due_at',
+    'reps',
+    'lapses',
+    'state',
+    'last_grade',
+    'last_response_ms',
+  };
 
   Future<List<Node>> fetchByBucket(String bucketId) => guard(() async {
         final rows = await supabase
@@ -33,12 +44,18 @@ class NodeRepository extends BaseRepository {
         return Node.fromJson(row);
       });
 
-  /// Patches arbitrary node columns (content edits or engine scheduling fields).
+  /// Patches client-owned node columns only. Scheduling fields are written by
+  /// backend RPCs (`record_review_rpc`, `generate_stack_rpc`) and are stripped.
   Future<Node> update(String id, Map<String, dynamic> changes) =>
       guard(() async {
+        final safeChanges = Map<String, dynamic>.from(changes)
+          ..removeWhere((key, _) => _serverOwnedSchedulingFields.contains(key));
+        if (safeChanges.isEmpty) {
+          throw ArgumentError('No client-owned node fields to update.');
+        }
         final row = await supabase
             .from('nodes')
-            .update(changes)
+            .update(safeChanges)
             .eq('id', id)
             .select()
             .single();
