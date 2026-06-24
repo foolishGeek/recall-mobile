@@ -52,6 +52,19 @@ abstract class BaseRepository {
     return out;
   }
 
+  /// True when two model lists differ by identity or freshness — the signal for
+  /// the tap-to-refresh nudge ("server data is newer than cache") `[D-OFF-1]`.
+  /// [sig] should fold each row's id + `updated_at` (+ deletion) into a string.
+  bool diverged<T>(List<T> oldList, List<T> newList, String Function(T) sig) {
+    if (oldList.length != newList.length) return true;
+    final a = oldList.map(sig).toList()..sort();
+    final b = newList.map(sig).toList()..sort();
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return true;
+    }
+    return false;
+  }
+
   /// Maps a PostgREST result list into models.
   List<T> mapList<T>(
     List<dynamic> rows,

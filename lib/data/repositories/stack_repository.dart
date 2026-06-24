@@ -1,9 +1,15 @@
-// Recall · StackRepository. Stack generation is backend-authoritative through
-// `generate_stack_rpc`; mobile never chooses stack membership or item order.
-// Completion still updates the stack row and triggers server-side XP/achievements.
+// Recall · StackRepository. Cache-first [D-OFF-1] for the single active stack +
+// its items. Stack generation/membership/order stay backend-authoritative via
+// `generate_stack_rpc`; this repo only mirrors the returned rows into the cache
+// and raises the tap-to-refresh nudge when the server is newer.
 
+import 'dart:async';
+
+import '../local/local_store.dart';
 import '../models/models.dart';
+import '../services/repo_exception.dart';
 import '../services/supabase_service.dart';
+import '../services/sync_status_service.dart';
 import 'base_repository.dart';
 
 typedef StackBuildResult = ({
@@ -14,10 +20,89 @@ typedef StackBuildResult = ({
 });
 
 class StackRepository extends BaseRepository {
-  StackRepository(SupabaseService supabase) : super(supabase, 'stacks');
+  StackRepository(SupabaseService supabase, this._local, this._status)
+      : super(supabase, 'stacks');
 
-  /// The single active stack for the user (enforced unique by 00003), or null.
-  Future<Stack?> fetchActive(String userId) => guard(() async {
+  final LocalStore _local;
+  final SyncStatusService _status;
+
+  static String _sig(Stack? s, List<StackItem> items) {
+    final base = s == null
+        ? 'none'
+        : '${s.id}@${s.updatedAt?.toIso8601String() ?? ''}@${s.status.wire}';
+    final itemSig = (items
+            .map((i) => '${i.id}:${i.position}:${i.reviewed}')
+            .toList()
+          ..sort())
+        .join(',');
+    return '$base|$itemSig';
+  }
+
+  /// The single active stack, cache-first with background reconcile.
+  Future<Stack?> fetchActive(String userId, {bool forceRemote = false}) async {
+    if (!_local.isEnabled) return _remoteActive(userId);
+
+    if (forceRemote) {
+      final (stack, items) = await _remoteActiveWithItems(userId);
+      await _cacheActive(userId, stack, items);
+      _status.setOffline(false);
+      _status.clearUpdates();
+      return stack;
+    }
+
+    final cached = await _local.cachedActiveStack(userId);
+    if (cached == null) return _coldLoad(userId);
+    unawaited(_reconcile(userId, cached));
+    return cached;
+  }
+
+  Future<Stack?> _coldLoad(String userId) async {
+    try {
+      final (stack, items) = await _remoteActiveWithItems(userId);
+      await _cacheActive(userId, stack, items);
+      _status.setOffline(false);
+      return stack;
+    } on RepoException catch (e) {
+      if (e.isOffline) {
+        _status.setOffline(true);
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _reconcile(String userId, Stack cached) async {
+    try {
+      final cachedItems = await _local.cachedStackItems(cached.id);
+      final (stack, items) = await _remoteActiveWithItems(userId);
+      _status.setOffline(false);
+      await _cacheActive(userId, stack, items);
+      if (_sig(cached, cachedItems) != _sig(stack, items)) {
+        _status.markUpdatesAvailable();
+      }
+    } on RepoException catch (e) {
+      if (e.isOffline) _status.setOffline(true);
+    }
+  }
+
+  Future<void> _cacheActive(
+      String userId, Stack? stack, List<StackItem> items) async {
+    if (stack == null) {
+      await _local.clearActiveStack(userId);
+    } else {
+      await _local.upsertActiveStack(stack, items);
+    }
+  }
+
+  Future<(Stack?, List<StackItem>)> _remoteActiveWithItems(
+      String userId) async {
+    final stack = await _remoteActive(userId);
+    if (stack == null) return (null, const <StackItem>[]);
+    final items = await _remoteItems(stack.id);
+    return (stack, items);
+  }
+
+  Future<Stack?> _remoteActive(String userId) => guard(() async {
         final row = await supabase
             .from('stacks')
             .select()
@@ -41,7 +126,13 @@ class StackRepository extends BaseRepository {
             'seed': seed,
           },
         );
-        return _parseStackBuildResult(asJsonMap(result));
+        final parsed = _parseStackBuildResult(asJsonMap(result));
+        // Only the persisted active stack is cached; review-ahead stacks aren't.
+        final stack = parsed.stack;
+        if (!ahead && stack != null) {
+          await _local.upsertActiveStack(stack, parsed.items);
+        }
+        return parsed;
       });
 
   /// Compatibility wrapper for older callers; still delegates to backend RPC.
@@ -62,9 +153,40 @@ class StackRepository extends BaseRepository {
           changes['completed_at'] = DateTime.now().toUtc().toIso8601String();
         }
         await supabase.from('stacks').update(changes).eq('id', stackId);
+        // A non-active stack leaves the cached active slot.
+        if (status != StackStatus.active) await _local.evictStack(stackId);
       });
 
-  Future<List<StackItem>> fetchItems(String stackId) => guard(() async {
+  Future<List<StackItem>> fetchItems(String stackId,
+      {bool forceRemote = false}) async {
+    if (!_local.isEnabled) return _remoteItems(stackId);
+
+    if (!forceRemote) {
+      final cached = await _local.cachedStackItems(stackId);
+      if (cached.isNotEmpty) {
+        unawaited(_reconcileItems(stackId, cached));
+        return cached;
+      }
+    }
+    final fresh = await _remoteItems(stackId);
+    await _local.replaceStackItems(stackId, fresh);
+    return fresh;
+  }
+
+  Future<void> _reconcileItems(String stackId, List<StackItem> cached) async {
+    try {
+      final fresh = await _remoteItems(stackId);
+      _status.setOffline(false);
+      await _local.replaceStackItems(stackId, fresh);
+      if (_sig(null, cached) != _sig(null, fresh)) {
+        _status.markUpdatesAvailable();
+      }
+    } on RepoException catch (e) {
+      if (e.isOffline) _status.setOffline(true);
+    }
+  }
+
+  Future<List<StackItem>> _remoteItems(String stackId) => guard(() async {
         final rows = await supabase
             .from('stack_items')
             .select()
@@ -81,11 +203,18 @@ class StackRepository extends BaseRepository {
         );
       });
 
-  Future<void> markItemReviewed(String itemId) => guard(() async {
+  Future<void> markItemReviewed(String itemId) async {
+    if (_local.isEnabled) await _local.setStackItemReviewed(itemId, true);
+    try {
+      await guard(() async {
         await supabase
             .from('stack_items')
             .update({'reviewed': true}).eq('id', itemId);
       });
+    } on RepoException catch (e) {
+      if (!e.isOffline) rethrow; // offline: cache already reflects it
+    }
+  }
 
   StackBuildResult _parseStackBuildResult(Map<String, dynamic> json) {
     final rawItems = json['items'];

@@ -1,10 +1,16 @@
-// Recall · BucketRepository. Active-bucket scope via the tier-aware RPC, bucket
-// CRUD (soft-delete), and the mastery/heat views. Returns models / typed records
-// only. The free-tier bucket limit is enforced by a DB trigger → RepoException
-// `free_tier_bucket_limit`.
+// Recall · BucketRepository. Cache-first [D-OFF-1]: serves the Drift cache
+// immediately, reconciles with the server in the background (server-wins), and
+// raises the tap-to-refresh nudge when the server is newer. Active-bucket scope
+// stays server-authoritative (tier-aware RPC) with a cache fallback offline.
+// Bucket CRUD (soft-delete) + mastery/heat views return models / typed records.
 
+import 'dart:async';
+
+import '../local/local_store.dart';
 import '../models/models.dart';
+import '../services/repo_exception.dart';
 import '../services/supabase_service.dart';
+import '../services/sync_status_service.dart';
 import 'base_repository.dart';
 
 /// Fresh per-bucket heat stats from `v_bucket_heat`.
@@ -15,11 +21,30 @@ typedef BucketHeatStats = ({
 });
 
 class BucketRepository extends BaseRepository {
-  BucketRepository(SupabaseService supabase) : super(supabase, 'buckets');
+  BucketRepository(SupabaseService supabase, this._local, this._status)
+      : super(supabase, 'buckets');
 
-  /// Tier-aware active buckets (premium: all · free: all owned · downgraded:
-  /// first 3 by created_at) via `active_buckets_for_user`.
-  Future<List<Bucket>> fetchActiveBuckets(String userId) => guard(() async {
+  final LocalStore _local;
+  final SyncStatusService _status;
+
+  static String _sig(Bucket b) =>
+      '${b.id}@${b.updatedAt?.toIso8601String() ?? ''}';
+
+  /// Tier-aware active buckets via `active_buckets_for_user`. Server-authoritative
+  /// (tier gate); falls back to the full cached set only when offline.
+  Future<List<Bucket>> fetchActiveBuckets(String userId) async {
+    try {
+      return await _remoteActiveBuckets(userId);
+    } on RepoException catch (e) {
+      if (e.isOffline && _local.isEnabled) {
+        _status.setOffline(true);
+        return _local.cachedBuckets(userId);
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<Bucket>> _remoteActiveBuckets(String userId) => guard(() async {
         final res = await supabase.rpc(
           'active_buckets_for_user',
           params: {'uid': userId},
@@ -27,8 +52,52 @@ class BucketRepository extends BaseRepository {
         return mapList((res as List?) ?? const [], Bucket.fromJson);
       });
 
-  /// All non-deleted buckets for the user, oldest first.
-  Future<List<Bucket>> fetchAll(String userId) => guard(() async {
+  /// All non-deleted buckets, cache-first with background reconcile.
+  Future<List<Bucket>> fetchAll(String userId, {bool forceRemote = false}) async {
+    if (!_local.isEnabled) return _remoteAll(userId);
+
+    if (forceRemote) {
+      final fresh = await _remoteAll(userId);
+      await _local.replaceBuckets(userId, fresh);
+      _status.setOffline(false);
+      _status.clearUpdates();
+      return fresh;
+    }
+
+    final cached = await _local.cachedBuckets(userId);
+    if (cached.isEmpty) return _coldLoad(userId);
+    unawaited(_reconcile(userId, cached));
+    return cached;
+  }
+
+  Future<List<Bucket>> _coldLoad(String userId) async {
+    try {
+      final fresh = await _remoteAll(userId);
+      await _local.replaceBuckets(userId, fresh);
+      _status.setOffline(false);
+      return fresh;
+    } on RepoException catch (e) {
+      if (e.isOffline) {
+        _status.setOffline(true);
+        return const [];
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _reconcile(String userId, List<Bucket> cached) async {
+    try {
+      final fresh = await _remoteAll(userId);
+      _status.setOffline(false);
+      await _local.replaceBuckets(userId, fresh);
+      if (diverged(cached, fresh, _sig)) _status.markUpdatesAvailable();
+    } on RepoException catch (e) {
+      if (e.isOffline) _status.setOffline(true);
+      // non-offline failures are already captured by `guard`; keep serving cache
+    }
+  }
+
+  Future<List<Bucket>> _remoteAll(String userId) => guard(() async {
         final rows = await supabase
             .from('buckets')
             .select()
@@ -38,7 +107,25 @@ class BucketRepository extends BaseRepository {
         return mapList(rows, Bucket.fromJson);
       });
 
-  Future<Bucket?> fetchById(String id) => guard(() async {
+  Future<Bucket?> fetchById(String id) async {
+    final cached = _local.isEnabled ? await _local.cachedBucketById(id) : null;
+    if (cached != null) {
+      unawaited(_reconcileOne(id));
+      return cached;
+    }
+    return _remoteById(id);
+  }
+
+  Future<void> _reconcileOne(String id) async {
+    try {
+      final fresh = await _remoteById(id);
+      if (fresh != null) await _local.upsertBuckets([fresh]);
+    } on RepoException catch (_) {
+      // best-effort; cache keeps serving
+    }
+  }
+
+  Future<Bucket?> _remoteById(String id) => guard(() async {
         final row =
             await supabase.from('buckets').select().eq('id', id).maybeSingle();
         return row == null ? null : Bucket.fromJson(row);
@@ -51,7 +138,9 @@ class BucketRepository extends BaseRepository {
                 drop: {'id', 'created_at', 'updated_at', 'heat_summary'}))
             .select()
             .single();
-        return Bucket.fromJson(row);
+        final created = Bucket.fromJson(row);
+        await _local.upsertBuckets([created]);
+        return created;
       });
 
   Future<Bucket> update(String id, Map<String, dynamic> changes) =>
@@ -62,13 +151,16 @@ class BucketRepository extends BaseRepository {
             .eq('id', id)
             .select()
             .single();
-        return Bucket.fromJson(row);
+        final updated = Bucket.fromJson(row);
+        await _local.upsertBuckets([updated]);
+        return updated;
       });
 
   Future<void> softDelete(String id) => guard(() async {
         await supabase.from('buckets').update(
           {'deleted_at': DateTime.now().toUtc().toIso8601String()},
         ).eq('id', id);
+        await _local.evictBucket(id);
       });
 
   /// Difficulty-weighted mastery % from `v_bucket_mastery` [D-VIEW-1].
