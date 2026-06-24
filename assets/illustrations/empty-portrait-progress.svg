@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 120" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  
+  <line x1="14" y1="98" x2="166" y2="98" opacity="0.4"></line>
+  
+  <line x1="14" y1="56" x2="166" y2="56" opacity="0.18"></line>
+  
+  <circle cx="30" cy="80" r="3" fill="currentColor" stroke="none"></circle>
+  <circle cx="60" cy="64" r="3" fill="currentColor" stroke="none"></circle>
+  
+  <path d="M30 80 L 60 64"></path>
+  
+  <path d="M60 64 C 90 56, 120 44, 166 28" stroke-dasharray="4 5" opacity="0.5"></path>
+  
+  <g transform="translate(118 30) rotate(35)">
+    <path d="M0 0 L 22 0 L 30 6 L 22 12 L 0 12 Z" fill="#F7F6F3"></path>
+    <path d="M0 0 L 22 0 L 30 6 L 22 12 L 0 12 Z"></path>
+    <line x1="6" y1="0" x2="6" y2="12"></line>
+    <line x1="22" y1="0" x2="22" y2="12" opacity="0.4"></line>
+  </g>
+  
+  <line x1="30" y1="96" x2="30" y2="100" opacity="0.4"></line>
+  <line x1="60" y1="96" x2="60" y2="100" opacity="0.4"></line>
+  <line x1="90" y1="96" x2="90" y2="100" opacity="0.4"></line>
+  <line x1="120" y1="96" x2="120" y2="100" opacity="0.4"></line>
+  <line x1="150" y1="96" x2="150" y2="100" opacity="0.4"></line>
+</svg>

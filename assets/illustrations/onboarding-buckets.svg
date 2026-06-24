@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 160" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  
+  <path d="M44 60 L52 130 L116 130 L124 60 Z" fill="currentColor" fill-opacity="0.06"></path>
+  <path d="M44 60 L52 130 L116 130 L124 60 Z"></path>
+  <line x1="44" y1="60" x2="124" y2="60"></line>
+  
+  <path d="M62 60 C 62 48, 106 48, 106 60"></path>
+  
+  <g transform="translate(56 12)">
+    <path d="M44 60 L52 130 L116 130 L124 60 Z" fill="#F7F6F3" opacity="1" stroke="none"></path>
+    <path d="M44 60 L52 130 L116 130 L124 60 Z" fill="currentColor" fill-opacity="0.12"></path>
+    <path d="M44 60 L52 130 L116 130 L124 60 Z"></path>
+    <line x1="44" y1="60" x2="124" y2="60"></line>
+    <path d="M62 60 C 62 48, 106 48, 106 60"></path>
+  </g>
+  
+  <circle cx="142" cy="38" r="3" fill="currentColor" stroke="none"></circle>
+  <circle cx="142" cy="28" r="2" fill="currentColor" stroke="none" opacity="0.4"></circle>
+  <circle cx="142" cy="20" r="1.4" fill="currentColor" stroke="none" opacity="0.2"></circle>
+  
+  <g transform="translate(166 18)">
+    <path d="M0 14 C 0 6, 6 0, 12 0 C 18 0, 24 6, 24 14 L 24 18 L 0 18 Z" fill="currentColor" stroke="none"></path>
+    <circle cx="12" cy="22" r="2.4" fill="currentColor" stroke="none"></circle>
+  </g>
+</svg>

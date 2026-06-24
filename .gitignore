@@ -8,10 +8,14 @@ build/
 *.ipr
 *.iws
 .idea/
-.vscode/
+.vscode/*
+!.vscode/launch.json
 *.swp
 *.swo
 *~
+
+# FVM
+.fvm/
 
 # Flutter generated
 .flutter-plugins
@@ -40,6 +44,7 @@ build/
 *.jks
 
 # macOS
+.DS_Store
 **/macos/Flutter/ephemeral/
 **/macos/Pods/
 
@@ -48,6 +53,10 @@ build/
 .env.*
 *.env
 **/secrets/
+
+# Dart-define env files (real values local-only; example template is committed)
+config/*.json
+!config/*.example.json
 
 # Coverage / tests (when added later)
 coverage/

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 148 120" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  
+  <path d="M28 76 Q74 108 120 76"></path>
+  
+  <path d="M28 76 L24 64 M120 76 L124 64" opacity="0.4"></path>
+  <line x1="22" y1="64" x2="126" y2="64" opacity="0.4"></line>
+  
+  <path d="M74 64 C 74 50, 74 38, 74 28"></path>
+  
+  <path d="M74 44 C 64 40, 56 44, 56 52 C 64 52, 72 50, 74 44 Z" fill="currentColor" fill-opacity="0.08"></path>
+  
+  <path d="M74 36 C 84 32, 92 36, 92 44 C 84 44, 76 42, 74 36 Z" fill="currentColor" fill-opacity="0.16"></path>
+  
+  <circle cx="74" cy="22" r="4" fill="currentColor" stroke="none"></circle>
+  
+  <circle cx="40" cy="92" r="1.2" fill="currentColor" stroke="none" opacity="0.3"></circle>
+  <circle cx="56" cy="98" r="1.2" fill="currentColor" stroke="none" opacity="0.3"></circle>
+  <circle cx="74" cy="102" r="1.2" fill="currentColor" stroke="none" opacity="0.3"></circle>
+  <circle cx="92" cy="98" r="1.2" fill="currentColor" stroke="none" opacity="0.3"></circle>
+  <circle cx="108" cy="92" r="1.2" fill="currentColor" stroke="none" opacity="0.3"></circle>
+</svg>

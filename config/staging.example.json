@@ -1,0 +1,7 @@
+{
+  "ENV": "staging",
+  "SUPABASE_URL": "https://<project-ref>.supabase.co",
+  "SUPABASE_ANON_KEY": "<supabase-anon-key>",
+  "SENTRY_DSN": "<sentry-dsn-or-empty-for-local>",
+  "REVENUECAT_API_KEY": "<revenuecat-public-sdk-key>"
+}
