@@ -63,9 +63,10 @@ class SigninController extends GetxController {
         state.value = SigninState.idle;
         return;
       }
-      // Session change will trigger _onSessionChanged via the worker.
     } on RepoException catch (e, st) {
       _handleAuthError(e, st, 'apple');
+    } catch (e, st) {
+      _handleUnexpectedError(e, st, 'apple');
     }
   }
 
@@ -83,6 +84,8 @@ class SigninController extends GetxController {
       }
     } on RepoException catch (e, st) {
       _handleAuthError(e, st, 'google');
+    } catch (e, st) {
+      _handleUnexpectedError(e, st, 'google');
     }
   }
 
@@ -105,6 +108,8 @@ class SigninController extends GetxController {
       _startResendCooldown();
     } on RepoException catch (e, st) {
       _handleAuthError(e, st, 'magic_link');
+    } catch (e, st) {
+      _handleUnexpectedError(e, st, 'magic_link');
     }
   }
 
@@ -122,6 +127,8 @@ class SigninController extends GetxController {
       _startResendCooldown();
     } on RepoException catch (e, st) {
       _handleAuthError(e, st, 'magic_link');
+    } catch (e, st) {
+      _handleUnexpectedError(e, st, 'magic_link');
     }
   }
 
@@ -218,16 +225,29 @@ class SigninController extends GetxController {
 
   void _handleAuthError(RepoException e, StackTrace st, String provider) {
     // TODO(analytics): signin_failed { provider, error_code } [D-OBS-2]
-    if (e.isOffline) {
-      errorText.value = 'Couldn\'t reach the server — try again';
-    } else {
-      errorText.value = 'Couldn\'t reach the server — try again';
-    }
+    errorText.value = e.isOffline
+        ? 'Couldn\'t reach the server — try again'
+        : 'Something went wrong — try again';
     state.value = SigninState.error;
 
     Sentry.captureException(
       e.cause ?? e,
       stackTrace: e.causeStackTrace ?? st,
+      withScope: (scope) {
+        scope.setTag('feature', 'signin');
+        scope.setTag('provider', provider);
+      },
+    );
+  }
+
+  void _handleUnexpectedError(Object e, StackTrace st, String provider) {
+    debugPrint('[signin] unexpected error ($provider): $e');
+    errorText.value = 'Something went wrong — try again';
+    state.value = SigninState.error;
+
+    Sentry.captureException(
+      e,
+      stackTrace: st,
       withScope: (scope) {
         scope.setTag('feature', 'signin');
         scope.setTag('provider', provider);
