@@ -57,5 +57,6 @@ class AuthService extends GetxService {
 
   Future<void> signOut() async {
     await _supabase.client.auth.signOut();
+    setOnboardingDone(false);
   }
 }

@@ -14,6 +14,7 @@ import '../../../core/gates/auth_gate.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/sync_service.dart';
 import '../../../data/services/repo_exception.dart';
 
 enum SigninState { idle, loading, sent, error }
@@ -171,11 +172,14 @@ class SigninController extends GetxController {
     }
 
     try {
-      final profile = await _profileRepo.fetchProfile(userId);
-      final onboardingDone = profile?.onboardingDone ?? false;
+      await _profileRepo.ensureProfile();
+      await Get.find<SyncService>().flushProfilePrefs();
+      final onboardingDone =
+          await _profileRepo.resolveOnboardingDone(userId);
       _auth.setOnboardingDone(onboardingDone);
 
       // Fire-and-forget: update timezone/locale from device if defaults.
+      final profile = await _profileRepo.fetchProfile(userId);
       _patchDeviceMetadata(userId, profile?.timezone);
     } catch (e, st) {
       Sentry.captureException(

@@ -9,11 +9,15 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/gates/auth_gate.dart';
 import '../../../core/theme/recall_motion.dart';
+import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/sync_service.dart';
+import '../../../data/services/repo_exception.dart';
 
 class SplashController extends GetxController
     with GetTickerProviderStateMixin {
   final AuthService _auth = Get.find<AuthService>();
+  final ProfileRepository _profileRepo = Get.find<ProfileRepository>();
 
   static const _total = 2400.0;
 
@@ -48,6 +52,7 @@ class SplashController extends GetxController
   bool _navigated = false;
   bool _skipping = false;
   bool _reducedMotion = false;
+  Future<void>? _profileHydration;
 
   bool get isSkipping => _skipping;
 
@@ -116,6 +121,7 @@ class SplashController extends GetxController
   @override
   void onReady() {
     super.onReady();
+    _profileHydration = _hydrateProfile();
     _reducedMotion =
         MediaQuery.maybeOf(Get.context!)?.disableAnimations ?? false;
     if (_reducedMotion) {
@@ -137,9 +143,35 @@ class SplashController extends GetxController
     }
   }
 
-  void _navigate() {
+  Future<void> _hydrateProfile() async {
+    if (!_auth.hasSession) return;
+    final userId = _auth.currentUserId;
+    if (userId == null) return;
+    try {
+      await _profileRepo.ensureProfile();
+      await Get.find<SyncService>().flushProfilePrefs();
+      final done = await _profileRepo.resolveOnboardingDone(userId);
+      _auth.setOnboardingDone(done);
+    } on RepoException catch (e) {
+      if (!e.isOffline) {
+        await Sentry.captureException(
+          e,
+          withScope: (scope) => scope.setTag('feature', 'splash'),
+        );
+      }
+    } catch (e, st) {
+      await Sentry.captureException(
+        e,
+        stackTrace: st,
+        withScope: (scope) => scope.setTag('feature', 'splash'),
+      );
+    }
+  }
+
+  Future<void> _navigate() async {
     if (_navigated) return;
     _navigated = true;
+    await _profileHydration;
     // TODO(analytics): app_opened (gated by analytics_opt_in) [D-OBS-2]
     String route;
     try {
