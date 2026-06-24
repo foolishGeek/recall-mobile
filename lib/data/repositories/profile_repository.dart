@@ -43,4 +43,17 @@ class ProfileRepository extends BaseRepository {
             .single();
         return Profile.fromJson(row);
       });
+
+  Future<int> fetchStacksCreatedThisMonth(String userId) => guard(() async {
+        final now = DateTime.now().toUtc();
+        final period = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final row = await supabase
+            .from('user_usage_monthly')
+            .select('stacks_created')
+            .eq('user_id', userId)
+            .eq('period', period)
+            .maybeSingle();
+        if (row == null) return 0;
+        return asInt(row['stacks_created']);
+      });
 }

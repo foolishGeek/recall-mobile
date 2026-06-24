@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 
 import '../../data/repositories/ai_repository.dart';
 import '../../data/repositories/bucket_repository.dart';
+import '../../data/repositories/config_repository.dart';
 import '../../data/repositories/insights_repository.dart';
 import '../../data/repositories/node_repository.dart';
 import '../../data/repositories/notification_repository.dart';
@@ -36,13 +37,17 @@ class InitialBinding extends Bindings {
 
     // Service stubs (filled in S04/S06/S16).
     Get.lazyPut<AiService>(() => AiService(Get.find()), fenix: true);
-    Get.lazyPut<MetricsService>(() => MetricsService(), fenix: true);
-    Get.lazyPut<HeatService>(() => HeatService(), fenix: true);
+    Get.lazyPut<MetricsService>(
+        () => MetricsService(Get.find(), Get.find(), Get.find()),
+        fenix: true);
+    Get.lazyPut<HeatService>(() => HeatService(Get.find()), fenix: true);
     Get.lazyPut<NotificationService>(() => NotificationService(), fenix: true);
 
     // Repositories — the only data surface controllers talk to.
     Get.lazyPut<ProfileRepository>(
         () => ProfileRepository(Get.find()), fenix: true);
+    Get.lazyPut<ConfigRepository>(
+        () => ConfigRepository(Get.find()), fenix: true);
     Get.lazyPut<BucketRepository>(
         () => BucketRepository(Get.find()), fenix: true);
     Get.lazyPut<NodeRepository>(() => NodeRepository(Get.find()), fenix: true);
