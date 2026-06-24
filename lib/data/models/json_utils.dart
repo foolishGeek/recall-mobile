@@ -1,12 +1,13 @@
 // Recall · JSON helpers for models. Null-safe coercion from PostgREST maps plus
-// a generic enum parser that falls back to a safe default and leaves a Sentry
-// breadcrumb when the server sends a value the app doesn't know (sprint S03 §6).
+// a generic enum parser that falls back to a safe default. Unknown enum values
+// invoke [onModelParseWarning] when set (wired to Sentry from main.dart).
 
-import 'package:sentry_flutter/sentry_flutter.dart';
+/// Optional hook for unknown enum wire values (set from main after Sentry init).
+void Function(String message)? onModelParseWarning;
 
 /// Parse a wire string into an enum value, falling back to [fallback] (and
-/// dropping a breadcrumb) when [raw] is unknown. [wireOf] maps an enum value to
-/// its DB string.
+/// invoking [onModelParseWarning]) when [raw] is unknown. [wireOf] maps an enum
+/// value to its DB string.
 T parseEnum<T>(
   List<T> values,
   String Function(T) wireOf,
@@ -18,12 +19,8 @@ T parseEnum<T>(
     for (final v in values) {
       if (wireOf(v) == raw) return v;
     }
-    Sentry.addBreadcrumb(
-      Breadcrumb(
-        message: 'Unknown $enumName value from server: "$raw"',
-        category: 'enum.parse',
-        level: SentryLevel.warning,
-      ),
+    onModelParseWarning?.call(
+      'Unknown $enumName value from server: "$raw"',
     );
   }
   return fallback;

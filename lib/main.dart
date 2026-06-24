@@ -12,10 +12,23 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app/app.dart';
 import 'core/utils/app_env.dart';
+import 'data/models/json_utils.dart';
 import 'data/services/app_session_service.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/supabase_service.dart';
 import 'data/services/tier_service.dart';
+
+void _wireModelParseWarnings() {
+  onModelParseWarning = (message) {
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: message,
+        category: 'enum.parse',
+        level: SentryLevel.warning,
+      ),
+    );
+  };
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +51,8 @@ Future<void> main() async {
     runApp(const RecallApp());
     return;
   }
+
+  _wireModelParseWarnings();
 
   await SentryFlutter.init(
     (o) {

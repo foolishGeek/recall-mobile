@@ -17,6 +17,7 @@ dependencies:
   google_fonts: ^6.3.2
   flutter_svg: ^2.2.3
   sentry_flutter: ^9.22.0
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:
