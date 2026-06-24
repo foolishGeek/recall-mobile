@@ -23,6 +23,14 @@ Required keys (see [`../recall-backend/docs/DART-DEFINES.md`](../recall-backend/
 `ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `REVENUECAT_API_KEY`.
 Empty `SENTRY_DSN` is allowed (Sentry init is skipped for local dev).
 
+**Firebase (Recall Drop / onboarding):** copy staging config before `flutter run`:
+
+```bash
+cp ../recall-backend/secrets/firebase/google-services.staging.json android/app/google-services.json
+```
+
+(iOS `GoogleService-Info.plist` deferred until Apple Developer / APNs — Android-first for staging.)
+
 Cold start: `/splash` → `AuthGate` → sign-in / onboarding / today.
 
 ## Launcher icon

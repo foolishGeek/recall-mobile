@@ -46,11 +46,14 @@ class InitialBinding extends Bindings {
     Get.lazyPut<MetricsService>(() => MetricsService(Get.find(), Get.find()),
         fenix: true);
     Get.lazyPut<HeatService>(() => HeatService(), fenix: true);
-    Get.lazyPut<NotificationService>(() => NotificationService(), fenix: true);
+    Get.lazyPut<NotificationService>(
+        () => NotificationService(Get.find(), Get.find()),
+        fenix: true);
 
     // Repositories — the only data surface controllers talk to.
     Get.lazyPut<AuthRepository>(() => AuthRepository(Get.find()), fenix: true);
-    Get.lazyPut<ProfileRepository>(() => ProfileRepository(Get.find()),
+    Get.lazyPut<ProfileRepository>(
+        () => ProfileRepository(Get.find(), Get.find()),
         fenix: true);
     Get.lazyPut<BucketRepository>(
         () => BucketRepository(Get.find(), Get.find(), Get.find()),

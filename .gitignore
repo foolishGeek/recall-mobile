@@ -53,6 +53,8 @@ build/
 .env.*
 *.env
 **/secrets/
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
 
 # Dart-define env files (real values local-only; example template is committed)
 config/*.json

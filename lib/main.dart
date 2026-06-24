@@ -13,6 +13,7 @@ import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app/app.dart';
+import 'core/firebase/firebase_bootstrap.dart';
 import 'core/utils/app_env.dart';
 import 'data/local/app_database.dart';
 import 'data/local/local_store.dart';
@@ -47,8 +48,8 @@ Future<void> main() async {
     Get.put<SupabaseService>(supabase, permanent: true);
     Get.put<AuthService>(AuthService(supabase), permanent: true);
     Get.put<TierService>(TierService(), permanent: true);
-    // Starts an app_sessions row on launch/sign-in, ends it on background.
     Get.put<AppSessionService>(AppSessionService(supabase), permanent: true);
+    await bootstrapFirebase();
   } on BootstrapException catch (e) {
     runApp(ErrorApp(message: e.message));
     return;
