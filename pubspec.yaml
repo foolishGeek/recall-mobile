@@ -20,6 +20,10 @@ dependencies:
   drift: ^2.31.0
   drift_flutter: ^0.2.8
   connectivity_plus: ^7.1.1
+  google_sign_in: ^6.2.2
+  sign_in_with_apple: ^7.0.1
+  crypto: ^3.0.6
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
