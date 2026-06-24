@@ -225,9 +225,12 @@ class SigninController extends GetxController {
 
   void _handleAuthError(RepoException e, StackTrace st, String provider) {
     // TODO(analytics): signin_failed { provider, error_code } [D-OBS-2]
-    errorText.value = e.isOffline
-        ? 'Couldn\'t reach the server — try again'
-        : 'Something went wrong — try again';
+    debugPrint('[signin] RepoException ($provider): ${e.code.wire} — ${e.message}');
+    if (e.isOffline) {
+      errorText.value = 'Couldn\'t reach the server — try again';
+    } else {
+      errorText.value = _friendlyMessage(e.message);
+    }
     state.value = SigninState.error;
 
     Sentry.captureException(
@@ -241,8 +244,8 @@ class SigninController extends GetxController {
   }
 
   void _handleUnexpectedError(Object e, StackTrace st, String provider) {
-    debugPrint('[signin] unexpected error ($provider): $e');
-    errorText.value = 'Something went wrong — try again';
+    debugPrint('[signin] unexpected error ($provider): $e\n$st');
+    errorText.value = _friendlyMessage(e.toString());
     state.value = SigninState.error;
 
     Sentry.captureException(
@@ -253,6 +256,22 @@ class SigninController extends GetxController {
         scope.setTag('provider', provider);
       },
     );
+  }
+
+  String _friendlyMessage(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('network') ||
+        lower.contains('socket') ||
+        lower.contains('host lookup')) {
+      return 'Couldn\'t reach the server — try again';
+    }
+    if (lower.contains('rate') || lower.contains('60 seconds')) {
+      return 'Too many requests — wait a minute and try again';
+    }
+    if (lower.contains('invalid') && lower.contains('email')) {
+      return 'Enter a valid email address';
+    }
+    return 'Couldn\'t sign in — try again';
   }
 
   // ---------------------------------------------------------------------------
