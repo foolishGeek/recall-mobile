@@ -6,6 +6,7 @@
 import 'package:get/get.dart';
 
 import '../../data/repositories/ai_repository.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/bucket_repository.dart';
 import '../../data/repositories/insights_repository.dart';
 import '../../data/repositories/node_repository.dart';
@@ -48,6 +49,7 @@ class InitialBinding extends Bindings {
     Get.lazyPut<NotificationService>(() => NotificationService(), fenix: true);
 
     // Repositories — the only data surface controllers talk to.
+    Get.lazyPut<AuthRepository>(() => AuthRepository(Get.find()), fenix: true);
     Get.lazyPut<ProfileRepository>(() => ProfileRepository(Get.find()),
         fenix: true);
     Get.lazyPut<BucketRepository>(

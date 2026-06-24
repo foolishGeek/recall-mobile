@@ -1,6 +1,7 @@
 // Recall · AuthService. Thin auth state singleton over Supabase auth. S02 scope:
 // session presence (drives AuthGate) + analytics opt-in flag (gates Sentry
-// beforeSend). Profile-backed `onboardingDone` + opt-in land in S03.
+// beforeSend). S08: exposes currentUserId, signOut, and profile-backed
+// onboardingDone (wired after session appears).
 
 import 'dart:async';
 
@@ -17,7 +18,6 @@ class AuthService extends GetxService {
 
   final Rxn<Session> _session = Rxn<Session>();
 
-  // Stubbed until S03 wires the cached profile.
   final RxBool _onboardingDone = false.obs;
   final RxBool _analyticsOptIn = true.obs;
 
@@ -39,7 +39,23 @@ class AuthService extends GetxService {
   bool get hasSession => _session.value != null;
   bool get onboardingDone => _onboardingDone.value;
 
+  /// The signed-in user's UUID, or null.
+  String? get currentUserId => _supabase.client.auth.currentUser?.id;
+
+  /// Reactive session stream for controllers to listen to sign-in events.
+  Rxn<Session> get sessionRx => _session;
+
   /// Gates Sentry `beforeSend` + telemetry. Real value comes from
   /// `profiles.analytics_opt_in` in S24.
   bool get analyticsOptIn => _analyticsOptIn.value;
+
+  /// Called after profile fetch to sync the gate flag with server truth.
+  void setOnboardingDone(bool value) => _onboardingDone.value = value;
+
+  /// Called after profile fetch to sync the analytics flag.
+  void setAnalyticsOptIn(bool value) => _analyticsOptIn.value = value;
+
+  Future<void> signOut() async {
+    await _supabase.client.auth.signOut();
+  }
 }
