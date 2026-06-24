@@ -23,6 +23,13 @@ class RecallMotion {
   // Quiet — negative or warning moments (Forgot).
   static const Curve quiet = Cubic(0.4, 0, 0.2, 1);
 
+  /// Onboarding panel horizontal slide — slow ease-out per Recall Onboarding.dc.html.
+  static const Duration pageSlide = Duration(milliseconds: 460);
+  static const Curve pageEase = Cubic(0.22, 0.61, 0.36, 1);
+
+  /// CTA press scale duration (bubbly spring on positive paths).
+  static const Duration ctaPress = Duration(milliseconds: 360);
+
   // Spring — chip press, success, level-up (Block B3: stiffness 220, damping 24).
   static const SpringDescription spring = SpringDescription(
     mass: 1,

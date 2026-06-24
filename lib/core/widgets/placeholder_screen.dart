@@ -3,7 +3,9 @@
 // body for tab screens; PlaceholderScreen wraps it for pushed (non-tab) routes.
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import '../../app/routes/app_routes.dart';
 import '../theme/recall_colors.dart';
 import '../theme/recall_theme.dart';
 import 'mono_label.dart';
@@ -57,7 +59,13 @@ class PlaceholderScreen extends StatelessWidget {
               left: 8,
               child: IconButton(
                 icon: Icon(Icons.arrow_back, color: c.ink),
-                onPressed: () => Navigator.of(context).maybePop(),
+                onPressed: () {
+                  if (Navigator.of(context).canPop()) {
+                    Get.back();
+                  } else {
+                    Get.offAllNamed(Routes.today);
+                  }
+                },
               ),
             ),
         ],
