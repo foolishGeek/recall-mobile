@@ -23,20 +23,30 @@ class SigninView extends GetView<SigninController> {
 
     return Scaffold(
       backgroundColor: c.canvas,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            children: [
-              const Spacer(flex: 3),
-              const SigninLockup(),
-              const Spacer(flex: 2),
-              _AuthStack(controller: controller),
-              const SizedBox(height: 24),
-              SigninLegalFooter(controller: controller),
-              const SizedBox(height: 40),
-            ],
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      const Spacer(flex: 3),
+                      const SigninLockup(),
+                      const Spacer(flex: 2),
+                      _AuthStack(controller: controller),
+                      const SizedBox(height: 24),
+                      SigninLegalFooter(controller: controller),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
