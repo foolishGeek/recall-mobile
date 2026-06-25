@@ -2,51 +2,66 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../core/widgets/heat_dot.dart';
 import '../../../../core/widgets/neo_chip.dart';
 import '../../../../data/models/node.dart';
 
 class BucketNodeRow extends StatelessWidget {
   final Node node;
-  final String relativeTime;
+  final String dueLabel;
   final VoidCallback onTap;
 
   const BucketNodeRow({
     super.key,
     required this.node,
-    required this.relativeTime,
+    required this.dueLabel,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final heat = _nodeHeat(node);
+    final heatOpacity = _nodeHeatOpacity(node);
+    final isHot = heatOpacity >= 0.75;
 
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: c.grey300.withValues(alpha: 0.6),
-            ),
-          ),
+          color: c.card,
+          border: Border.all(color: c.grey200, width: 1),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
-            HeatDot(heat: heat),
-            const SizedBox(width: 12),
+            // Heat dot — ink circle, opacity = heat; soft glow when hot.
+            Container(
+              width: 11,
+              height: 11,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: c.ink.withValues(alpha: heatOpacity),
+                boxShadow: isHot
+                    ? [
+                        BoxShadow(
+                          color: c.ink.withValues(alpha: 0.32),
+                          blurRadius: 7,
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     node.title,
-                    style: GoogleFonts.fraunces(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w500,
+                    style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
                       color: c.ink,
                     ),
                     maxLines: 1,
@@ -54,34 +69,87 @@ class BucketNodeRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    relativeTime,
+                    dueLabel,
                     style: GoogleFonts.jetBrainsMono(
-                      fontSize: 10.5,
+                      fontSize: 10,
                       color: c.grey500,
                     ),
                   ),
                 ],
               ),
             ),
-            if (_chipLevel(node) != null) ...[
-              const SizedBox(width: 8),
-              NeoChip.priority(_chipLevel(node)!),
-            ],
+            const SizedBox(width: 8),
+            ..._buildChips(c),
           ],
         ),
       ),
     );
   }
 
-  double _nodeHeat(Node n) {
-    if (n.stability == null || n.stability == 0) return 0.3;
-    return (n.comfort / 100.0).clamp(0.0, 1.0);
+  double _nodeHeatOpacity(Node n) {
+    if (n.stability == null || n.stability == 0) return 0.2;
+    final heat = (n.comfort / 100.0).clamp(0.0, 1.0);
+    return 0.12 + (heat * 0.84); // 0.12 (cool) → 0.96 (hot)
   }
 
-  NeoLevel? _chipLevel(Node n) {
-    if (n.priority >= 4) return NeoLevel.high;
-    if (n.difficulty >= 4) return NeoLevel.high;
-    if (n.priority == 3 && n.difficulty >= 3) return NeoLevel.medium;
+  List<Widget> _buildChips(RecallColors c) {
+    final chips = <Widget>[];
+    final pLevel = _priorityLevel(node.priority);
+    final dLevel = _difficultyLevel(node.difficulty);
+
+    if (pLevel != null) {
+      chips.add(_microChip(c, pLevel, _priorityLabel(node.priority)));
+    }
+    if (dLevel != null) {
+      if (chips.isNotEmpty) chips.add(const SizedBox(width: 4));
+      chips.add(_microChip(c, dLevel, _difficultyLabel(node.difficulty)));
+    }
+    return chips;
+  }
+
+  // Tiny neo chip — bucket-row size (h18, pad h6, mono 8.5, radius 5, 1.5 shadow).
+  Widget _microChip(RecallColors c, NeoLevel level, String label) {
+    return NeoChip(
+      label: label,
+      color: _levelColor(c, level),
+      height: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      fontSize: 8.5,
+      borderRadius: 5,
+      shadowOffset: 1.5,
+    );
+  }
+
+  Color _levelColor(RecallColors c, NeoLevel level) {
+    switch (level) {
+      case NeoLevel.high:
+        return c.chipRed;
+      case NeoLevel.medium:
+        return c.chipAmber;
+      case NeoLevel.low:
+        return c.chipGreen;
+    }
+  }
+
+  NeoLevel? _priorityLevel(int val) {
+    if (val >= 4) return NeoLevel.high;
+    if (val >= 3) return NeoLevel.medium;
     return null;
+  }
+
+  NeoLevel? _difficultyLevel(int val) {
+    if (val >= 4) return NeoLevel.high;
+    if (val >= 3) return NeoLevel.medium;
+    return null;
+  }
+
+  String _priorityLabel(int val) {
+    if (val >= 4) return 'HIGH';
+    return 'MED';
+  }
+
+  String _difficultyLabel(int val) {
+    if (val >= 4) return 'HARD';
+    return 'MED';
   }
 }

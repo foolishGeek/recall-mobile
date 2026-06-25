@@ -12,6 +12,7 @@ import '../../../data/repositories/node_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
+import '../../buckets/controller/buckets_controller.dart';
 
 class BucketController extends BaseController {
   BucketController(
@@ -39,42 +40,55 @@ class BucketController extends BaseController {
   // AI model labels from app_config
   final RxString aiModelLabel = ''.obs;
 
+  // Sorting
+  final RxInt sortModeIndex = 0.obs;
+  static const _sortModes = ['heat ↓', 'heat ↑', 'A → Z', 'newest'];
+
+  String get sortLabel => 'Sorted · ${_sortModes[sortModeIndex.value]}';
+
+  void cycleSortMode() {
+    RecallHaptics.selection();
+    sortModeIndex.value = (sortModeIndex.value + 1) % _sortModes.length;
+    _applySorting();
+  }
+
+  void _applySorting() {
+    switch (sortModeIndex.value) {
+      case 0: // heat ↓ (high comfort = high heat first)
+        nodes.sort((a, b) => b.comfort.compareTo(a.comfort));
+        break;
+      case 1: // heat ↑
+        nodes.sort((a, b) => a.comfort.compareTo(b.comfort));
+        break;
+      case 2: // A → Z
+        nodes.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case 3: // newest
+        nodes.sort((a, b) => (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
+        break;
+    }
+  }
+
+  // ── Draft state for config (deferred save) ──
+  final RxInt draftCoolingIndex = 2.obs; // default 14d
+  final RxInt draftFrequencyIndex = 2.obs; // default Daily
+  final RxBool hasPendingChanges = false.obs;
+  final RxBool isSavingConfig = false.obs;
+
   TierGate get gate => _tierService.gate;
   bool get hasNodes => nodes.isNotEmpty;
   int get nodeCount => nodes.length;
 
   HeatSummary get heatSummary => bucket.value?.heatSummary ?? HeatSummary.empty;
 
-  // Config state
-  int get coolingIndex {
-    final cp = bucket.value?.coolingPeriod ?? '';
-    if (cp.contains('14')) return 0;
-    if (cp.contains('60')) return 2;
-    return 1; // 30d default
-  }
+  // Config maps — DB enum values (1:1 mapping)
+  static const coolingLabels = ['3d', '7d', '14d', '30d', 'Custom'];
+  static const _coolingDbValues = ['3 days', '7 days', '14 days', '30 days', 'custom'];
+  static const frequencyLabels = ['Weekly', '3×/wk', 'Daily'];
+  static const _frequencyDbValues = ['weekly', '3xwk', 'daily'];
 
-  int get frequencyIndex {
-    switch (bucket.value?.frequency ?? 'daily') {
-      case '3xwk':
-        return 1;
-      case 'weekly':
-        return 2;
-      default:
-        return 0;
-    }
-  }
-
-  int get dailyCapIndex {
-    const stops = [5, 10, 15, 20, 30];
-    final cap = bucket.value?.dailyCap;
-    if (cap == null) return 2; // default 15
-    final idx = stops.indexOf(cap);
-    return idx >= 0 ? idx : 2;
-  }
-
-  static const coolingValues = ['14 days', '30 days', '60 days'];
-  static const frequencyValues = ['daily', '3xwk', 'weekly'];
-  static const capStops = [5, 10, 15, 20, 30];
+  int get coolingIndex => draftCoolingIndex.value;
+  int get frequencyIndex => draftFrequencyIndex.value;
 
   @override
   void onInit() {
@@ -106,9 +120,39 @@ class BucketController extends BaseController {
       bucket.value = loadedBucket;
       mastery.value = (results[1] as double?) ?? 0.0;
       nodes.assignAll(results[2] as List<Node>);
+
+      _syncDraftFromBucket(loadedBucket);
+      hasPendingChanges.value = false;
       setSuccess();
     } on RepoException catch (e) {
       setError(e.message);
+    }
+  }
+
+  void _syncDraftFromBucket(Bucket b) {
+    draftCoolingIndex.value = _coolingIndexFromString(b.coolingPeriod);
+    draftFrequencyIndex.value = _frequencyIndexFromString(b.frequency);
+  }
+
+  int _coolingIndexFromString(String cp) {
+    if (cp.contains('3') && !cp.contains('30')) return 0;
+    if (cp.contains('7')) return 1;
+    if (cp.contains('14')) return 2;
+    if (cp.contains('30')) return 3;
+    if (cp == 'custom') return 4;
+    return 2; // default 14d
+  }
+
+  int _frequencyIndexFromString(String f) {
+    switch (f) {
+      case 'weekly':
+        return 0;
+      case '3xwk':
+        return 1;
+      case 'daily':
+        return 2;
+      default:
+        return 2; // default Daily
     }
   }
 
@@ -129,65 +173,66 @@ class BucketController extends BaseController {
     await _loadData();
   }
 
-  // ── Config writes (optimistic + revert on failure) ──
+  // ── Config draft changes (no immediate API call) ──
 
-  Future<void> onCoolingChanged(int index) async {
+  void onCoolingChanged(int index) {
     if (readOnly.value) return;
     RecallHaptics.selection();
-    final prev = bucket.value;
-    if (prev == null) return;
+    draftCoolingIndex.value = index.clamp(0, coolingLabels.length - 1);
+    hasPendingChanges.value = true;
+  }
 
-    final newVal = coolingValues[index];
-    bucket.value = prev.copyWith(coolingPeriod: newVal);
+  void onFrequencyChanged(int index) {
+    if (readOnly.value) return;
+    RecallHaptics.selection();
+    draftFrequencyIndex.value = index.clamp(0, frequencyLabels.length - 1);
+    hasPendingChanges.value = true;
+  }
+
+  void onDiscardConfig() {
+    RecallHaptics.selection();
+    if (bucket.value != null) _syncDraftFromBucket(bucket.value!);
+    hasPendingChanges.value = false;
+  }
+
+  // ── Save config (batch update) ──
+
+  Future<void> onSaveConfig() async {
+    if (!hasPendingChanges.value) return;
+    RecallHaptics.medium();
+    isSavingConfig.value = true;
+
+    final coolingVal = _coolingDbValues[draftCoolingIndex.value.clamp(0, _coolingDbValues.length - 1)];
+    final freqVal = _frequencyDbValues[draftFrequencyIndex.value.clamp(0, _frequencyDbValues.length - 1)];
 
     try {
-      final updated =
-          await _bucketRepo.update(bucketId, {'cooling_period': newVal});
+      final updated = await _bucketRepo.update(bucketId, {
+        'cooling_period': coolingVal,
+        'frequency': freqVal,
+      });
       bucket.value = updated;
+      _syncDraftFromBucket(updated);
+      hasPendingChanges.value = false;
+
+      // Notify the buckets list so it reflects the change on back-navigation
+      _refreshBucketsList();
     } on RepoException catch (e, st) {
-      bucket.value = prev;
+      // Revert draft to server state on failure
+      if (bucket.value != null) _syncDraftFromBucket(bucket.value!);
+      hasPendingChanges.value = false;
       Sentry.captureException(e, stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
+    } finally {
+      isSavingConfig.value = false;
     }
   }
 
-  Future<void> onFrequencyChanged(int index) async {
-    if (readOnly.value) return;
-    RecallHaptics.selection();
-    final prev = bucket.value;
-    if (prev == null) return;
-
-    final newVal = frequencyValues[index];
-    bucket.value = prev.copyWith(frequency: newVal);
-
+  void _refreshBucketsList() {
     try {
-      final updated =
-          await _bucketRepo.update(bucketId, {'frequency': newVal});
-      bucket.value = updated;
-    } on RepoException catch (e, st) {
-      bucket.value = prev;
-      Sentry.captureException(e, stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
-    }
-  }
-
-  Future<void> onDailyCapChanged(int index) async {
-    if (readOnly.value) return;
-    RecallHaptics.selection();
-    final prev = bucket.value;
-    if (prev == null) return;
-
-    final newCap = capStops[index];
-    bucket.value = prev.copyWith(dailyCap: newCap);
-
-    try {
-      final updated =
-          await _bucketRepo.update(bucketId, {'daily_cap': newCap});
-      bucket.value = updated;
-    } on RepoException catch (e, st) {
-      bucket.value = prev;
-      Sentry.captureException(e, stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
+      final bucketsCtrl = Get.find<BucketsController>();
+      bucketsCtrl.reload();
+    } catch (_) {
+      // BucketsController might not be registered if deep-linked
     }
   }
 
@@ -253,14 +298,34 @@ class BucketController extends BaseController {
 
   // ── Navigation ──
 
-  void onNodeTap(Node node) {
+  Future<void> onNodeTap(Node node) async {
     RecallHaptics.selection();
-    Get.toNamed(Routes.node, arguments: {'node_id': node.id});
+    await Get.toNamed(Routes.node, arguments: {'node_id': node.id});
+    await _reloadNodes();
   }
 
-  void onAddNodeTap() {
+  Future<void> onAddNodeTap() async {
     RecallHaptics.light();
-    Get.toNamed(Routes.nodeAdd, arguments: {'bucket_id': bucketId});
+    await Get.toNamed(Routes.nodeAdd, arguments: {'bucket_id': bucketId});
+    await _reloadNodes();
+  }
+
+  /// Silently refreshes the node list + mastery after returning from add/edit
+  /// (no loading flicker), so newly saved or edited nodes appear immediately.
+  Future<void> _reloadNodes() async {
+    if (bucketId.isEmpty) return;
+    try {
+      final results = await Future.wait([
+        _nodeRepo.fetchByBucket(bucketId, forceRemote: true),
+        _bucketRepo.fetchMastery(bucketId),
+      ]);
+      nodes.assignAll(results[0] as List<Node>);
+      _applySorting();
+      mastery.value = (results[1] as double?) ?? mastery.value;
+    } on RepoException catch (e, st) {
+      Sentry.captureException(e, stackTrace: st,
+          withScope: (s) => s.setTag('feature', 'bucket_detail'));
+    }
   }
 
   // ── Helpers ──
@@ -273,5 +338,19 @@ class BucketController extends BaseController {
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     if (diff.inDays < 30) return '${diff.inDays ~/ 7}w ago';
     return '${diff.inDays ~/ 30}mo ago';
+  }
+
+  String nodeDueLabel(DateTime? dueAt) {
+    if (dueAt == null) return 'New';
+    final diff = DateTime.now().difference(dueAt);
+    if (diff.isNegative) {
+      final days = diff.inDays.abs();
+      if (days == 0) return 'Due today';
+      if (days == 1) return 'Due tomorrow';
+      return 'In ${days}d';
+    }
+    if (diff.inDays == 0) return 'Due today';
+    if (diff.inDays == 1) return 'Due 1d ago';
+    return 'Due ${diff.inDays}d ago';
   }
 }

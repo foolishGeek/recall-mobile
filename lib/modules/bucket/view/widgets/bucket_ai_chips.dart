@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
+import '../../../../core/utils/recall_haptics.dart';
 
 class BucketAiChips extends StatelessWidget {
   final String modelLabel;
@@ -24,17 +25,19 @@ class BucketAiChips extends StatelessWidget {
       children: [
         Expanded(
           child: _AiChipButton(
-            label: 'Summarize',
-            modelLabel: modelLabel,
+            label: 'Summarize bucket',
+            modelTag: 'Claude · Sonnet',
+            icon: Icons.sort,
             isLoading: isSummarizing,
             onTap: onSummarize,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: _AiChipButton(
             label: 'Ask AI',
-            modelLabel: modelLabel,
+            modelTag: 'Gemini · Flash',
+            icon: Icons.refresh,
             onTap: onAskAi,
           ),
         ),
@@ -45,13 +48,15 @@ class BucketAiChips extends StatelessWidget {
 
 class _AiChipButton extends StatefulWidget {
   final String label;
-  final String modelLabel;
+  final String modelTag;
+  final IconData icon;
   final bool isLoading;
   final VoidCallback onTap;
 
   const _AiChipButton({
     required this.label,
-    required this.modelLabel,
+    required this.modelTag,
+    required this.icon,
     this.isLoading = false,
     required this.onTap,
   });
@@ -90,56 +95,62 @@ class _AiChipButtonState extends State<_AiChipButton>
       onTapDown: (_) => _ctrl.forward(),
       onTapUp: (_) {
         _ctrl.reverse();
+        RecallHaptics.light();
         widget.onTap();
       },
       onTapCancel: () => _ctrl.reverse(),
       child: ScaleTransition(
         scale: _scale,
         child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: c.card,
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c.grey200),
+            border: Border.all(color: c.ink, width: 1.2),
           ),
           child: Row(
             children: [
               if (widget.isLoading)
                 SizedBox(
-                  width: 15,
-                  height: 15,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
                     color: c.ink,
                   ),
                 )
               else
-                Icon(Icons.auto_awesome_outlined, size: 15, color: c.ink),
+                Icon(widget.icon, size: 16, color: c.ink),
               const SizedBox(width: 8),
-              Text(
-                widget.label,
-                style: GoogleFonts.inter(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: c.ink,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  border: Border.all(color: c.grey300),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  widget.modelLabel.toUpperCase(),
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 8.5,
-                    color: c.grey500,
-                    letterSpacing: 0.8,
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.label,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: c.ink,
+                        height: 1.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.modelTag.toUpperCase(),
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9,
+                        color: c.grey500,
+                        letterSpacing: 0.12 * 9,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],

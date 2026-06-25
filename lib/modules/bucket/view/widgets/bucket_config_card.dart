@@ -2,86 +2,103 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../core/widgets/mono_label.dart';
+import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/soft_card.dart';
+
 
 class BucketConfigCard extends StatelessWidget {
   final int coolingIndex;
   final int frequencyIndex;
-  final int capIndex;
   final bool disabled;
   final ValueChanged<int> onCoolingChanged;
   final ValueChanged<int> onFrequencyChanged;
-  final ValueChanged<int> onCapChanged;
 
   const BucketConfigCard({
     super.key,
     required this.coolingIndex,
     required this.frequencyIndex,
-    required this.capIndex,
     required this.disabled,
     required this.onCoolingChanged,
     required this.onFrequencyChanged,
-    required this.onCapChanged,
   });
 
-  static const _coolingLabels = ['14d', '30d', '60d'];
-  static const _freqLabels = ['Daily', '3×/wk', 'Weekly'];
-  static const _capLabels = ['5', '10', '15', '20', '30'];
+  static const coolingLabels = ['3d', '7d', '14d', '30d', 'Custom'];
+  static const frequencyLabels = ['Weekly', '3×/wk', 'Daily'];
+
+  String get _coolingReadout {
+    if (coolingIndex < 0 || coolingIndex >= coolingLabels.length) return '';
+    final label = coolingLabels[coolingIndex];
+    if (label == 'Custom') return 'Custom';
+    return '${label.replaceAll('d', '')} d';
+  }
+
+  String get _freqReadout => frequencyLabels[frequencyIndex.clamp(0, 2)];
 
   @override
   Widget build(BuildContext context) {
-    final c = RecallColors.of(context);
     return Opacity(
       opacity: disabled ? 0.45 : 1.0,
       child: IgnorePointer(
         ignoring: disabled,
         child: SoftCard(
-          radius: 22,
-          padding: const EdgeInsets.all(16),
+          radius: 18,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const MonoLabel('Cooling period'),
+              _HeaderRow(label: 'Cooling period', readout: _coolingReadout),
               const SizedBox(height: 8),
               _Segmented(
-                labels: _coolingLabels,
+                labels: coolingLabels,
                 active: coolingIndex,
                 onTap: onCoolingChanged,
               ),
-              const SizedBox(height: 14),
-              const MonoLabel('Frequency'),
+              const SizedBox(height: 18),
+              _HeaderRow(label: 'Frequency', readout: _freqReadout),
               const SizedBox(height: 8),
               _Segmented(
-                labels: _freqLabels,
+                labels: frequencyLabels,
                 active: frequencyIndex,
                 onTap: onFrequencyChanged,
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const MonoLabel('Daily cap'),
-                  const Spacer(),
-                  Text(
-                    _capLabels[capIndex],
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: c.ink,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              _TickSlider(
-                count: _capLabels.length,
-                active: capIndex,
-                onTap: onCapChanged,
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HeaderRow extends StatelessWidget {
+  final String label;
+  final String readout;
+
+  const _HeaderRow({required this.label, required this.readout});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: c.grey500,
+            letterSpacing: 0.16 * 10,
+          ),
+        ),
+        Text(
+          readout,
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: c.ink,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -100,10 +117,12 @@ class _Segmented extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: c.grey300,
+        color: isDark ? c.canvas : c.grey300,
+        border: isDark ? Border.all(color: c.grey300, width: 1) : null,
         borderRadius: BorderRadius.circular(11),
       ),
       child: Row(
@@ -111,14 +130,17 @@ class _Segmented extends StatelessWidget {
           final a = i == active;
           return Expanded(
             child: GestureDetector(
-              onTap: () => onTap(i),
+              onTap: () {
+                RecallHaptics.selection();
+                onTap(i);
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 240),
                 curve: Curves.easeOutCubic,
                 height: 32,
                 decoration: BoxDecoration(
                   color: a ? c.card : Colors.transparent,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                   boxShadow: a
                       ? [
                           BoxShadow(
@@ -132,7 +154,7 @@ class _Segmented extends StatelessWidget {
                 child: Text(
                   labels[i],
                   style: GoogleFonts.inter(
-                    fontSize: 12.5,
+                    fontSize: 11.5,
                     fontWeight: a ? FontWeight.w600 : FontWeight.w500,
                     color: a ? c.ink : c.grey600,
                   ),
@@ -146,51 +168,3 @@ class _Segmented extends StatelessWidget {
   }
 }
 
-class _TickSlider extends StatelessWidget {
-  final int count;
-  final int active;
-  final ValueChanged<int> onTap;
-
-  const _TickSlider({
-    required this.count,
-    required this.active,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = RecallColors.of(context);
-    return SizedBox(
-      height: 28,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(height: 1, color: c.grey300),
-          Row(
-            children: List.generate(count, (i) {
-              final a = i == active;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onTap(i),
-                  behavior: HitTestBehavior.opaque,
-                  child: Center(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
-                      width: a ? 14 : 8,
-                      height: a ? 14 : 8,
-                      decoration: BoxDecoration(
-                        color: a ? c.ink : c.grey400,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
-}

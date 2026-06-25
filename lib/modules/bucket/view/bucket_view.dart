@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart' hide Stack;
 import 'package:flutter/material.dart' as material show Stack;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart' hide Node;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
-import '../../../core/widgets/mono_label.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
@@ -24,83 +24,106 @@ class BucketView extends GetView<BucketController> {
 
   @override
   Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
     return RecallScaffold.bare(
       body: Obx(() {
         return RecallStateView(
           state: controller.viewState,
           errorMessage: controller.errorMessage,
           onRetry: controller.reload,
-          child: material.Stack(
+          child: Column(
             children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Expanded(
+                child: material.Stack(
                   children: [
-                    TapToRefreshNudge(
-                      onRefresh: controller.reload,
-                    ),
-                    BucketTopBar(
-                      onBack: () => Get.back(),
-                      onMore: () => _onMore(context),
-                    ),
-                    const SizedBox(height: 14),
-                    Obx(() => BucketHeader(
-                          name: controller.bucket.value?.name ?? '',
-                          nodeCount: controller.nodeCount,
-                          bucketId: controller.bucketId,
-                        )),
-                    const SizedBox(height: 18),
-                    Obx(() {
-                      if (!controller.hasNodes) return const SizedBox.shrink();
-                      return BucketMasteryCard(
-                        mastery: controller.mastery.value,
-                        heat: controller.heatSummary,
-                      );
-                    }),
-                    Obx(() {
-                      if (!controller.hasNodes) return const SizedBox.shrink();
-                      return const SizedBox(height: 12);
-                    }),
-                    Obx(() => BucketConfigCard(
-                          coolingIndex: controller.coolingIndex,
-                          frequencyIndex: controller.frequencyIndex,
-                          capIndex: controller.dailyCapIndex,
-                          disabled: controller.readOnly.value,
-                          onCoolingChanged: controller.onCoolingChanged,
-                          onFrequencyChanged: controller.onFrequencyChanged,
-                          onCapChanged: controller.onDailyCapChanged,
-                        )),
-                    const SizedBox(height: 12),
-                    Obx(() {
-                      if (controller.gate.aiDisabled ||
-                          controller.readOnly.value) {
-                        return const SizedBox.shrink();
-                      }
-                      return Column(
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          BucketAiChips(
-                            modelLabel: controller.aiModelLabel.value,
-                            isSummarizing: controller.isSummarizing.value,
-                            onSummarize: () => _onSummarize(context),
-                            onAskAi: controller.onAskAiTap,
+                          TapToRefreshNudge(
+                            onRefresh: controller.reload,
                           ),
+                          BucketTopBar(
+                            onBack: () => Get.back(),
+                            onMore: () => _onMore(context),
+                          ),
+                          const SizedBox(height: 14),
+                          Obx(() => BucketHeader(
+                                name: controller.bucket.value?.name ?? '',
+                                nodeCount: controller.nodeCount,
+                                bucketId: controller.bucketId,
+                              )),
                           const SizedBox(height: 18),
+                          Obx(() {
+                            if (!controller.hasNodes) {
+                              return const SizedBox.shrink();
+                            }
+                            return BucketMasteryCard(
+                              mastery: controller.mastery.value,
+                              heat: controller.heatSummary,
+                            );
+                          }),
+                          Obx(() {
+                            if (!controller.hasNodes) {
+                              return const SizedBox.shrink();
+                            }
+                            return const SizedBox(height: 12);
+                          }),
+                          Obx(() => BucketConfigCard(
+                                coolingIndex: controller.coolingIndex,
+                                frequencyIndex: controller.frequencyIndex,
+                                disabled: controller.readOnly.value,
+                                onCoolingChanged: controller.onCoolingChanged,
+                                onFrequencyChanged:
+                                    controller.onFrequencyChanged,
+                              )),
+                          const SizedBox(height: 12),
+                          Obx(() {
+                            if (controller.gate.aiDisabled ||
+                                controller.readOnly.value) {
+                              return const SizedBox.shrink();
+                            }
+                            return Column(
+                              children: [
+                                BucketAiChips(
+                                  modelLabel: controller.aiModelLabel.value,
+                                  isSummarizing:
+                                      controller.isSummarizing.value,
+                                  onSummarize: () => _onSummarize(context),
+                                  onAskAi: controller.onAskAiTap,
+                                ),
+                                const SizedBox(height: 18),
+                              ],
+                            );
+                          }),
+                          Obx(() => _buildNodeSection(context)),
                         ],
+                      ),
+                    ),
+                    Obx(() {
+                      if (controller.readOnly.value) {
+                        return _ReadOnlyBanner();
+                      }
+                      return Positioned(
+                        right: 24,
+                        bottom: 24,
+                        child: BucketFab(onTap: controller.onAddNodeTap),
                       );
                     }),
-                    Obx(() => _buildNodeSection(context)),
                   ],
                 ),
               ),
+              // Bottom-pinned Save bar (visible only when config has changes)
               Obx(() {
-                if (controller.readOnly.value) {
-                  return _ReadOnlyBanner();
+                if (!controller.hasPendingChanges.value) {
+                  return const SizedBox.shrink();
                 }
-                return Positioned(
-                  right: 24,
-                  bottom: 24,
-                  child: BucketFab(onTap: controller.onAddNodeTap),
+                return _ConfigSaveBar(
+                  isSaving: controller.isSavingConfig.value,
+                  onSave: controller.onSaveConfig,
+                  onDiscard: controller.onDiscardConfig,
+                  colors: c,
                 );
               }),
             ],
@@ -111,18 +134,49 @@ class BucketView extends GetView<BucketController> {
   }
 
   Widget _buildNodeSection(BuildContext context) {
+    final c = RecallColors.of(context);
     if (!controller.hasNodes) {
       return _EmptyNodesBody(onAddFirst: controller.onAddNodeTap);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MonoLabel('Nodes · ${controller.nodeCount}'),
+        Row(
+          children: [
+            Text(
+              'Nodes',
+              style: GoogleFonts.fraunces(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: c.ink,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: controller.cycleSortMode,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Text(
+                  controller.sortLabel,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 10,
+                    color: c.grey500,
+                    letterSpacing: 0.16 * 10,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
-        ...controller.nodes.map((node) => BucketNodeRow(
-              node: node,
-              relativeTime: controller.relativeTime(node.lastReviewedAt),
-              onTap: () => controller.onNodeTap(node),
+        ...controller.nodes.map((node) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: BucketNodeRow(
+                node: node,
+                dueLabel: controller.nodeDueLabel(node.dueAt),
+                onTap: () => controller.onNodeTap(node),
+              ),
             )),
       ],
     );
@@ -256,8 +310,12 @@ class _EmptyNodesBody extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.note_add_outlined, size: 40, color: c.grey400),
-            const SizedBox(height: 14),
+            SvgPicture.asset(
+              'assets/illustrations/empty-seed-in-bowl.svg',
+              height: 96,
+              colorFilter: ColorFilter.mode(c.ink, BlendMode.srcIn),
+            ),
+            const SizedBox(height: 18),
             Text(
               'No nodes yet',
               style: GoogleFonts.fraunces(
@@ -343,6 +401,141 @@ class _ReadOnlyBanner extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ConfigSaveBar extends StatelessWidget {
+  final bool isSaving;
+  final VoidCallback onSave;
+  final VoidCallback onDiscard;
+  final RecallColors colors;
+
+  const _ConfigSaveBar({
+    required this.isSaving,
+    required this.onSave,
+    required this.onDiscard,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        MediaQuery.of(context).padding.bottom + 14,
+      ),
+      decoration: BoxDecoration(
+        color: colors.canvas,
+        border: Border(top: BorderSide(color: colors.grey200, width: 1)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Quiet status: line-art glyph + mono label, no pulsing/blinking.
+          Row(
+            children: [
+              Icon(Icons.edit_outlined, size: 14, color: colors.grey500),
+              const SizedBox(width: 8),
+              Text(
+                'UNSAVED CHANGES',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w500,
+                  color: colors.grey500,
+                  letterSpacing: 0.16 * 9.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Discard button
+              Expanded(
+                child: GestureDetector(
+                  onTap: isSaving ? null : onDiscard,
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: colors.card,
+                      border: Border.all(color: colors.grey200),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.undo_rounded, size: 16, color: colors.grey600),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Discard',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: colors.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Save button
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: isSaving ? null : onSave,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 240),
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: isSaving ? colors.grey400 : colors.ink,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.14),
+                          offset: const Offset(0, 8),
+                          blurRadius: 20,
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: isSaving
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colors.inkOnInk,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check_rounded, size: 18, color: colors.inkOnInk),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Save changes',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.inkOnInk,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
