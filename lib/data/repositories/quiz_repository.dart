@@ -113,6 +113,29 @@ class QuizRepository extends BaseRepository {
         return mapList(rows, QuizAttempt.fromJson);
       });
 
+  /// Finalizes an attempt and returns the graded results [D-EF-3]. Grading,
+  /// scoring, the per-node engine writes (`record_review_rpc` source=quiz),
+  /// +15 XP and `quiz_ace` are all server-authoritative; idempotent on replay.
+  Future<QuizResult> complete(String attemptId) => guard(() async {
+        final body = await supabase.invokeFunction(
+          'quiz-complete',
+          body: {'attempt_id': attemptId},
+        );
+        return QuizResult.fromJson(body);
+      });
+
+  /// Builds the "Review missed cards" mini-stack from the quiz's missed nodes,
+  /// preserving order. Membership stays backend-authoritative; returns the raw
+  /// payload so the caller can route to `/review` (single active stack).
+  Future<Map<String, dynamic>> buildMissedStack(List<String> nodeIds) =>
+      guard(() async {
+        final result = await supabase.rpc(
+          'build_stack_from_nodes_rpc',
+          params: {'p_node_ids': nodeIds},
+        );
+        return asJsonMap(result);
+      });
+
   Future<List<QuizQuestionAttempt>> fetchQuestionAttempts(String attemptId) =>
       guard(() async {
         final rows = await supabase

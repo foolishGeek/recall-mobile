@@ -21,6 +21,7 @@ export 'quiz_attempt.dart';
 export 'quiz_generation.dart';
 export 'quiz_question_attempt.dart';
 export 'quiz_submit_result.dart';
+export 'quiz_result.dart';
 export 'achievement.dart';
 export 'user_achievement.dart';
 export 'daily_activity.dart';
