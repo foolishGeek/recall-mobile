@@ -186,4 +186,82 @@ class BucketRepository extends BaseRepository {
           dominantPriority: asInt(row['dominant_priority'], 1),
         );
       });
+
+  // --------------------------------------------------------- batch (S12) --
+
+  /// All mastery values in one query, keyed by bucket_id.
+  Future<Map<String, double>> fetchAllMastery(String userId) => guard(() async {
+        final rows = await supabase
+            .from('v_bucket_mastery')
+            .select('bucket_id, mastery_pct')
+            .eq('user_id', userId);
+        final map = <String, double>{};
+        for (final r in rows) {
+          final id = asString(r['bucket_id']);
+          final pct = asDoubleOrNull(r['mastery_pct']);
+          if (id.isNotEmpty && pct != null) map[id] = pct;
+        }
+        return map;
+      });
+
+  /// All heat stats in one query, keyed by bucket_id.
+  Future<Map<String, BucketHeatStats>> fetchAllHeatStats(String userId) =>
+      guard(() async {
+        final rows = await supabase
+            .from('v_bucket_heat')
+            .select('bucket_id, node_count, due_count, dominant_priority')
+            .eq('user_id', userId);
+        final map = <String, BucketHeatStats>{};
+        for (final r in rows) {
+          final id = asString(r['bucket_id']);
+          if (id.isEmpty) continue;
+          map[id] = (
+            nodeCount: asInt(r['node_count']),
+            dueCount: asInt(r['due_count']),
+            dominantPriority: asInt(r['dominant_priority'], 1),
+          );
+        }
+        return map;
+      });
+
+  /// Total node count across all user buckets from `v_bucket_heat`.
+  Future<int> fetchTotalNodeCount(String userId) => guard(() async {
+        final rows = await supabase
+            .from('v_bucket_heat')
+            .select('node_count')
+            .eq('user_id', userId);
+        var total = 0;
+        for (final r in rows) {
+          total += asInt(r['node_count']);
+        }
+        return total;
+      });
+
+  /// Next drop time per bucket via `next_drop_time_rpc`. When [bucketIds] is
+  /// empty the RPC is called once with NULL (global next drop).
+  Future<Map<String, DateTime>> fetchNextDropTimes(
+    List<String> bucketIds,
+  ) async {
+    final map = <String, DateTime>{};
+    final futures = bucketIds.map((id) => _fetchNextDrop(id));
+    final results = await Future.wait(futures);
+    for (var i = 0; i < bucketIds.length; i++) {
+      if (results[i] != null) map[bucketIds[i]] = results[i]!;
+    }
+    return map;
+  }
+
+  Future<DateTime?> _fetchNextDrop(String bucketId) async {
+    try {
+      return await guard(() async {
+        final res = await supabase.rpc(
+          'next_drop_time_rpc',
+          params: {'bucket_id': bucketId},
+        );
+        return asDateTime(res);
+      });
+    } on RepoException catch (_) {
+      return null;
+    }
+  }
 }
