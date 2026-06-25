@@ -21,6 +21,7 @@ class NeoChip extends StatelessWidget {
   final EdgeInsets padding;
   final double fontSize;
   final double borderRadius;
+  final double shadowOffset;
 
   const NeoChip({
     super.key,
@@ -30,6 +31,7 @@ class NeoChip extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 8),
     this.fontSize = 9.5,
     this.borderRadius = 6,
+    this.shadowOffset = 2,
   });
 
   factory NeoChip.priority(NeoLevel level, {String? label}) {
@@ -55,8 +57,12 @@ class NeoChip extends StatelessWidget {
         color: color,
         border: Border.all(color: ink, width: 1.5),
         borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: const [
-          BoxShadow(color: ink, offset: Offset(2, 2), blurRadius: 0),
+        boxShadow: [
+          BoxShadow(
+            color: ink,
+            offset: Offset(shadowOffset, shadowOffset),
+            blurRadius: 0,
+          ),
         ],
       ),
       alignment: Alignment.center,

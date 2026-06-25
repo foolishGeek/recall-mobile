@@ -50,7 +50,7 @@ class HeatRing extends StatelessWidget {
           progress: progress.clamp(0, 1),
           heat: heat.clamp(0, 1),
           ink: c.ink,
-          track: c.grey300,
+          track: c.grey200,
           inset: inset,
           trackWidth: trackWidth,
           ringWidth: ringWidth,
@@ -90,10 +90,11 @@ class _HeatRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final r = (size.width / 2) - inset;
     final center = Offset(size.width / 2, size.height / 2);
-    final autoStroke = 1.5 + (4 - 1.5) * heat;
+    // Stroke weight scales with heat: 2.5px (cool / hairline) → 5px (hot).
+    final autoStroke = 2.5 + (5 - 2.5) * heat;
     final tWidth = trackWidth ?? autoStroke;
     final rWidth = ringWidth ?? autoStroke;
-    final inkOpacity = trackWidth != null ? 1.0 : 0.4 + (1.0 - 0.4) * heat;
+    final inkOpacity = trackWidth != null ? 1.0 : 0.45 + (1.0 - 0.45) * heat;
 
     // Soft halo (only at higher heat)
     if (heat > 0.5) {
