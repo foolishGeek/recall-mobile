@@ -68,7 +68,7 @@ class _QuizHomeContent extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Obx(() => QuizHomeModeCards(controller: controller)),
+          QuizHomeModeCards(controller: controller),
           Obx(() {
             if (controller.recentAttempts.isEmpty) return const SizedBox();
             return QuizHomeRecentQuizzes(controller: controller);
@@ -92,7 +92,7 @@ class _TopBar extends StatelessWidget {
       children: [
         const MonoLabel('Quiz'),
         gap,
-        Obx(() => QuizHomeProBadge(active: controller.isPremium)),
+        Obx(() => QuizHomeProBadge(active: controller.isPremiumRx)),
         const Spacer(),
         Icon(Icons.search, size: 18, color: c.ink),
       ],

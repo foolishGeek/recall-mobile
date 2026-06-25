@@ -39,6 +39,9 @@ class QuizHomeController extends BaseController
   bool get locked => gate.quizBlocked;
   bool get isPremium => gate.isPremium;
 
+  /// Read inside [Obx] so GetX tracks [TierService.tierRx].
+  bool get isPremiumRx => _tierService.tierRx.value == SubscriptionTier.premium;
+
   @override
   void onInit() {
     super.onInit();

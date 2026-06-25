@@ -56,7 +56,10 @@ class _QuizConfigContent extends StatelessWidget {
               Obx(() => Text(controller.subtitle,
                   style: t.body.copyWith(color: c.grey600, height: 1.35))),
               const SizedBox(height: 28),
-              Obx(() => QuizConfigModeTop(controller: controller)),
+              Obx(() {
+                final _ = controller.mode.value;
+                return QuizConfigModeTop(controller: controller);
+              }),
               Obx(() {
                 if (!controller.isFreehand) return const SizedBox();
                 return Padding(
