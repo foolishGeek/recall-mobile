@@ -15,6 +15,7 @@ import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/quiz_repository.dart';
 import '../../data/repositories/review_repository.dart';
 import '../../data/repositories/stack_repository.dart';
+import '../../data/repositories/today_repository.dart';
 import '../../data/local/local_store.dart';
 import '../../data/services/ai_service.dart';
 import '../../data/services/app_session_service.dart';
@@ -74,6 +75,8 @@ class InitialBinding extends Bindings {
         fenix: true);
     Get.lazyPut<NotificationRepository>(
         () => NotificationRepository(Get.find()),
+        fenix: true);
+    Get.lazyPut<TodayRepository>(() => TodayRepository(Get.find()),
         fenix: true);
   }
 }

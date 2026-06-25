@@ -13,11 +13,15 @@ class RecallSkeleton extends StatefulWidget {
   final double height;
   final BorderRadius borderRadius;
 
+  /// Shimmer phase offset 0..1 so sibling skeletons breathe out of sync.
+  final double phase;
+
   const RecallSkeleton({
     super.key,
     this.width = double.infinity,
     this.height = 16,
     this.borderRadius = RecallShape.md,
+    this.phase = 0,
   });
 
   @override
@@ -34,7 +38,16 @@ class _RecallSkeletonState extends State<RecallSkeleton>
   @override
   void initState() {
     super.initState();
+    _controller.value = widget.phase.clamp(0.0, 1.0);
     _controller.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant RecallSkeleton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.phase != widget.phase) {
+      _controller.value = widget.phase.clamp(0.0, 1.0);
+    }
   }
 
   @override

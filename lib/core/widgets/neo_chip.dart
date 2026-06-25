@@ -19,6 +19,8 @@ class NeoChip extends StatelessWidget {
   final Color color;
   final double height;
   final EdgeInsets padding;
+  final double fontSize;
+  final double borderRadius;
 
   const NeoChip({
     super.key,
@@ -26,6 +28,8 @@ class NeoChip extends StatelessWidget {
     required this.color,
     this.height = 20,
     this.padding = const EdgeInsets.symmetric(horizontal: 8),
+    this.fontSize = 9.5,
+    this.borderRadius = 6,
   });
 
   factory NeoChip.priority(NeoLevel level, {String? label}) {
@@ -50,7 +54,7 @@ class NeoChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         border: Border.all(color: ink, width: 1.5),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: const [
           BoxShadow(color: ink, offset: Offset(2, 2), blurRadius: 0),
         ],
@@ -59,7 +63,7 @@ class NeoChip extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: GoogleFonts.jetBrainsMono(
-          fontSize: 9.5,
+          fontSize: fontSize,
           fontWeight: FontWeight.w700,
           color: ink,
           letterSpacing: 0.8,
