@@ -264,4 +264,23 @@ class BucketRepository extends BaseRepository {
       return null;
     }
   }
+
+  /// AI model display labels from `app_config` [D-SCHEMA-9].
+  Future<Map<String, String>> fetchAiModelLabels() => guard(() async {
+        final rows = await supabase
+            .from('app_config')
+            .select('key, value')
+            .inFilter('key', ['ai_model_free', 'ai_model_premium']);
+        final map = <String, String>{};
+        for (final r in rows) {
+          final k = asString(r['key']);
+          final v = r['value'];
+          if (k.isNotEmpty) {
+            map[k] = v is String
+                ? v.replaceAll('"', '')
+                : v.toString().replaceAll('"', '');
+          }
+        }
+        return map;
+      });
 }
