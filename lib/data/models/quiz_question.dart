@@ -10,6 +10,7 @@ class QuizQuestion {
   final int position;
   final QuizQuestionType type;
   final String prompt;
+  final int? difficulty;
   final List<String> options;
   final int? correctIndex;
   final String? explanation;
@@ -25,6 +26,7 @@ class QuizQuestion {
     this.position = 0,
     this.type = QuizQuestionType.mcq,
     this.prompt = '',
+    this.difficulty,
     this.options = const [],
     this.correctIndex,
     this.explanation,
@@ -41,6 +43,7 @@ class QuizQuestion {
         position: asInt(json['position']),
         type: QuizQuestionType.fromWire(json['type']),
         prompt: asString(json['prompt']),
+        difficulty: asIntOrNull(json['difficulty']),
         options: asStringList(json['options']),
         correctIndex: asIntOrNull(json['correct_index']),
         explanation: asStringOrNull(json['explanation']),
@@ -57,6 +60,7 @@ class QuizQuestion {
         'position': position,
         'type': type.wire,
         'prompt': prompt,
+        'difficulty': difficulty,
         'options': options,
         'correct_index': correctIndex,
         'explanation': explanation,
@@ -73,6 +77,7 @@ class QuizQuestion {
     int? position,
     QuizQuestionType? type,
     String? prompt,
+    int? difficulty,
     List<String>? options,
     int? correctIndex,
     String? explanation,
@@ -88,6 +93,7 @@ class QuizQuestion {
       position: position ?? this.position,
       type: type ?? this.type,
       prompt: prompt ?? this.prompt,
+      difficulty: difficulty ?? this.difficulty,
       options: options ?? this.options,
       correctIndex: correctIndex ?? this.correctIndex,
       explanation: explanation ?? this.explanation,
