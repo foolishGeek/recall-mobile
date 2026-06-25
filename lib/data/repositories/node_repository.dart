@@ -4,6 +4,11 @@
 // patched by mobile; the cache only mirrors server rows.
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
 import '../local/local_store.dart';
 import '../models/models.dart';
@@ -83,7 +88,7 @@ class NodeRepository extends BaseRepository {
             .select()
             .eq('bucket_id', bucketId)
             .isFilter('deleted_at', null)
-            .order('created_at', ascending: true);
+            .order('comfort', ascending: false);
         return mapList(rows, Node.fromJson);
       });
 
@@ -166,4 +171,152 @@ class NodeRepository extends BaseRepository {
             .order('name', ascending: true);
         return mapList(rows, Tag.fromJson);
       });
+
+  /// Tags attached to a specific node via the `node_tags` join table.
+  Future<List<Tag>> fetchTagsForNode(String nodeId) => guard(() async {
+        final rows = await supabase
+            .from('node_tags')
+            .select('tag_id, tags(id, user_id, name, created_at)')
+            .eq('node_id', nodeId);
+        return rows
+            .where((r) => r['tags'] != null)
+            .map((r) => Tag.fromJson(Map<String, dynamic>.from(r['tags'] as Map)))
+            .toList();
+      });
+
+  /// Per-node heat percentage (0-100) from backend `node_heat_pct` RPC.
+  /// Falls back to a client-side heuristic when offline.
+  Future<double> fetchHeatPct(String nodeId) => guard(() async {
+        final result = await supabase.rpc(
+          'node_heat_pct',
+          params: {'p_node_id': nodeId},
+        );
+        return asDouble(result);
+      });
+
+  /// Whether this node has at least one review row (controls comfort read-only).
+  Future<bool> hasReviews(String nodeId) => guard(() async {
+        final rows = await supabase
+            .from('reviews')
+            .select('id')
+            .eq('node_id', nodeId)
+            .limit(1);
+        return (rows as List).isNotEmpty;
+      });
+
+  /// AI model display labels from `app_config` (shared with BucketRepository).
+  Future<Map<String, String>> fetchAiModelLabels() => guard(() async {
+        final rows = await supabase
+            .from('app_config')
+            .select('key, value')
+            .inFilter('key', ['ai_model_free', 'ai_model_premium']);
+        final map = <String, String>{};
+        for (final r in rows) {
+          final k = asString(r['key']);
+          final v = r['value'];
+          if (k.isNotEmpty) {
+            map[k] = v is String ? v : v.toString();
+          }
+        }
+        return map;
+      });
+
+  /// Fetch the parent bucket's name for display in the top bar.
+  Future<String?> fetchBucketName(String bucketId) => guard(() async {
+        final row = await supabase
+            .from('buckets')
+            .select('name')
+            .eq('id', bucketId)
+            .maybeSingle();
+        return row == null ? null : asString(row['name']);
+      });
+
+  /// Generates a signed URL for a private Storage object. The bucket name is
+  /// inferred from the asset's MIME type (pdf → `node-pdfs`, image → `node-images`).
+  Future<String> signAssetUrl(String storagePath, String mimeType) async {
+    final bucket = mimeType.contains('pdf') ? 'node-pdfs' : 'node-images';
+    final result = await supabase.client.storage
+        .from(bucket)
+        .createSignedUrl(storagePath, 3600);
+    return result;
+  }
+
+  // ── S15: Add/Edit Node helpers ──
+
+  /// Upsert a tag by name (unique on lower(name) per user).
+  Future<Tag> createTag(String userId, String name) => guard(() async {
+        final trimmed = name.trim().toLowerCase();
+        final existing = await supabase
+            .from('tags')
+            .select()
+            .eq('user_id', userId)
+            .ilike('name', trimmed)
+            .maybeSingle();
+        if (existing != null) return Tag.fromJson(existing);
+        final row = await supabase
+            .from('tags')
+            .insert({'user_id': userId, 'name': trimmed})
+            .select()
+            .single();
+        return Tag.fromJson(row);
+      });
+
+  /// Replace all node_tags for a node with the given tag IDs (diff-based).
+  Future<void> syncNodeTags(String nodeId, List<String> tagIds) =>
+      guard(() async {
+        await supabase.from('node_tags').delete().eq('node_id', nodeId);
+        if (tagIds.isEmpty) return;
+        final rows = tagIds
+            .map((tid) => {'node_id': nodeId, 'tag_id': tid})
+            .toList();
+        await supabase.from('node_tags').insert(rows);
+      });
+
+  /// Insert a `node_assets` row after uploading a file to Storage.
+  Future<NodeAsset> createNodeAsset({
+    required String nodeId,
+    required String storagePath,
+    required String mimeType,
+    int? fileSizeBytes,
+  }) =>
+      guard(() async {
+        final row = await supabase
+            .from('node_assets')
+            .insert({
+              'node_id': nodeId,
+              'storage_path': storagePath,
+              'mime_type': mimeType,
+              'file_size_bytes': fileSizeBytes,
+              'sort_order': 0,
+            })
+            .select()
+            .single();
+        return NodeAsset.fromJson(row);
+      });
+
+  /// Upload bytes to a private Supabase Storage bucket.
+  Future<String> uploadToStorage({
+    required String storageBucket,
+    required String path,
+    required Uint8List bytes,
+    String? contentType,
+  }) async {
+    await supabase.client.storage.from(storageBucket).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: contentType),
+        );
+    return path;
+  }
+
+  /// Delete a node_asset row (and its storage object if needed).
+  Future<void> deleteNodeAsset(String assetId) => guard(() async {
+        await supabase.from('node_assets').delete().eq('id', assetId);
+      });
+
+  /// SHA-256 hex digest for content_hash (triggers embed pipeline on change).
+  static String computeContentHash(String text) {
+    final bytes = utf8.encode(text);
+    return sha256.convert(bytes).toString();
+  }
 }

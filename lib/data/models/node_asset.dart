@@ -8,6 +8,7 @@ class NodeAsset {
   final String storagePath;
   final String mimeType;
   final int? fileSizeBytes;
+  final int? pageCount;
   final int sortOrder;
   final DateTime? createdAt;
 
@@ -17,6 +18,7 @@ class NodeAsset {
     this.storagePath = '',
     this.mimeType = '',
     this.fileSizeBytes,
+    this.pageCount,
     this.sortOrder = 0,
     this.createdAt,
   });
@@ -27,6 +29,7 @@ class NodeAsset {
         storagePath: asString(json['storage_path']),
         mimeType: asString(json['mime_type']),
         fileSizeBytes: asIntOrNull(json['file_size_bytes']),
+        pageCount: asIntOrNull(json['page_count']),
         sortOrder: asInt(json['sort_order']),
         createdAt: asDateTime(json['created_at']),
       );
@@ -37,6 +40,7 @@ class NodeAsset {
         'storage_path': storagePath,
         'mime_type': mimeType,
         'file_size_bytes': fileSizeBytes,
+        'page_count': pageCount,
         'sort_order': sortOrder,
         'created_at': dateToJson(createdAt),
       };
@@ -47,6 +51,7 @@ class NodeAsset {
     String? storagePath,
     String? mimeType,
     int? fileSizeBytes,
+    int? pageCount,
     int? sortOrder,
     DateTime? createdAt,
   }) {
@@ -56,6 +61,7 @@ class NodeAsset {
       storagePath: storagePath ?? this.storagePath,
       mimeType: mimeType ?? this.mimeType,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      pageCount: pageCount ?? this.pageCount,
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
     );
