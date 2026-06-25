@@ -1,0 +1,445 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../../../core/theme/recall_colors.dart';
+import '../../../../data/models/models.dart' hide Stack;
+
+class ReviewCardContent extends StatelessWidget {
+  final Node node;
+  final String bucketName;
+  final double heat;
+
+  const ReviewCardContent({
+    super.key,
+    required this.node,
+    required this.bucketName,
+    required this.heat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader(c),
+        const SizedBox(height: 12),
+        _buildTitle(c),
+        const SizedBox(height: 16),
+        Expanded(child: _buildBody(context, c)),
+        _buildFooter(c),
+      ],
+    );
+  }
+
+  Widget _buildHeader(RecallColors c) {
+    final typeLabel = node.type.wire;
+    final heatSize = 11.0 + (heat.clamp(0.0, 1.0) * 3.0);
+    final heatOpacity = (heat * 0.9 + 0.1).clamp(0.1, 1.0);
+    final glowRadius = heat.clamp(0.0, 1.0) * 12.0;
+    final glowOpacity = heat.clamp(0.0, 1.0) * 0.42;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '${bucketName.toUpperCase()} \u00B7 ${typeLabel.toUpperCase()}',
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 10 * 0.2,
+            color: c.grey500,
+          ),
+        ),
+        Container(
+          width: heatSize,
+          height: heatSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: c.ink.withValues(alpha: heatOpacity),
+            boxShadow: glowRadius > 0
+                ? [
+                    BoxShadow(
+                      color: c.ink.withValues(alpha: glowOpacity),
+                      blurRadius: glowRadius,
+                    ),
+                  ]
+                : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTitle(RecallColors c) {
+    return Text(
+      node.title,
+      style: GoogleFonts.fraunces(
+        fontSize: 26,
+        fontWeight: FontWeight.w500,
+        height: 1.1,
+        letterSpacing: -0.015 * 26,
+        color: c.ink,
+      ),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildBody(BuildContext context, RecallColors c) {
+    switch (node.type) {
+      case NodeType.link:
+        return _buildLinkPreview(context, c);
+      case NodeType.youtube:
+        return _buildYouTubePreview(context, c);
+      default:
+        return _buildMarkdown(context, c);
+    }
+  }
+
+  Widget _buildMarkdown(BuildContext context, RecallColors c) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bodyColor = dark ? const Color(0xFFcfcdc6) : const Color(0xFF3a3935);
+    final text = node.markdown ?? node.extractedText ?? '';
+
+    if (text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          height: 1.6,
+          color: bodyColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLinkPreview(BuildContext context, RecallColors c) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final lp = node.linkPreview;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: c.grey200, width: 1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: dark
+                            ? [const Color(0xFF2A2A30), const Color(0xFF16161B)]
+                            : [const Color(0xFFF0EEEA), const Color(0xFFE7E5E1)],
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(Icons.link, size: 36, color: c.grey500),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: c.grey200, width: 1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lp?.siteName ?? _extractDomain(node.url),
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 9.5,
+                          letterSpacing: 9.5 * 0.16,
+                          color: c.grey500,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        lp?.title ?? node.title,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: c.ink,
+                          height: 1.35,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (lp?.description != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          lp!.description!,
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            color: c.grey500,
+                            height: 1.45,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildYouTubePreview(BuildContext context, RecallColors c) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final lp = node.linkPreview;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: dark
+                    ? [const Color(0xFF2A2A30), const Color(0xFF16161B)]
+                    : [const Color(0xFF3a3935), const Color(0xFF1F1E1B)],
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: dark ? c.ink : Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        offset: const Offset(0, 6),
+                        blurRadius: 18,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: CustomPaint(
+                      size: const Size(13, 18),
+                      painter: _PlayTrianglePainter(
+                        color: dark ? c.canvas : const Color(0xFF111111),
+                      ),
+                    ),
+                  ),
+                ),
+                if (lp?.durationSec != null)
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _formatDuration(lp!.durationSec!),
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'YOUTUBE',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9.5,
+                        letterSpacing: 9.5 * 0.08,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 11),
+        if (lp?.title != null)
+          Text(
+            lp!.title!,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: c.ink,
+              height: 1.35,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        if (lp?.siteName != null) ...[
+          const SizedBox(height: 3),
+          Text(
+            lp!.siteName!,
+            style: GoogleFonts.inter(fontSize: 11.5, color: c.grey500, height: 1.45),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFooter(RecallColors c) {
+    final dueText = _formatDue(node.dueAt);
+    final priorityLabel = _priorityLabel(node.priority);
+    final priorityColor = _priorityColor(node.priority);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.only(top: 13),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: c.grey200, width: 1)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (priorityLabel != null)
+                Container(
+                  height: 22,
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
+                  decoration: BoxDecoration(
+                    color: priorityColor,
+                    border: Border.all(
+                        color: const Color(0xFF111111), width: 1.5),
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0xFF111111),
+                        offset: Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    priorityLabel,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 9.5 * 0.08,
+                      color: const Color(0xFF111111),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
+              Text(
+                dueText,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10.5,
+                  color: c.grey500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _extractDomain(String? url) {
+    if (url == null) return '';
+    try {
+      return Uri.parse(url).host;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _formatDuration(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDue(DateTime? dueAt) {
+    if (dueAt == null) return '';
+    final now = DateTime.now();
+    final diff = dueAt.difference(now);
+    if (diff.isNegative) {
+      final days = diff.inDays.abs();
+      if (days == 0) return 'Due today';
+      if (days == 1) return 'Due yesterday';
+      return 'Due $days days ago';
+    } else {
+      final days = diff.inDays;
+      if (days == 0) return 'Due today';
+      if (days == 1) return 'Due tomorrow';
+      return 'In $days days';
+    }
+  }
+
+  String? _priorityLabel(int priority) {
+    if (priority >= 4) return 'HIGH';
+    if (priority == 3) return 'MED';
+    if (priority <= 2) return 'LOW';
+    return null;
+  }
+
+  Color _priorityColor(int priority) {
+    if (priority >= 4) return const Color(0xFFE5484D);
+    if (priority == 3) return const Color(0xFFF5A623);
+    return const Color(0xFF46A758);
+  }
+}
+
+class _PlayTrianglePainter extends CustomPainter {
+  final Color color;
+  _PlayTrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(3, 0)
+      ..lineTo(size.width, size.height / 2)
+      ..lineTo(3, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlayTrianglePainter old) => old.color != color;
+}
