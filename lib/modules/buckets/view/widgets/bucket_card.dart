@@ -31,7 +31,7 @@ class BucketCard extends StatelessWidget {
     final heat = controller.heatFor(bucket);
     final nodeCount = controller.nodeCountFor(bucket);
     final dominant = controller.dominantPriorityFor(bucket);
-    final bottomLabel = controller.nextDropLabel(bucket);
+    final dropValue = controller.nextDropValue(bucket);
 
     NeoChip? chip;
     if (dominant >= 4) {
@@ -111,18 +111,35 @@ class BucketCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Expanded(
-                        child: Text(
-                          bottomLabel,
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 9.5,
-                            color: c.grey500,
-                            letterSpacing: 1.4,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'NEXT DROP',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 8.5,
+                                color: c.grey500,
+                                letterSpacing: 0.16 * 8.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              dropValue,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 11.5,
+                                color: cooling ? c.grey500 : c.ink,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      if (cooling) _CoolingPill(c: c),
+                      const SizedBox(width: 8),
+                      _StatusPill(cooling: cooling, c: c),
                     ],
                   ),
                 ],
@@ -141,25 +158,42 @@ class BucketCard extends StatelessWidget {
   }
 }
 
-class _CoolingPill extends StatelessWidget {
+class _StatusPill extends StatelessWidget {
+  final bool cooling;
   final RecallColors c;
-  const _CoolingPill({required this.c});
+  const _StatusPill({required this.cooling, required this.c});
 
   @override
   Widget build(BuildContext context) {
+    // Active = filled ink dot on paper; Cooling = grey dot, hollow pill.
+    final dotColor = cooling ? c.grey500 : c.ink;
+    final textColor = cooling ? c.grey500 : c.ink;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
       decoration: BoxDecoration(
+        color: cooling ? Colors.transparent : c.canvas,
         border: Border.all(color: c.grey400),
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(11),
       ),
-      child: Text(
-        'Cooling',
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 8.5,
-          color: c.grey600,
-          letterSpacing: 0.6,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            cooling ? 'Cooling' : 'Active',
+            style: GoogleFonts.inter(
+              fontSize: 10.5,
+              fontWeight: cooling ? FontWeight.w500 : FontWeight.w600,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }

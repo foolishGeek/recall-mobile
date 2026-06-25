@@ -91,14 +91,34 @@ class BucketsController extends BaseController
 
   int nodeCountFor(Bucket b) => heatStats[b.id]?.nodeCount ?? 0;
 
-  String nextDropLabel(Bucket b) {
-    if (isCooling(b)) return 'COOLING';
-    final dt = nextDropMap[b.id];
-    if (dt == null) return 'NEXT DROP';
+  bool isActive(Bucket b) => !isCooling(b);
+
+  // The human "next Recall drop" value shown under the NEXT DROP micro-label.
+  // Always relative + dated so it reads with context (never a bare "02:00").
+  String nextDropValue(Bucket b) {
+    final dt = nextDropMap[b.id] ?? (isCooling(b) ? b.cooldownUntil : null);
+    if (dt == null) return 'Scheduling…';
+
+    final now = DateTime.now();
     final local = dt.toLocal();
-    final h = local.hour.toString().padLeft(2, '0');
-    final m = local.minute.toString().padLeft(2, '0');
-    return 'NEXT DROP \u00B7 $h:$m';
+    if (!local.isAfter(now)) return 'Ready now';
+
+    final diff = local.difference(now);
+    if (diff.inMinutes < 60) return 'In ${diff.inMinutes}m';
+    if (diff.inHours < 12) return 'In ${diff.inHours}h';
+
+    final today = DateTime(now.year, now.month, now.day);
+    final dropDay = DateTime(local.year, local.month, local.day);
+    final dayDiff = dropDay.difference(today).inDays;
+    if (dayDiff <= 0) {
+      final h = local.hour.toString().padLeft(2, '0');
+      final m = local.minute.toString().padLeft(2, '0');
+      return 'Today · $h:$m';
+    }
+    if (dayDiff == 1) return 'Tomorrow';
+    if (dayDiff < 7) return 'In $dayDiff days';
+    if (dayDiff < 14) return 'Next week';
+    return 'In ${(dayDiff / 7).round()}w';
   }
 
   @override

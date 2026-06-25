@@ -51,30 +51,68 @@ class _BucketsFabState extends State<BucketsFab>
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
+    final locked = widget.locked;
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
       onTapCancel: _onTapCancel,
       child: ScaleTransition(
         scale: _scale,
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: c.ink,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                offset: const Offset(0, 10),
-                blurRadius: 22,
+        child: SizedBox(
+          width: 72,
+          height: 72,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  // Free-limit FAB inverts to a quiet hollow paper disc.
+                  color: locked ? c.canvas : c.ink,
+                  shape: BoxShape.circle,
+                  border: locked ? Border.all(color: c.ink, width: 1.5) : null,
+                  boxShadow: [
+                    // Soft canvas halo so it floats over the grid.
+                    BoxShadow(
+                      color: c.canvas,
+                      blurRadius: 0,
+                      spreadRadius: 5,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: locked ? 0.10 : 0.20),
+                      offset: const Offset(0, 10),
+                      blurRadius: 24,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.add,
+                  size: 26,
+                  color: locked ? c.grey400 : c.inkOnInk,
+                ),
               ),
+              if (locked)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: c.ink,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.canvas, width: 2),
+                    ),
+                    child: Icon(
+                      Icons.lock_outline,
+                      size: 11,
+                      color: c.inkOnInk,
+                    ),
+                  ),
+                ),
             ],
-          ),
-          child: Icon(
-            widget.locked ? Icons.lock_outline : Icons.add,
-            size: 24,
-            color: c.inkOnInk,
           ),
         ),
       ),
