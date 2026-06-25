@@ -22,7 +22,6 @@ import '../../data/services/app_session_service.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/services/heat_service.dart';
 import '../../data/services/metrics_service.dart';
-import '../../data/services/notification_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../data/services/sync_service.dart';
 import '../../data/services/sync_status_service.dart';
@@ -47,9 +46,8 @@ class InitialBinding extends Bindings {
     Get.lazyPut<MetricsService>(() => MetricsService(Get.find(), Get.find()),
         fenix: true);
     Get.lazyPut<HeatService>(() => HeatService(), fenix: true);
-    Get.lazyPut<NotificationService>(
-        () => NotificationService(Get.find(), Get.find()),
-        fenix: true);
+    // NotificationService is registered as an eager permanent singleton in main()
+    // (it self-wires FCM streams on init); not lazy here.
 
     // Repositories — the only data surface controllers talk to.
     Get.lazyPut<AuthRepository>(() => AuthRepository(Get.find()), fenix: true);

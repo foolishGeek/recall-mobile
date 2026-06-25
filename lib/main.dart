@@ -7,7 +7,9 @@
 //      mismatch with ensureInitialized).
 
 import 'dart:async';
+import 'dart:ui';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -18,13 +20,55 @@ import 'core/utils/app_env.dart';
 import 'data/local/app_database.dart';
 import 'data/local/local_store.dart';
 import 'data/models/json_utils.dart';
+import 'data/repositories/notification_repository.dart';
 import 'data/services/app_session_service.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/connectivity_service.dart';
+import 'data/services/notification_service.dart';
 import 'data/services/supabase_service.dart';
 import 'data/services/sync_service.dart';
 import 'data/services/sync_status_service.dart';
 import 'data/services/tier_service.dart';
+
+/// FCM background/terminated handler (separate isolate — no GetX). Best-effort
+/// `delivered` log for a Recall Drop; must never throw. [D-EF-10].
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    final data = message.data;
+    if (data['type'] != 'recall_drop') return;
+    final dedupeKey = data['dedupe_key'];
+    if (dedupeKey is! String || dedupeKey.isEmpty) return;
+
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+    await bootstrapFirebase();
+
+    SupabaseService supabase;
+    try {
+      supabase = await SupabaseService.bootstrap();
+    } catch (_) {
+      // Already initialized in this isolate, or config missing.
+      supabase = SupabaseService();
+    }
+
+    final userId = supabase.currentUserId;
+    if (userId == null) return;
+
+    await supabase.from('notification_events').upsert(
+      {
+        'user_id': userId,
+        'type': 'delivered',
+        'dedupe_key': dedupeKey,
+        'metadata': const <String, dynamic>{},
+      },
+      onConflict: 'dedupe_key,type',
+      ignoreDuplicates: true,
+    );
+  } catch (_) {
+    // Swallow: delivered logging is best-effort and isolate-safe.
+  }
+}
 
 void _wireModelParseWarnings() {
   onModelParseWarning = (message) {
@@ -50,6 +94,18 @@ Future<void> main() async {
     Get.put<TierService>(TierService(), permanent: true);
     Get.put<AppSessionService>(AppSessionService(supabase), permanent: true);
     await bootstrapFirebase();
+    if (isFirebaseReady) {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    }
+    // Eager, permanent: self-wires FCM streams + token refresh (mirrors
+    // AppSessionService). Onboarding resolves this same instance.
+    Get.put<NotificationService>(
+      NotificationService(
+        Get.find<AuthService>(),
+        NotificationRepository(supabase),
+      ),
+      permanent: true,
+    );
   } on BootstrapException catch (e) {
     runApp(ErrorApp(message: e.message));
     return;
