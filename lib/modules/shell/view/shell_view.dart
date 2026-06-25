@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../buckets/view/buckets_view.dart';
 import '../../insights/view/insights_view.dart';
-import '../../quiz/view/quiz_view.dart';
+import '../../quiz_home/view/quiz_home_view.dart';
 import '../../today/view/today_view.dart';
 import '../../you/view/you_view.dart';
 import '../controller/shell_controller.dart';
@@ -34,7 +34,7 @@ class ShellView extends GetView<ShellController> {
       case RecallTab.buckets:
         return const BucketsView();
       case RecallTab.quiz:
-        return const QuizView();
+        return const QuizHomeView();
       case RecallTab.insights:
         return const InsightsView();
       case RecallTab.you:
