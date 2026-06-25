@@ -37,6 +37,8 @@ class BucketsController extends BaseController
 
   late final AnimationController staggerController;
 
+  bool get hasBuckets => buckets.isNotEmpty;
+
   List<Bucket> get filteredBuckets {
     var list = buckets.toList();
 
@@ -129,12 +131,6 @@ class BucketsController extends BaseController
       ]);
 
       final loadedBuckets = results[0] as List<Bucket>;
-
-      if (loadedBuckets.isEmpty) {
-        setSuccess();
-        Get.offAllNamed(Routes.emptyBuckets);
-        return;
-      }
 
       buckets.assignAll(loadedBuckets);
       bucketCount.value = loadedBuckets.length;
