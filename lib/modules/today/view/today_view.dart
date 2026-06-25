@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -59,19 +60,24 @@ class _TodayLoaded extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  Obx(() => TodayTopBar(
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    Obx(() {
+                      final _ = controller.profile.value;
+                      return TodayTopBar(
                         streak: controller.currentStreak,
                         formattedDate: controller.formattedDate,
-                      )),
-                  const SizedBox(height: 24),
-                  Obx(() => AnimatedBuilder(
-                        animation: controller.ringController,
-                        builder: (context, _) {
+                      );
+                    }),
+                    const SizedBox(height: 22),
+                    AnimatedBuilder(
+                      animation: controller.ringController,
+                      builder: (context, _) {
+                        return Obx(() {
                           final heat =
                               controller.aggregateHeat.value.clamp(0.0, 1.0);
                           return TodayHeatRing(
@@ -80,31 +86,38 @@ class _TodayLoaded extends StatelessWidget {
                             heat: heat,
                             haloOpacity: controller.haloOpacity.value,
                           );
-                        },
-                      )),
-                  const SizedBox(height: 30),
-                  Obx(() => TodayPeekingStack(
-                        nodes: controller.peekingNodes,
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 26),
+                    // Stack sits right under the ring; the footer CTA is pushed
+                    // to the bottom by the flexible gap below.
+                    Obx(() {
+                      final nodes = controller.peekingNodes.toList();
+                      return TodayPeekingStack(
+                        nodes: nodes,
                         animation: controller.cardController,
-                      )),
-                  const SizedBox(height: 14),
-                  Obx(() => TodayStartCta(
-                        label: controller.isAtStackLimit
-                            ? 'Unlock unlimited reviews'
-                            : 'Start review',
-                        isLoading: controller.isStarting.value,
-                        onPressed: controller.isAtStackLimit
-                            ? () => Get.toNamed('/paywall')
-                            : controller.startReview,
-                      )),
-                  Obx(() {
-                    if (!controller.isFree) return const SizedBox(height: 16);
-                    return TodayStacksMeter(
-                      stacksUsed: controller.stacksUsed.value,
-                    );
-                  }),
-                  const SizedBox(height: 16),
-                ],
+                      );
+                    }),
+                    const Spacer(),
+                    Obx(() => TodayStartCta(
+                          label: controller.isAtStackLimit
+                              ? 'Unlock unlimited reviews'
+                              : 'Start review',
+                          isLoading: controller.isStarting.value,
+                          onPressed: controller.isAtStackLimit
+                              ? () => Get.toNamed('/paywall')
+                              : controller.startReview,
+                        )),
+                    Obx(() {
+                      if (!controller.isFree) return const SizedBox(height: 16);
+                      return TodayStacksMeter(
+                        stacksUsed: controller.stacksUsed.value,
+                      );
+                    }),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             ),
           ),
@@ -126,11 +139,20 @@ class _TodayEmpty extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 8),
-          Obx(() => TodayTopBar(
-                streak: controller.currentStreak,
-                formattedDate: controller.formattedDate,
-              )),
-          const SizedBox(height: 48),
+          Obx(() {
+            final _ = controller.profile.value;
+            return TodayTopBar(
+              streak: controller.currentStreak,
+              formattedDate: controller.formattedDate,
+            );
+          }),
+          const Spacer(),
+          SvgPicture.asset(
+            'assets/illustrations/empty-moon-checkmark.svg',
+            height: 120,
+            colorFilter: ColorFilter.mode(c.ink, BlendMode.srcIn),
+          ),
+          const SizedBox(height: 26),
           Text(
             'You\'re all caught up',
             style: GoogleFonts.fraunces(
@@ -150,6 +172,7 @@ class _TodayEmpty extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          const Spacer(flex: 2),
         ],
       ),
     );

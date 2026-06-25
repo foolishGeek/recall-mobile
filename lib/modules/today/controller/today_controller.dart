@@ -72,7 +72,9 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     );
     cardController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 560),
+      // Slow, deliberate "deck fanning out" entrance — the stack should bounce
+      // open over a couple of seconds so it feels alive on every visit.
+      duration: const Duration(milliseconds: 1500),
     );
     ringProgress = CurvedAnimation(
       parent: ringController,
@@ -124,7 +126,12 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   void _runAnimations() {
     final reduceMotion =
         PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      // Snap to the resting state so cards/ring stay visible without motion.
+      ringController.value = 1.0;
+      cardController.value = 1.0;
+      return;
+    }
 
     ringController.forward(from: 0);
     cardController.forward(from: 0);

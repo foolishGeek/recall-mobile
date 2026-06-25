@@ -24,65 +24,60 @@ class TodayPeekingStack extends StatelessWidget {
       height: 236,
       child: AnimatedBuilder(
         animation: animation,
-        builder: (context, _) => Stack(
-          clipBehavior: Clip.none,
-          children: List.generate(count, (i) {
-            final staggerStart = i * (80 / 560);
-            final staggerEnd = staggerStart + (320 / 560);
-            final t = Interval(
-              staggerStart.clamp(0.0, 1.0),
-              staggerEnd.clamp(0.0, 1.0),
-              curve: RecallMotion.easeOut,
-            ).transform(animation.value);
+        builder: (context, _) {
+          // Draw back-to-front so the hero (nodes[0], the hottest) sits at the
+          // bottom on top of the z-order, with cooler cards peeking above it.
+          final children = <Widget>[];
+          for (int i = count - 1; i >= 0; i--) {
+            final isFront = i == 0;
+            final restTop =
+                isFront ? (count - 1) * 42.0 : (count - 1 - i) * 42.0;
+            final restInset = i * 11.0;
 
-            final opacity = t;
-            final translateY = 6.0 * (1 - t);
+            // Entrance: every card starts collapsed near the hero (as if deep in
+            // the deck) then fans up to its resting slot. Back cards travel the
+            // furthest so the whole stack reads as "coming from far away".
+            final start = (i * 0.12).clamp(0.0, 0.6);
+            const span = 0.7;
+            final t = Interval(start, (start + span).clamp(0.0, 1.0),
+                    curve: RecallMotion.bubbly)
+                .transform(animation.value);
+            // bubbly overshoots past 1.0 → cards spring slightly above their slot
+            // then settle: the slow bounce on load.
+            final riseFrom = i * 42.0 + 26.0;
+            final translateY = riseFrom * (1 - t);
+            final scale = 0.84 + 0.16 * t;
+            final opacity = Interval(start, start + 0.22, curve: Curves.easeOut)
+                .transform(animation.value)
+                .clamp(0.0, 1.0);
 
-            return Positioned(
-              top: _topFor(i),
-              left: _leftFor(i),
-              right: _rightFor(i),
-              bottom: i == count - 1 ? 0 : null,
-              height: i == count - 1 ? null : 62,
+            children.add(Positioned(
+              top: restTop,
+              left: restInset,
+              right: restInset,
+              bottom: isFront ? 0 : null,
+              height: isFront ? null : 62,
               child: Opacity(
                 opacity: opacity,
                 child: Transform.translate(
                   offset: Offset(0, translateY),
-                  child: TodayPeekingCard(
-                    node: nodes[i],
-                    index: i,
-                    onTap: () => RecallHaptics.selection(),
+                  child: Transform.scale(
+                    scale: scale,
+                    alignment: Alignment.topCenter,
+                    child: TodayPeekingCard(
+                      node: nodes[i],
+                      index: i,
+                      total: count,
+                      onTap: () => RecallHaptics.selection(),
+                    ),
                   ),
                 ),
               ),
-            );
-          }),
-        ),
+            ));
+          }
+          return Stack(clipBehavior: Clip.none, children: children);
+        },
       ),
     );
   }
-
-  double _topFor(int i) {
-    switch (i) {
-      case 0:
-        return 0;
-      case 1:
-        return 42;
-      default:
-        return 84;
-    }
-  }
-
-  double _leftFor(int i) {
-    switch (i) {
-      case 0:
-        return 22;
-      case 1:
-        return 11;
-      default:
-        return 0;
-    }
-  }
-
-  double _rightFor(int i) => _leftFor(i);
 }

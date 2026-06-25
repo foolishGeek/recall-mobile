@@ -82,8 +82,9 @@ class _TodayStartCtaState extends State<TodayStartCta> {
                     const SizedBox(width: 10),
                     Text(
                       '→',
-                      style: TextStyle(
+                      style: GoogleFonts.inter(
                         fontSize: 17,
+                        fontWeight: FontWeight.w600,
                         color: c.inkOnInk,
                       ),
                     ),
