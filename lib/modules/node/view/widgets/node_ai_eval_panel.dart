@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/brand/aura_brand.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
+import '../../../../core/widgets/aura_mark.dart';
 import '../../../../core/widgets/neo_chip.dart';
 import '../../../../core/widgets/recall_skeleton.dart';
 
@@ -16,9 +18,12 @@ class NodeAiEvalPanel extends StatefulWidget {
   final String modelLabel;
   final bool isLoading;
   final bool overviewLocked;
+  final bool hasSuggestion;
   final String quotaLabel;
   final VoidCallback onApply;
   final VoidCallback onRegenerate;
+  final int rating;
+  final ValueChanged<int>? onRate;
 
   const NodeAiEvalPanel({
     super.key,
@@ -31,9 +36,12 @@ class NodeAiEvalPanel extends StatefulWidget {
     required this.modelLabel,
     required this.isLoading,
     required this.overviewLocked,
+    required this.hasSuggestion,
     required this.quotaLabel,
     required this.onApply,
     required this.onRegenerate,
+    this.rating = 0,
+    this.onRate,
   });
 
   @override
@@ -135,10 +143,20 @@ class _NodeAiEvalPanelState extends State<NodeAiEvalPanel>
   Widget _header(RecallColors c) {
     return Row(
       children: [
-        _modelBadge(c),
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: c.canvas,
+            shape: BoxShape.circle,
+            border: Border.all(color: c.grey200),
+          ),
+          child: const AuraMark(size: 14),
+        ),
         const SizedBox(width: 8),
         Text(
-          'AI EVALUATION',
+          '${AuraBrand.name.toUpperCase()} EVALUATION',
           style: GoogleFonts.jetBrainsMono(
             fontSize: 9.5,
             fontWeight: FontWeight.w500,
@@ -147,33 +165,24 @@ class _NodeAiEvalPanelState extends State<NodeAiEvalPanel>
           ),
         ),
         const Spacer(),
-        Text(
-          'just now',
-          style: GoogleFonts.jetBrainsMono(fontSize: 10.5, color: c.grey500),
-        ),
+        if (widget.onRate != null) ...[
+          _ThumbAction(
+            up: true,
+            active: widget.rating == 1,
+            onTap: () => widget.onRate!(1),
+          ),
+          const SizedBox(width: 2),
+          _ThumbAction(
+            up: false,
+            active: widget.rating == -1,
+            onTap: () => widget.onRate!(-1),
+          ),
+        ] else
+          Text(
+            'just now',
+            style: GoogleFonts.jetBrainsMono(fontSize: 10.5, color: c.grey500),
+          ),
       ],
-    );
-  }
-
-  Widget _modelBadge(RecallColors c) {
-    return Container(
-      height: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: c.canvas,
-        border: Border.all(color: c.grey200),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        widget.modelLabel.split('-').first.toUpperCase(),
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          color: c.grey600,
-          letterSpacing: 0.1 * 9,
-        ),
-      ),
     );
   }
 
@@ -248,27 +257,48 @@ class _NodeAiEvalPanelState extends State<NodeAiEvalPanel>
   }
 
   Widget _actions(RecallColors c) {
+    final canAct = !widget.overviewLocked;
     return Row(
       children: [
         Expanded(
-          child: OutlinedButton(
-            onPressed: widget.overviewLocked ? null : widget.onApply,
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: c.grey200),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            child: Text(
-              'Apply suggestion',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: c.ink,
-              ),
-            ),
-          ),
+          child: widget.hasSuggestion
+              ? FilledButton(
+                  onPressed: canAct ? widget.onApply : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: c.ink,
+                    foregroundColor: c.inkOnInk,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(
+                    'Review rewrite',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: c.inkOnInk,
+                    ),
+                  ),
+                )
+              : OutlinedButton(
+                  onPressed: canAct ? widget.onApply : null,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: c.grey200),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(
+                    'Apply suggestion',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: c.ink,
+                    ),
+                  ),
+                ),
         ),
         const SizedBox(width: 10),
         GestureDetector(
@@ -308,6 +338,37 @@ class _NodeAiEvalPanelState extends State<NodeAiEvalPanel>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ThumbAction extends StatelessWidget {
+  final bool up;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _ThumbAction({
+    required this.up,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Icon(
+          up
+              ? (active ? Icons.thumb_up : Icons.thumb_up_outlined)
+              : (active ? Icons.thumb_down : Icons.thumb_down_outlined),
+          size: 15,
+          color: active ? c.ink : c.grey400,
+        ),
       ),
     );
   }

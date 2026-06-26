@@ -169,6 +169,11 @@ class NodeView extends GetView<NodeController> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (controller.canRevertRewrite) ...[
+            _revertChip(c),
+            const SizedBox(height: 14),
+          ],
+
           // Markdown body (always show if content exists)
           if (hasMarkdown) ...[
             NodeBodyMarkdown(markdown: n.markdown!),
@@ -315,6 +320,45 @@ class NodeView extends GetView<NodeController> {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+  Widget _revertChip(RecallColors c) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: controller.revertRewrite,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: c.cardSunken,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: c.grey200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.undo_rounded, size: 14, color: c.grey600),
+            const SizedBox(width: 8),
+            Text(
+              'Aura rewrite applied',
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: c.grey600,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '· Revert',
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: c.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _aiEvalPanel() {
     return Obx(() {
       if (!controller.showAiPanel) return const SizedBox.shrink();
@@ -328,9 +372,14 @@ class NodeView extends GetView<NodeController> {
         modelLabel: controller.aiModelLabel.value,
         isLoading: controller.isEvalLoading.value,
         overviewLocked: controller.overviewLocked,
+        hasSuggestion: controller.hasSuggestion,
         quotaLabel: controller.overviewQuotaLabel,
         onApply: controller.onApplySuggestion,
         onRegenerate: controller.onRegenerateTap,
+        rating: controller.evalRating.value,
+        onRate: controller.evaluation.value?.interactionId != null
+            ? controller.rateEval
+            : null,
       );
     });
   }

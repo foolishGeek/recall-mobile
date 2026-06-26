@@ -453,15 +453,17 @@ class NodeAddController extends BaseController {
 
       // Build the content hash for text-based types.
       String? contentHash;
+      String? extractedText;
       final hashableText = _buildHashableText(type);
       if (hashableText.isNotEmpty) {
         contentHash = NodeRepository.computeContentHash(hashableText);
+        extractedText = hashableText;
       }
 
       if (isEditMode) {
-        await _updateExistingNode(type, contentHash);
+        await _updateExistingNode(type, contentHash, extractedText);
       } else {
-        await _createNewNode(userId, bucket, type, contentHash);
+        await _createNewNode(userId, bucket, type, contentHash, extractedText);
       }
 
       // Sync tags.
@@ -489,6 +491,7 @@ class NodeAddController extends BaseController {
     Bucket bucket,
     NodeType type,
     String? contentHash,
+    String? extractedText,
   ) async {
     final nodeId = const Uuid().v4();
 
@@ -504,6 +507,7 @@ class NodeAddController extends BaseController {
       difficulty: difficulty.value,
       comfort: comfort.value,
       contentHash: contentHash,
+      extractedText: extractedText,
     );
 
     final created = await _nodeRepo.create(node);
@@ -515,6 +519,7 @@ class NodeAddController extends BaseController {
   Future<void> _updateExistingNode(
     NodeType type,
     String? contentHash,
+    String? extractedText,
   ) async {
     final changes = <String, dynamic>{
       'type': type.wire,
@@ -526,6 +531,7 @@ class NodeAddController extends BaseController {
       'difficulty': difficulty.value,
       'comfort': comfort.value,
       if (contentHash != null) 'content_hash': contentHash,
+      if (extractedText != null) 'extracted_text': extractedText,
     };
 
     if (selectedBucket.value != null) {

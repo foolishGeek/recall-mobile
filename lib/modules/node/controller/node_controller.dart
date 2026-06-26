@@ -14,6 +14,7 @@ import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
+import '../view/widgets/node_ai_diff_view.dart';
 
 class NodeController extends BaseController {
   NodeController(
@@ -51,6 +52,14 @@ class NodeController extends BaseController {
   final Rxn<AiEvaluation> evaluation = Rxn<AiEvaluation>();
   final RxBool isEvalLoading = false.obs;
   final RxnString evalError = RxnString();
+  final RxInt evalRating = 0.obs;
+
+  // Rewrite apply/revert state. Holds the pre-rewrite body so the user can
+  // revert Aura's applied suggestion from a quiet chip in the body.
+  final RxnString _preRewriteMarkdown = RxnString();
+  final RxBool didApplyRewrite = false.obs;
+  bool get canRevertRewrite =>
+      didApplyRewrite.value && _preRewriteMarkdown.value != null;
 
   // AI model label from app_config.
   final RxString aiModelLabel = ''.obs;
@@ -113,6 +122,14 @@ class NodeController extends BaseController {
       _comfortLevel(evaluation.value?.suggestedComfort ?? 50);
 
   String? get evalFeedback => evaluation.value?.feedback;
+
+  /// True when Aura returned a body rewrite that differs from the current note,
+  /// so the panel offers "Review rewrite" instead of a plain metadata apply.
+  bool get hasSuggestion {
+    final s = evaluation.value?.suggestedMarkdown;
+    if (s == null || s.trim().isEmpty) return false;
+    return s.trim() != (node.value?.markdown ?? '').trim();
+  }
 
   String get overviewQuotaLabel => '${overviewsUsed.value} / 2';
 
@@ -354,8 +371,11 @@ class NodeController extends BaseController {
         suggestedComfort: result.suggestedComfort,
         suggestedDifficulty: result.suggestedDifficulty,
         feedback: result.feedback,
+        suggestedMarkdown: result.suggestedMarkdown,
         model: result.model,
+        interactionId: result.interactionId,
       );
+      evalRating.value = 0;
     } on RepoException catch (e, st) {
       evalError.value = e.message;
       Sentry.captureException(e, stackTrace: st,
@@ -369,10 +389,20 @@ class NodeController extends BaseController {
     await _triggerEvaluate();
   }
 
-  void onApplySuggestion() {
-    RecallHaptics.light();
+  /// Panel primary action. When Aura proposed a body rewrite, open the diff
+  /// review sheet; otherwise apply the suggested comfort/difficulty metadata.
+  Future<void> onApplySuggestion() async {
     final eval = evaluation.value;
     if (eval == null) return;
+    if (hasSuggestion) {
+      await _reviewRewrite();
+      return;
+    }
+    RecallHaptics.light();
+    _applyMetadata(eval);
+  }
+
+  void _applyMetadata(AiEvaluation eval) {
     final n = node.value;
     if (n == null) return;
 
@@ -390,6 +420,58 @@ class NodeController extends BaseController {
     if (changes.isNotEmpty) {
       _updateNodeField(changes.keys.first, changes.values.first, updated);
     }
+  }
+
+  /// Shows the git-style diff and, on accept, swaps the note body to Aura's
+  /// rewrite while remembering the previous body for one-tap revert.
+  Future<void> _reviewRewrite() async {
+    final ctx = Get.context;
+    final n = node.value;
+    final eval = evaluation.value;
+    final after = eval?.suggestedMarkdown;
+    if (ctx == null || n == null || after == null) return;
+
+    final before = n.markdown ?? '';
+    final apply = await NodeAiDiffView.show(
+      ctx,
+      before: before,
+      after: after,
+      feedback: eval?.feedback,
+    );
+    if (apply != true) return;
+
+    RecallHaptics.medium();
+    _preRewriteMarkdown.value = before;
+    await _updateNodeField('markdown', after, n.copyWith(markdown: after));
+    didApplyRewrite.value = true;
+    final current = node.value;
+    if (current != null) _loadContentLinks(current);
+    _trackEvent('ai_rewrite_applied', {'node_id': nodeId});
+  }
+
+  /// Restore the note body to what it was before applying Aura's rewrite.
+  Future<void> revertRewrite() async {
+    final prev = _preRewriteMarkdown.value;
+    final n = node.value;
+    if (prev == null || n == null) return;
+    RecallHaptics.light();
+    await _updateNodeField('markdown', prev, n.copyWith(markdown: prev));
+    didApplyRewrite.value = false;
+    _preRewriteMarkdown.value = null;
+    final current = node.value;
+    if (current != null) _loadContentLinks(current);
+    _trackEvent('ai_rewrite_reverted', {'node_id': nodeId});
+  }
+
+  /// Thumbs feedback on the evaluation; tapping the active thumb clears it.
+  Future<void> rateEval(int rating) async {
+    final id = evaluation.value?.interactionId;
+    if (id == null) return;
+    final next = evalRating.value == rating ? 0 : rating;
+    evalRating.value = next;
+    RecallHaptics.selection();
+    // Queue-aware + best-effort; never block the UI on a failed/queued rating.
+    await _aiRepo.submitRating(id, next);
   }
 
   // ── Ask AI ──

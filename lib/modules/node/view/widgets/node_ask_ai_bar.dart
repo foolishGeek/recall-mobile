@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/brand/aura_brand.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/aura_mark.dart';
 import '../../../../data/models/ai_results.dart';
 
 class NodeAskAiBar extends StatefulWidget {
@@ -76,10 +78,10 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, size: 14, color: c.grey500),
+              const AuraMark(size: 14),
               const SizedBox(width: 6),
               Text(
-                'AI RESPONSE',
+                '${AuraBrand.name.toUpperCase()} · DRAFTED FROM YOUR NOTE',
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 9.5,
                   fontWeight: FontWeight.w700,
@@ -145,7 +147,7 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
             child: Row(
               children: [
                 const SizedBox(width: 14),
-                Icon(Icons.auto_awesome, size: 18, color: c.grey400),
+                const AuraMark(size: 18),
                 const SizedBox(width: 10),
                 Expanded(
                   child: TextField(
@@ -155,7 +157,7 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
                     onSubmitted: (_) => _send(),
                     style: GoogleFonts.inter(fontSize: 14, color: c.ink),
                     decoration: InputDecoration(
-                      hintText: 'Ask AI about this node...',
+                      hintText: 'Ask Aura about this note…',
                       hintStyle:
                           GoogleFonts.inter(fontSize: 14, color: c.grey400),
                       border: InputBorder.none,
@@ -222,7 +224,7 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
         borderRadius: BorderRadius.circular(5),
       ),
       child: Text(
-        widget.modelLabel.split('-').first.toUpperCase(),
+        AuraBrand.name.toUpperCase(),
         style: GoogleFonts.jetBrainsMono(
           fontSize: 9,
           fontWeight: FontWeight.w600,
