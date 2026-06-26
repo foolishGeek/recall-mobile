@@ -10,9 +10,14 @@ class AiEvaluation {
   final int? suggestedComfort;
   final int? suggestedDifficulty;
   final String? feedback;
+  final String? suggestedMarkdown;
   final String? model;
   final String? contentHash;
   final DateTime? createdAt;
+
+  /// Transient — only present on a freshly generated evaluation (used to wire
+  /// thumbs feedback). Cached rows read back from Postgres carry null.
+  final String? interactionId;
 
   const AiEvaluation({
     required this.id,
@@ -21,9 +26,11 @@ class AiEvaluation {
     this.suggestedComfort,
     this.suggestedDifficulty,
     this.feedback,
+    this.suggestedMarkdown,
     this.model,
     this.contentHash,
     this.createdAt,
+    this.interactionId,
   });
 
   factory AiEvaluation.fromJson(Map<String, dynamic> json) => AiEvaluation(
@@ -33,6 +40,7 @@ class AiEvaluation {
         suggestedComfort: asIntOrNull(json['suggested_comfort']),
         suggestedDifficulty: asIntOrNull(json['suggested_difficulty']),
         feedback: asStringOrNull(json['feedback']),
+        suggestedMarkdown: asStringOrNull(json['suggested_markdown']),
         model: asStringOrNull(json['model']),
         contentHash: asStringOrNull(json['content_hash']),
         createdAt: asDateTime(json['created_at']),
@@ -45,6 +53,7 @@ class AiEvaluation {
         'suggested_comfort': suggestedComfort,
         'suggested_difficulty': suggestedDifficulty,
         'feedback': feedback,
+        'suggested_markdown': suggestedMarkdown,
         'model': model,
         'content_hash': contentHash,
         'created_at': dateToJson(createdAt),
@@ -57,9 +66,11 @@ class AiEvaluation {
     int? suggestedComfort,
     int? suggestedDifficulty,
     String? feedback,
+    String? suggestedMarkdown,
     String? model,
     String? contentHash,
     DateTime? createdAt,
+    String? interactionId,
   }) {
     return AiEvaluation(
       id: id ?? this.id,
@@ -68,9 +79,11 @@ class AiEvaluation {
       suggestedComfort: suggestedComfort ?? this.suggestedComfort,
       suggestedDifficulty: suggestedDifficulty ?? this.suggestedDifficulty,
       feedback: feedback ?? this.feedback,
+      suggestedMarkdown: suggestedMarkdown ?? this.suggestedMarkdown,
       model: model ?? this.model,
       contentHash: contentHash ?? this.contentHash,
       createdAt: createdAt ?? this.createdAt,
+      interactionId: interactionId ?? this.interactionId,
     );
   }
 }

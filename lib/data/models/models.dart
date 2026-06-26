@@ -29,4 +29,6 @@ export 'notification_event.dart';
 export 'ai_evaluation.dart';
 export 'ai_credit_ledger_entry.dart';
 export 'ai_results.dart';
+export 'ai_user_preferences.dart';
+export 'relearn_skill.dart';
 export 'due_preview_node.dart';

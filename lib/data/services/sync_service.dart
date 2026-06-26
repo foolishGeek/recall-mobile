@@ -47,6 +47,7 @@ class SyncService {
         if (!keepGoing) break;
       }
       await _flushProfilePrefs();
+      await _flushAiFeedback();
     } finally {
       _draining = false;
       _status.setSyncing(false);
@@ -73,6 +74,45 @@ class SyncService {
         );
       }
     }
+  }
+
+  /// Replays queued AI feedback (thumbs / suggestions). These are non-critical
+  /// structured signals: a permanent failure is dropped, an offline failure
+  /// keeps the remaining backlog for the next reconnect [D-AI-8].
+  Future<void> _flushAiFeedback() async {
+    final pending = await _local.pendingAiFeedback();
+    if (pending.isEmpty) return;
+    final remaining = <Map<String, dynamic>>[];
+    var offline = false;
+    for (final op in pending) {
+      if (offline) {
+        remaining.add(op);
+        continue;
+      }
+      try {
+        if (op['type'] == 'rate') {
+          await _supabase.rpc('ai_rate_interaction', params: {
+            'p_interaction': op['interaction_id'],
+            'p_rating': op['rating'] ?? 0,
+            'p_reason': op['reason'],
+          });
+        } else if (op['type'] == 'suggest') {
+          await _supabase.rpc('ai_apply_suggestion', params: {
+            'p_suggestion': op['suggestion'],
+            'p_rating': op['rating'] ?? 0,
+            'p_interaction': op['interaction_id'],
+          });
+        }
+      } catch (e, st) {
+        final mapped = mapError(e, st);
+        if (mapped.isOffline) {
+          offline = true;
+          remaining.add(op);
+        }
+        // Non-offline errors: drop the op (best-effort signal).
+      }
+    }
+    await _local.setAiFeedbackQueue(remaining);
   }
 
   /// Returns false to stop the drain (network dropped); true to continue.

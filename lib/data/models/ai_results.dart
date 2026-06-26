@@ -34,17 +34,20 @@ class RagCitation {
 }
 
 /// `rag_chat` response. [model] is null when the corpus was empty (no LLM call).
+/// [interactionId] lets the client attach a rating/suggestion later [D-AI-6].
 class RagChatResult {
   final String answer;
   final List<RagCitation> citations;
   final String? model;
   final AiUsage? usage;
+  final String? interactionId;
 
   const RagChatResult({
     required this.answer,
     this.citations = const [],
     this.model,
     this.usage,
+    this.interactionId,
   });
 
   factory RagChatResult.fromJson(Map<String, dynamic> json) => RagChatResult(
@@ -59,6 +62,7 @@ class RagChatResult {
         usage: json['usage'] is Map
             ? AiUsage.fromJson(Map<String, dynamic>.from(json['usage'] as Map))
             : null,
+        interactionId: asStringOrNull(json['interaction_id']),
       );
 }
 
@@ -87,21 +91,26 @@ class SummarizeResult {
 }
 
 /// `evaluate` (AI overview) response; [cached] true when served from cache.
+/// [suggestedMarkdown] is an improved rewrite of the note for the diff view.
 class EvaluateResult {
   final int? qualityScore;
   final int? suggestedComfort;
   final int? suggestedDifficulty;
   final String? feedback;
+  final String? suggestedMarkdown;
   final String? model;
   final bool cached;
+  final String? interactionId;
 
   const EvaluateResult({
     this.qualityScore,
     this.suggestedComfort,
     this.suggestedDifficulty,
     this.feedback,
+    this.suggestedMarkdown,
     this.model,
     this.cached = false,
+    this.interactionId,
   });
 
   factory EvaluateResult.fromJson(Map<String, dynamic> json) => EvaluateResult(
@@ -109,8 +118,10 @@ class EvaluateResult {
         suggestedComfort: asIntOrNull(json['suggested_comfort']),
         suggestedDifficulty: asIntOrNull(json['suggested_difficulty']),
         feedback: asStringOrNull(json['feedback']),
+        suggestedMarkdown: asStringOrNull(json['suggested_markdown']),
         model: asStringOrNull(json['model']),
         cached: asBool(json['cached']),
+        interactionId: asStringOrNull(json['interaction_id']),
       );
 }
 

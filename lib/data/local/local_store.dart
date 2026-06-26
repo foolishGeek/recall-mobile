@@ -378,6 +378,57 @@ class LocalStore extends GetxService {
     );
   }
 
+  // ------------------------------------------- offline AI feedback queue [D-AI-8]
+  // Non-critical structured signals (thumbs / suggestions). Stored as a JSON
+  // list in syncMeta so they survive app kills and replay on reconnect.
+  static const _aiFeedbackKey = 'ai_feedback_queue';
+
+  Future<String?> _kvGet(String key) async {
+    final db = _db;
+    if (db == null) return null;
+    final row = await (db.select(db.syncMeta)..where((t) => t.key.equals(key)))
+        .getSingleOrNull();
+    return row?.value;
+  }
+
+  Future<void> _kvSet(String key, String value) async {
+    final db = _db;
+    if (db == null) return;
+    await db.into(db.syncMeta).insertOnConflictUpdate(
+          SyncMetaCompanion.insert(key: key, value: value),
+        );
+  }
+
+  Future<List<Map<String, dynamic>>> pendingAiFeedback() async {
+    final raw = await _kvGet(_aiFeedbackKey);
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
+  }
+
+  Future<void> enqueueAiFeedback(Map<String, dynamic> op) async {
+    if (_db == null) return;
+    final list = [...await pendingAiFeedback(), op];
+    // Bound the queue so a long offline stretch can't grow it unbounded.
+    final bounded = list.length > 50 ? list.sublist(list.length - 50) : list;
+    await _kvSet(_aiFeedbackKey, jsonEncode(bounded));
+  }
+
+  Future<void> setAiFeedbackQueue(List<Map<String, dynamic>> ops) async {
+    if (_db == null) return;
+    await _kvSet(_aiFeedbackKey, jsonEncode(ops));
+  }
+
+  // --------------------------------------- Aura rating nudge frequency cap
+  Future<String?> auraRatingMeta(String key) => _kvGet('aura_rating:$key');
+
+  Future<void> setAuraRatingMeta(String key, String value) =>
+      _kvSet('aura_rating:$key', value);
+
   @override
   void onClose() {
     _db?.close();

@@ -69,7 +69,8 @@ class InitialBinding extends Bindings {
         fenix: true);
     Get.lazyPut<InsightsRepository>(() => InsightsRepository(Get.find()),
         fenix: true);
-    Get.lazyPut<AiRepository>(() => AiRepository(Get.find(), Get.find()),
+    Get.lazyPut<AiRepository>(
+        () => AiRepository(Get.find(), Get.find(), Get.find()),
         fenix: true);
     Get.lazyPut<NotificationRepository>(
         () => NotificationRepository(Get.find()),

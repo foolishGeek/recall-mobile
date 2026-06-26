@@ -27,15 +27,22 @@ class AiService extends GetxService {
 
   /// RAG chat over the user's notes within the active-bucket scope. Empty corpus
   /// returns an answer with `model == null` (no charge, server-decided).
+  ///
+  /// During a premium fair-use cooldown the server ASKS before charging: the
+  /// default call yields a 429 `ai_cooldown` so the UI can show the interstitial.
+  /// Pass [spendCredit] = true on an explicit "Continue with 1 credit" retry to
+  /// authorise the credit deduction (or a 403 `insufficient_credits`) [D-AI-1].
   Future<RagChatResult> ragChat({
     required String question,
     List<String> bucketIds = const [],
     List<String> nodeIds = const [],
+    bool spendCredit = false,
   }) async {
     final body = await invokeForge('rag_chat', payload: {
       'question': question,
       if (bucketIds.isNotEmpty) 'bucket_ids': bucketIds,
       if (nodeIds.isNotEmpty) 'node_ids': nodeIds,
+      if (spendCredit) 'spend_credit': true,
     });
     return RagChatResult.fromJson(body);
   }
