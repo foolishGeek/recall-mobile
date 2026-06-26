@@ -112,6 +112,19 @@ class StackRepository extends BaseRepository {
         return row == null ? null : Stack.fromJson(row);
       });
 
+  /// Recently completed stacks, newest first (for done-fast trailing avg [D-UI-3]).
+  Future<List<Stack>> fetchRecentCompleted(String userId, {int limit = 10}) =>
+      guard(() async {
+        final rows = await supabase
+            .from('stacks')
+            .select()
+            .eq('user_id', userId)
+            .eq('status', StackStatus.completed.wire)
+            .order('completed_at', ascending: false)
+            .limit(limit);
+        return mapList(rows, Stack.fromJson);
+      });
+
   Future<StackBuildResult> generate({
     List<String>? scopeBucketIds,
     bool ahead = false,

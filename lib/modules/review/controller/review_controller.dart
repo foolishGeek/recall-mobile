@@ -12,6 +12,7 @@ import '../../../data/repositories/node_repository.dart';
 import '../../../data/repositories/review_repository.dart';
 import '../../../data/repositories/stack_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/metrics_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/supabase_service.dart';
 
@@ -24,6 +25,7 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
   final _nodeRepo = Get.find<NodeRepository>();
   final _bucketRepo = Get.find<BucketRepository>();
   final _supabase = Get.find<SupabaseService>();
+  final _metrics = Get.find<MetricsService>();
 
   final Rxn<Stack> stack = Rxn<Stack>();
   final RxList<StackItem> items = <StackItem>[].obs;
@@ -275,10 +277,13 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
         );
       }
 
+      _metrics.markStackCompleted(stack.value!.id);
+
       await Future.delayed(const Duration(milliseconds: 400));
       Get.offAllNamed(Routes.today);
     } on RepoException catch (_) {
       await _stackRepo.updateStatus(stack.value!.id, StackStatus.completed);
+      _metrics.markStackCompleted(stack.value!.id);
       Get.offAllNamed(Routes.today);
     } finally {
       isCompleting.value = false;

@@ -77,4 +77,13 @@ class ReviewRepository extends BaseRepository {
             .order('reviewed_at', ascending: false);
         return mapList(rows, Review.fromJson);
       });
+
+  Future<List<Review>> fetchForStack(String stackId) => guard(() async {
+        final rows = await supabase
+            .from('reviews')
+            .select()
+            .eq('stack_id', stackId)
+            .order('reviewed_at', ascending: true);
+        return mapList(rows, Review.fromJson);
+      });
 }

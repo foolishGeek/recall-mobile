@@ -48,7 +48,13 @@ class InitialBinding extends Bindings {
 
     // Service stubs (filled in S04/S06/S16).
     Get.lazyPut<AiService>(() => AiService(Get.find()), fenix: true);
-    Get.lazyPut<MetricsService>(() => MetricsService(Get.find(), Get.find()),
+    Get.lazyPut<MetricsService>(
+        () => MetricsService(
+              Get.find(),
+              Get.find(),
+              Get.find(),
+              Get.find(),
+            ),
         fenix: true);
     Get.lazyPut<HeatService>(() => HeatService(), fenix: true);
     // NotificationService is registered as an eager permanent singleton in main()

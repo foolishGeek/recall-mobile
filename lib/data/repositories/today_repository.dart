@@ -36,4 +36,10 @@ class TodayRepository extends BaseRepository {
         }
         return const [];
       });
+
+  /// Cards eligible for review-ahead (`generate_stack_rpc(ahead=true)` pool).
+  Future<int> fetchReviewAheadCount() => guard(() async {
+        final result = await supabase.rpc('review_ahead_count_rpc');
+        return asInt(result);
+      });
 }

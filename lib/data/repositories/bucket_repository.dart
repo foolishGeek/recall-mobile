@@ -251,6 +251,18 @@ class BucketRepository extends BaseRepository {
     return map;
   }
 
+  /// Global next Recall drop (all buckets) via `next_drop_time_rpc(NULL)`.
+  Future<DateTime?> fetchGlobalNextDrop() async {
+    try {
+      return await guard(() async {
+        final res = await supabase.rpc('next_drop_time_rpc');
+        return asDateTime(res);
+      });
+    } on RepoException catch (_) {
+      return null;
+    }
+  }
+
   Future<DateTime?> _fetchNextDrop(String bucketId) async {
     try {
       return await guard(() async {
