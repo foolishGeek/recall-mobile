@@ -1,6 +1,7 @@
 // Recall · GetPage table. One entry per route; tab routes share ShellView so the
 // route drives the initial tab. Navigate with Get.toNamed(Routes.x).
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../modules/ai_chat/binding/ai_chat_binding.dart';
@@ -124,6 +125,11 @@ class AppPages {
       name: Routes.paywall,
       page: () => const PaywallView(),
       binding: PaywallBinding(),
+      // Sheet slide-up (S23 §9): present from below, 420ms easeOutCubic.
+      fullscreenDialog: true,
+      transition: Transition.downToUp,
+      transitionDuration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
     ),
     GetPage(
       name: Routes.aiChat,
