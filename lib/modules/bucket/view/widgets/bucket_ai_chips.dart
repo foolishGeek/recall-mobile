@@ -26,7 +26,7 @@ class BucketAiChips extends StatelessWidget {
         Expanded(
           child: _AiChipButton(
             label: 'Summarize bucket',
-            modelTag: 'Claude · Sonnet',
+            modelTag: 'Aura',
             icon: Icons.sort,
             isLoading: isSummarizing,
             onTap: onSummarize,
@@ -35,8 +35,8 @@ class BucketAiChips extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _AiChipButton(
-            label: 'Ask AI',
-            modelTag: 'Gemini · Flash',
+            label: 'Ask Aura',
+            modelTag: 'Aura',
             icon: Icons.refresh,
             onTap: onAskAi,
           ),
