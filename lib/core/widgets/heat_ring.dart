@@ -82,6 +82,11 @@ class AnimatedHeatRing extends StatelessWidget {
   final TextStyle? centerStyle;
   final Duration duration;
 
+  /// Explicit stroke weights (e.g. the You-tab XP ring's flat 5px full-ink
+  /// look). When set, the ring paints at full opacity with no heat halo.
+  final double? trackWidth;
+  final double? ringWidth;
+
   const AnimatedHeatRing({
     super.key,
     required this.progress,
@@ -90,6 +95,8 @@ class AnimatedHeatRing extends StatelessWidget {
     this.center,
     this.centerStyle,
     this.duration = const Duration(milliseconds: 600),
+    this.trackWidth,
+    this.ringWidth,
   });
 
   @override
@@ -107,6 +114,8 @@ class AnimatedHeatRing extends StatelessWidget {
         size: size,
         center: center,
         centerStyle: centerStyle,
+        trackWidth: trackWidth,
+        ringWidth: ringWidth,
       ),
     );
   }

@@ -42,6 +42,9 @@ class AuthService extends GetxService {
   /// The signed-in user's UUID, or null.
   String? get currentUserId => _supabase.client.auth.currentUser?.id;
 
+  /// The signed-in user's email (shown under the name on the You tab), or null.
+  String? get currentEmail => _supabase.client.auth.currentUser?.email;
+
   /// Reactive session stream for controllers to listen to sign-in events.
   Rxn<Session> get sessionRx => _session;
 
