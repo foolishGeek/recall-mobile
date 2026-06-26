@@ -40,6 +40,23 @@ class ProfileRepository extends BaseRepository {
         return row == null ? null : Subscription.fromJson(row);
       });
 
+  /// Re-reads the server-authoritative entitlement state (subscription + the
+  /// profile that carries `had_premium` / `ai_credit_balance`). The paywall
+  /// polls this after a purchase until the `revenuecat-webhook` has flipped the
+  /// tier or topped up credits.
+  Future<({Subscription? subscription, Profile? profile})> refreshEntitlement(
+    String userId,
+  ) async {
+    final results = await Future.wait([
+      fetchSubscription(userId),
+      fetchProfile(userId),
+    ]);
+    return (
+      subscription: results[0] as Subscription?,
+      profile: results[1] as Profile?,
+    );
+  }
+
   /// Updates user-editable preference columns only. [changes] must contain
   /// pref keys (timezone, theme, display_name, ...); any locked column would be
   /// rejected by the column grants and surface as `unauthorized`.

@@ -25,6 +25,7 @@ import 'data/services/app_session_service.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/connectivity_service.dart';
 import 'data/services/notification_service.dart';
+import 'data/services/revenuecat_service.dart';
 import 'data/services/supabase_service.dart';
 import 'data/services/sync_service.dart';
 import 'data/services/sync_status_service.dart';
@@ -106,6 +107,31 @@ Future<void> main() async {
       ),
       permanent: true,
     );
+
+    // RevenueCat: configure the SDK once and keep the RC subscriber aligned with
+    // the Supabase user (RC app_user_id = Supabase UUID) so webhook events
+    // resolve to the right profile. Best-effort — a store/SDK hiccup must never
+    // block boot (the paywall degrades to "Price unavailable").
+    final revenueCat = Get.put<RevenueCatService>(
+      RevenueCatService(),
+      permanent: true,
+    );
+    final auth = Get.find<AuthService>();
+    try {
+      await revenueCat.configure();
+      final initialUserId = auth.currentUserId;
+      if (initialUserId != null) unawaited(revenueCat.logIn(initialUserId));
+    } catch (_) {
+      // Swallow: RevenueCat is non-essential to app launch.
+    }
+    ever(auth.sessionRx, (_) {
+      final userId = auth.currentUserId;
+      if (userId != null) {
+        revenueCat.logIn(userId).catchError((_) {});
+      } else {
+        revenueCat.logOut().catchError((_) {});
+      }
+    });
   } on BootstrapException catch (e) {
     runApp(ErrorApp(message: e.message));
     return;
