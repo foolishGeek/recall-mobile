@@ -429,6 +429,33 @@ class LocalStore extends GetxService {
   Future<void> setAuraRatingMeta(String key, String value) =>
       _kvSet('aura_rating:$key', value);
 
+  // ---------------------------------------- theme preference local cache (S24)
+  // The 'system' | 'light' | 'dark' choice is cached locally so it applies on
+  // cold start before the server profile loads; profiles.theme is the server
+  // truth, reconciled into this cache on Settings load.
+  static const _themeKey = 'app_theme';
+
+  Future<String?> cachedTheme() => _kvGet(_themeKey);
+
+  Future<void> setCachedTheme(String value) => _kvSet(_themeKey, value);
+
+  /// Wipes every cached row + queue (account deletion, S24). Best-effort: a
+  /// disabled cache is a no-op. Keyed nothing survives so a future sign-in
+  /// starts clean.
+  Future<void> clearAll() async {
+    final db = _db;
+    if (db == null) return;
+    await db.transaction(() async {
+      await db.delete(db.cachedStackItems).go();
+      await db.delete(db.cachedStacks).go();
+      await db.delete(db.cachedNodes).go();
+      await db.delete(db.cachedBuckets).go();
+      await db.delete(db.pendingReviews).go();
+      await db.delete(db.pendingProfilePrefs).go();
+      await db.delete(db.syncMeta).go();
+    });
+  }
+
   @override
   void onClose() {
     _db?.close();

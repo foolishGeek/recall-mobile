@@ -116,4 +116,49 @@ class ProfileRepository extends BaseRepository {
         final value = await supabase.rpc('current_stack_usage_rpc');
         return asInt(value);
       });
+
+  /// Generates (or overwrites) the user's data-export zip and returns a
+  /// short-lived signed URL + TTL [D-EF-5]. One file per user; each call resets
+  /// the 12h lifetime.
+  Future<ExportStatus> requestExport() => guard(() async {
+        final data = await supabase.invokeFunction(
+          'export-user-data',
+          body: const {'action': 'generate'},
+        );
+        // Deploy shell (pre-S24) returns 200 with stub:true — treat as failure so
+        // the UI never silently no-ops.
+        if (data['stub'] == true) {
+          throw const RepoException(
+            RepoErrorCode.providerError,
+            'Data export is not available on this server yet.',
+          );
+        }
+        final status = ExportStatus.fromJson(data);
+        if (!status.hasFile) {
+          throw RepoException(
+            RepoErrorCode.providerError,
+            data['message']?.toString() ??
+                'Export could not be prepared — try again.',
+          );
+        }
+        return status;
+      });
+
+  /// Re-mints a signed URL for an existing, non-expired export (no regenerate);
+  /// returns a not-ready status when none exists. Drives the "Export ready ·
+  /// expires in Nh" row on Settings load.
+  Future<ExportStatus> fetchExportStatus() => guard(() async {
+        final data = await supabase.invokeFunction(
+          'export-user-data',
+          body: const {'action': 'status'},
+        );
+        return ExportStatus.fromJson(data);
+      });
+
+  /// Irreversibly deletes the account server-side (storage purge + RevenueCat
+  /// REST delete + auth cascade) [D-EF-7]. The caller signs out only after this
+  /// resolves successfully.
+  Future<void> deleteAccount() => guard(() async {
+        await supabase.invokeFunction('delete-account');
+      });
 }

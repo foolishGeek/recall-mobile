@@ -9,6 +9,7 @@ export 'quiz_question.dart';
 
 export 'profile.dart';
 export 'subscription.dart';
+export 'export_status.dart';
 export 'bucket.dart';
 export 'node.dart';
 export 'node_asset.dart';

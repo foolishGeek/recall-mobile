@@ -5,6 +5,7 @@
 
 import 'package:get/get.dart';
 
+import '../../core/theme/theme_service.dart';
 import '../../data/repositories/ai_repository.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/bucket_repository.dart';
@@ -40,6 +41,10 @@ class InitialBinding extends Bindings {
           Get.isRegistered<SyncService>(),
       'Core singletons must be registered in main() before runApp.',
     );
+
+    // Theme: eager + permanent so the cached appearance choice (S24) applies on
+    // boot before any route builds; reconciled with profiles.theme on Settings.
+    Get.put<ThemeService>(ThemeService(Get.find<LocalStore>()), permanent: true);
 
     // Service stubs (filled in S04/S06/S16).
     Get.lazyPut<AiService>(() => AiService(Get.find()), fenix: true);
