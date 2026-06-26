@@ -36,6 +36,7 @@ class BucketsController extends BaseController
   final RxBool isSearchVisible = false.obs;
 
   late final AnimationController staggerController;
+  Worker? _tabWorker;
 
   bool get hasBuckets => buckets.isNotEmpty;
 
@@ -131,7 +132,8 @@ class BucketsController extends BaseController
     _loadData();
 
     final shell = Get.find<ShellController>();
-    ever(shell.currentTab, (RecallTab tab) {
+    _tabWorker = ever(shell.currentTab, (RecallTab tab) {
+      if (isClosed) return;
       if (tab == RecallTab.buckets) reload();
     });
   }
@@ -184,6 +186,7 @@ class BucketsController extends BaseController
   }
 
   void _runStagger() {
+    if (isClosed) return;
     final reduceMotion =
         PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
     if (reduceMotion) return;
@@ -191,6 +194,7 @@ class BucketsController extends BaseController
   }
 
   Future<void> reload({bool forceRemote = false}) async {
+    if (isClosed) return;
     staggerController.reset();
     final userId = _auth.currentUserId;
     if (userId == null) return;
@@ -253,6 +257,7 @@ class BucketsController extends BaseController
 
   @override
   void onClose() {
+    _tabWorker?.dispose();
     staggerController.dispose();
     super.onClose();
   }

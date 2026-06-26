@@ -61,6 +61,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   late final AnimationController cardController;
   late final Animation<double> ringProgress;
   late final Animation<double> haloOpacity;
+  Worker? _tabWorker;
 
   @override
   void onInit() {
@@ -69,10 +70,9 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     _loadData();
 
     final shell = Get.find<ShellController>();
-    ever(shell.currentTab, (RecallTab tab) {
-      if (tab == RecallTab.today) {
-        reload();
-      }
+    _tabWorker = ever(shell.currentTab, (RecallTab tab) {
+      if (isClosed) return;
+      if (tab == RecallTab.today) reload();
     });
   }
 
@@ -136,6 +136,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   }
 
   void _runAnimations() {
+    if (isClosed) return;
     final reduceMotion =
         PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
     if (reduceMotion) {
@@ -150,6 +151,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   }
 
   Future<void> reload() async {
+    if (isClosed) return;
     ringController.reset();
     cardController.reset();
     await _loadData();
@@ -220,6 +222,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
 
   @override
   void onClose() {
+    _tabWorker?.dispose();
     ringController.dispose();
     cardController.dispose();
     super.onClose();

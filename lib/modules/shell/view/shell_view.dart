@@ -13,7 +13,7 @@ import '../../you/view/you_view.dart';
 import '../binding/shell_binding.dart';
 import '../controller/shell_controller.dart';
 
-class ShellView extends GetView<ShellController> {
+class ShellView extends StatelessWidget {
   const ShellView({super.key});
 
   /// Hot reload clears GetX controllers without re-running route bindings; ensure
@@ -28,10 +28,16 @@ class ShellView extends GetView<ShellController> {
   Widget build(BuildContext context) {
     _ensureRegistered();
     return Obx(() {
-      final tab = controller.currentTab.value;
+      // Resolve inside Obx so a hot-reload race never hits GetView.controller
+      // after ShellController was cleared mid-frame.
+      if (!Get.isRegistered<ShellController>()) {
+        return const SizedBox.shrink();
+      }
+      final shell = Get.find<ShellController>();
+      final tab = shell.currentTab.value;
       return RecallScaffold(
         activeTab: tab,
-        onTabChange: controller.onTabSelected,
+        onTabChange: shell.onTabSelected,
         body: _bodyFor(tab),
       );
     });

@@ -34,6 +34,7 @@ class QuizHomeController extends BaseController
   final Rxn<QuizAttempt> resumable = Rxn<QuizAttempt>();
   final RxBool resuming = false.obs;
   late final AnimationController staggerController;
+  Worker? _tabWorker;
 
   TierGate get gate => _tierService.gate;
   bool get locked => gate.quizBlocked;
@@ -52,12 +53,14 @@ class QuizHomeController extends BaseController
     _load();
 
     final shell = Get.find<ShellController>();
-    ever(shell.currentTab, (RecallTab tab) {
+    _tabWorker = ever(shell.currentTab, (RecallTab tab) {
+      if (isClosed) return;
       if (tab == RecallTab.quiz) reload();
     });
   }
 
   Future<void> reload() async {
+    if (isClosed) return;
     staggerController.reset();
     await _load();
   }
@@ -87,6 +90,7 @@ class QuizHomeController extends BaseController
   }
 
   void _runStagger() {
+    if (isClosed) return;
     final reduceMotion =
         PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
     if (reduceMotion) {
@@ -144,6 +148,7 @@ class QuizHomeController extends BaseController
 
   @override
   void onClose() {
+    _tabWorker?.dispose();
     staggerController.dispose();
     super.onClose();
   }
