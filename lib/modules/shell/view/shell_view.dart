@@ -10,13 +10,23 @@ import '../../insights/view/insights_view.dart';
 import '../../quiz_home/view/quiz_home_view.dart';
 import '../../today/view/today_view.dart';
 import '../../you/view/you_view.dart';
+import '../binding/shell_binding.dart';
 import '../controller/shell_controller.dart';
 
 class ShellView extends GetView<ShellController> {
   const ShellView({super.key});
 
+  /// Hot reload clears GetX controllers without re-running route bindings; ensure
+  /// the shell (and tab controllers) are registered before the first Obx read.
+  void _ensureRegistered() {
+    if (!Get.isRegistered<ShellController>()) {
+      ShellBinding().dependencies();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _ensureRegistered();
     return Obx(() {
       final tab = controller.currentTab.value;
       return RecallScaffold(
