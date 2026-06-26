@@ -14,6 +14,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme/recall_colors.dart';
+import '../theme/recall_motion.dart';
 
 class HeatRing extends StatelessWidget {
   final double progress;
@@ -65,6 +66,47 @@ class HeatRing extends StatelessWidget {
                           centerStyle ?? TextStyle(fontSize: 12, color: c.ink),
                     ),
                   )),
+      ),
+    );
+  }
+}
+
+/// A [HeatRing] that draws its arc in once on first build (600ms easeInOut per
+/// Insights mastery motion). Honors reduced motion (snaps to full). The center
+/// label and heat density are passed straight through.
+class AnimatedHeatRing extends StatelessWidget {
+  final double progress;
+  final double heat;
+  final double size;
+  final String? center;
+  final TextStyle? centerStyle;
+  final Duration duration;
+
+  const AnimatedHeatRing({
+    super.key,
+    required this.progress,
+    this.heat = 0.6,
+    this.size = 54,
+    this.center,
+    this.centerStyle,
+    this.duration = const Duration(milliseconds: 600),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final target = progress.clamp(0.0, 1.0);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: reduceMotion ? target : 0.0, end: target),
+      duration: reduceMotion ? Duration.zero : duration,
+      curve: RecallMotion.easeInOut,
+      builder: (context, value, _) => HeatRing(
+        progress: value,
+        heat: heat,
+        size: size,
+        center: center,
+        centerStyle: centerStyle,
       ),
     );
   }
