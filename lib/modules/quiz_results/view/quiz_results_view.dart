@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../../core/brand/aura_brand.dart';
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/widgets/aura_mark.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../controller/quiz_results_controller.dart';
 import 'widgets/quiz_breakdown.dart';
@@ -79,12 +83,20 @@ class _ResultsContent extends StatelessWidget {
                     ),
                     if (data.comfortUpdates.isNotEmpty) const SizedBox(height: 24),
                     QuizComfortUpdateSection(updates: data.comfortUpdates),
+                    const SizedBox(height: 24),
+                    Obx(() {
+                      if (controller.quizFeedbackGiven.value) {
+                        return const SizedBox.shrink();
+                      }
+                      return _FeedbackPrompt(onTap: controller.openQuizFeedback);
+                    }),
                   ],
                 );
               }),
             ),
           ],
         ),
+        // Footer sits above the list's bottom padding.
         Positioned(
           left: 0,
           right: 0,
@@ -97,6 +109,62 @@ class _ResultsContent extends StatelessWidget {
               )),
         ),
       ],
+    );
+  }
+}
+
+class _FeedbackPrompt extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _FeedbackPrompt({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+        decoration: BoxDecoration(
+          color: c.cardSunken,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: c.grey200),
+        ),
+        child: Row(
+          children: [
+            const AuraMark(size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'How was this quiz?',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: c.ink,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'A quick note helps ${AuraBrand.name} calibrate — optional.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      color: c.grey500,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, size: 20, color: c.grey400),
+          ],
+        ),
+      ),
     );
   }
 }

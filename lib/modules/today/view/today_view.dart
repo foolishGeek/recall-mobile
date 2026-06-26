@@ -12,6 +12,7 @@ import '../../../core/widgets/recall_state_view.dart';
 import '../controller/today_controller.dart';
 import 'widgets/today_heat_ring.dart';
 import 'widgets/today_peeking_stack.dart';
+import 'widgets/today_relearn_card.dart';
 import 'widgets/today_stacks_meter.dart';
 import 'widgets/today_start_cta.dart';
 import 'widgets/today_top_bar.dart';
@@ -100,6 +101,18 @@ class _TodayLoaded extends StatelessWidget {
                       );
                     }),
                     const Spacer(),
+                    Obx(() {
+                      if (!controller.showRelearn) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: TodayRelearnCard(
+                          count: controller.relearnCount,
+                          isStarting: controller.isRelearnStarting.value,
+                          onStart: controller.startRelearn,
+                          onDismiss: controller.dismissRelearn,
+                        ),
+                      );
+                    }),
                     Obx(() => TodayStartCta(
                           label: controller.isAtStackLimit
                               ? 'Unlock unlimited reviews'
@@ -173,6 +186,18 @@ class _TodayEmpty extends StatelessWidget {
             ),
           ),
           const Spacer(flex: 2),
+          Obx(() {
+            if (!controller.showRelearn) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: TodayRelearnCard(
+                count: controller.relearnCount,
+                isStarting: controller.isRelearnStarting.value,
+                onStart: controller.startRelearn,
+                onDismiss: controller.dismissRelearn,
+              ),
+            );
+          }),
         ],
       ),
     );

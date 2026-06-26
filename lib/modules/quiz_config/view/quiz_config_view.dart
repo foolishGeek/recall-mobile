@@ -68,7 +68,21 @@ class _QuizConfigContent extends StatelessWidget {
                     label: 'Use my notes',
                     value: controller.useMyNotes.value,
                     onChanged: controller.setUseMyNotes,
+                    caption: controller.useMyNotes.value
+                        ? 'Aura draws topics from your notes first'
+                        : 'Aura uses broad knowledge only',
                   ),
+                );
+              }),
+              Obx(() {
+                if (!controller.isFreehand ||
+                    !controller.useMyNotes.value ||
+                    controller.buckets.isEmpty) {
+                  return const SizedBox();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: QuizFreehandScope(controller: controller),
                 );
               }),
               const SizedBox(height: 24),

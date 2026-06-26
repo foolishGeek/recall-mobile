@@ -74,6 +74,55 @@ class _PromptBox extends StatelessWidget {
   }
 }
 
+/// Optional scope for free-hand quizzes: which buckets Aura should mine for
+/// collective topics. Leaving everything unselected means "all my notes".
+class QuizFreehandScope extends StatelessWidget {
+  final QuizConfigController controller;
+
+  const QuizFreehandScope({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    final t = RecallType.of(context);
+    return SoftCard(
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MonoLabel('Draw from', size: 9),
+          const SizedBox(height: 6),
+          Obx(() => Text(
+                controller.selectedBucketIds.isEmpty
+                    ? 'All your notes — pick buckets to narrow the topics.'
+                    : '${controller.selectedBucketIds.length} bucket(s) selected.',
+                style: t.bodyXs.copyWith(color: c.grey500, height: 1.35),
+              )),
+          const SizedBox(height: 12),
+          Obx(() => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final bucket in controller.buckets)
+                    QuizConfigChip(
+                      label: bucket.name,
+                      meta: controller.nodes
+                          .where((n) => n.bucketId == bucket.id)
+                          .length
+                          .toString(),
+                      selected:
+                          controller.selectedBucketIds.contains(bucket.id),
+                      onTap: () => controller.toggleBucket(bucket.id),
+                    ),
+                ],
+              )),
+        ],
+      ),
+    );
+  }
+}
+
 class _BucketPicker extends StatelessWidget {
   final QuizConfigController controller;
 

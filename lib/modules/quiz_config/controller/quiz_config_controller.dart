@@ -78,9 +78,13 @@ class QuizConfigController extends BaseController {
   @override
   void onInit() {
     super.onInit();
-    mode.value = QuizMode.fromWire(
-      (Get.arguments as Map<String, dynamic>?)?['mode'],
-    );
+    final args = Get.arguments as Map<String, dynamic>?;
+    mode.value = QuizMode.fromWire(args?['mode']);
+    // Seeded selections (e.g. from the Re-learn weak skills nudge).
+    final seedNodes = (args?['node_ids'] as List?)?.cast<String>();
+    final seedBuckets = (args?['bucket_ids'] as List?)?.cast<String>();
+    if (seedNodes != null) selectedNodeIds.addAll(seedNodes);
+    if (seedBuckets != null) selectedBucketIds.addAll(seedBuckets);
     promptController.addListener(() {
       promptText.value = promptController.text;
       inlineMessage.value = '';

@@ -15,7 +15,8 @@ extension QuizConfigControllerFlow on QuizConfigController {
   String get subtitle {
     switch (mode.value) {
       case QuizMode.freehand:
-        return 'Tell us the topic in your own words. Be as loose as you like.';
+        return 'Tell us a topic. Aura grounds it in your notes, then fills the '
+            'gaps with broader knowledge.';
       case QuizMode.byBucket:
         return 'Pick what to draw from, how many, and how hard.';
       case QuizMode.byNode:
@@ -27,7 +28,7 @@ extension QuizConfigControllerFlow on QuizConfigController {
     if (isOffline) return 'AI generation needs a connection.';
     if (!gate.isPremium) return 'Premium required.';
     if (inlineMessage.value.isNotEmpty) return inlineMessage.value;
-    return 'Claude - ~ 4 sec';
+    return 'Aura · ~4 sec';
   }
 
   Future<void> generate() async {

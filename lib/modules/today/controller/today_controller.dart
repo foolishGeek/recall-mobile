@@ -7,6 +7,7 @@ import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../data/models/models.dart';
+import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/stack_repository.dart';
 import '../../../data/repositories/today_repository.dart';
@@ -22,6 +23,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final _profileRepo = Get.find<ProfileRepository>();
   final _todayRepo = Get.find<TodayRepository>();
   final _stackRepo = Get.find<StackRepository>();
+  final _aiRepo = Get.find<AiRepository>();
   final _tierService = Get.find<TierService>();
   final _syncStatus = Get.find<SyncStatusService>();
 
@@ -34,6 +36,15 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final RxList<DuePreviewNode> peekingNodes = <DuePreviewNode>[].obs;
   final RxInt stacksUsed = 0.obs;
   final RxBool isStarting = false.obs;
+
+  // Re-learn weak skills nudge [D-AI-9]. Loaded best-effort; never blocks Today.
+  final RxList<RelearnSkill> relearnSkills = <RelearnSkill>[].obs;
+  final RxBool relearnDismissed = false.obs;
+  final RxBool isRelearnStarting = false.obs;
+
+  bool get showRelearn =>
+      relearnSkills.isNotEmpty && !relearnDismissed.value;
+  int get relearnCount => relearnSkills.length;
 
   int get currentStreak => profile.value?.currentStreak ?? 0;
 
@@ -113,6 +124,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       _syncStatus.setOffline(false);
       setSuccess();
       if (dueCount.value > 0) _runAnimations();
+      _loadRelearn();
     } on RepoException catch (e) {
       if (e.isOffline) {
         _syncStatus.setOffline(true);
@@ -141,6 +153,44 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     ringController.reset();
     cardController.reset();
     await _loadData();
+  }
+
+  /// Weak skills are a quiet enhancement — a failure here must never surface as
+  /// an error on the Today screen, so we swallow exceptions.
+  Future<void> _loadRelearn() async {
+    try {
+      final skills = await _aiRepo.fetchRelearnSkills(limit: 12);
+      relearnSkills.assignAll(skills);
+    } catch (_) {
+      relearnSkills.clear();
+    }
+  }
+
+  void dismissRelearn() {
+    RecallHaptics.light();
+    relearnDismissed.value = true;
+  }
+
+  /// Seed a focused quiz from the user's weakest nodes.
+  Future<void> startRelearn() async {
+    if (isRelearnStarting.value) return;
+    isRelearnStarting.value = true;
+    try {
+      RecallHaptics.medium();
+      final nodeIds = await _aiRepo.buildRelearnSession(limit: 20);
+      if (nodeIds.isEmpty) {
+        relearnSkills.clear();
+        return;
+      }
+      Get.toNamed(Routes.quizConfig, arguments: {
+        'mode': 'by_node',
+        'node_ids': nodeIds,
+      });
+    } on RepoException catch (e) {
+      setError(e.message);
+    } finally {
+      isRelearnStarting.value = false;
+    }
   }
 
   Future<void> startReview() async {
