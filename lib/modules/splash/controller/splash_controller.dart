@@ -12,6 +12,7 @@ import '../../../core/theme/recall_motion.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/sync_service.dart';
+import '../../../data/services/tier_service.dart';
 import '../../../data/services/repo_exception.dart';
 
 class SplashController extends GetxController
@@ -152,6 +153,7 @@ class SplashController extends GetxController
       await Get.find<SyncService>().flushProfilePrefs();
       final done = await _profileRepo.resolveOnboardingDone(userId);
       _auth.setOnboardingDone(done);
+      await Get.find<TierService>().refreshFromServer(_profileRepo, userId);
     } on RepoException catch (e) {
       if (!e.isOffline) {
         await Sentry.captureException(

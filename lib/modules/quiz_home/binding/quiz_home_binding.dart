@@ -1,6 +1,5 @@
 import 'package:get/get.dart';
 
-import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/quiz_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/tier_service.dart';
@@ -12,7 +11,6 @@ class QuizHomeBinding extends Bindings {
     Get.lazyPut(() => QuizHomeController(
           Get.find<AuthService>(),
           Get.find<QuizRepository>(),
-          Get.find<ProfileRepository>(),
           Get.find<TierService>(),
         ));
   }

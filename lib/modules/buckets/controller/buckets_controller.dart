@@ -13,6 +13,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/sync_status_service.dart';
 import '../../../data/services/tier_service.dart';
+import '../../../data/services/metrics_service.dart';
 import '../../shell/controller/shell_controller.dart';
 
 enum BucketFilter { all, active, cooling, aToZ }
@@ -23,8 +24,10 @@ class BucketsController extends BaseController
   final _bucketRepo = Get.find<BucketRepository>();
   final _tierService = Get.find<TierService>();
   final _syncStatus = Get.find<SyncStatusService>();
+  final _metrics = Get.find<MetricsService>();
 
   final RxList<Bucket> buckets = <Bucket>[].obs;
+  final RxSet<String> activeBucketIds = <String>{}.obs;
   final RxInt bucketCount = 0.obs;
   final RxInt nodeCount = 0.obs;
   final RxMap<String, BucketHeatStats> heatStats =
@@ -62,13 +65,17 @@ class BucketsController extends BaseController
     return list;
   }
 
-  bool get fabLocked =>
-      _tierService.gate.showBucketFabLock(currentBucketCount: buckets.length);
+  bool get fabLocked {
+    _tierService.tierRx.value;
+    return _tierService.gate
+        .showBucketFabLock(currentBucketCount: buckets.length);
+  }
+
+  bool isReadOnly(Bucket b) =>
+      _tierService.gate.isDowngraded && !activeBucketIds.contains(b.id);
 
   bool isCooling(Bucket b) =>
       b.cooldownUntil != null && b.cooldownUntil!.isAfter(DateTime.now());
-
-  bool isReadOnly(int index) => _tierService.gate.isBucketReadOnly(index);
 
   double masteryFor(Bucket b) {
     final hs = b.heatSummary;
@@ -147,18 +154,23 @@ class BucketsController extends BaseController
     try {
       final results = await Future.wait([
         _bucketRepo.fetchAll(userId),
+        _bucketRepo.fetchActiveBuckets(userId),
         _bucketRepo.fetchAllHeatStats(userId),
         _bucketRepo.fetchAllMastery(userId),
         _bucketRepo.fetchTotalNodeCount(userId),
       ]);
 
       final loadedBuckets = results[0] as List<Bucket>;
+      final activeBuckets = results[1] as List<Bucket>;
 
       buckets.assignAll(loadedBuckets);
+      activeBucketIds
+        ..clear()
+        ..addAll(activeBuckets.map((b) => b.id));
       bucketCount.value = loadedBuckets.length;
-      heatStats.assignAll(results[1] as Map<String, BucketHeatStats>);
-      masteryMap.assignAll(results[2] as Map<String, double>);
-      nodeCount.value = results[3] as int;
+      heatStats.assignAll(results[2] as Map<String, BucketHeatStats>);
+      masteryMap.assignAll(results[3] as Map<String, double>);
+      nodeCount.value = results[4] as int;
 
       _syncStatus.setOffline(false);
       setSuccess();
@@ -202,7 +214,11 @@ class BucketsController extends BaseController
     if (forceRemote) {
       try {
         final fresh = await _bucketRepo.fetchAll(userId, forceRemote: true);
+        final active = await _bucketRepo.fetchActiveBuckets(userId);
         buckets.assignAll(fresh);
+        activeBucketIds
+          ..clear()
+          ..addAll(active.map((b) => b.id));
         bucketCount.value = fresh.length;
 
         final stats = await _bucketRepo.fetchAllHeatStats(userId);
@@ -241,17 +257,18 @@ class BucketsController extends BaseController
   void onFabTap() {
     RecallHaptics.light();
     if (fabLocked) {
+      _metrics.downgradedGateHit('buckets_fab');
       Get.toNamed(Routes.paywall);
     } else {
       Get.toNamed(Routes.nodeAdd);
     }
   }
 
-  void onBucketTap(Bucket bucket, int index) {
+  void onBucketTap(Bucket bucket) {
     RecallHaptics.selection();
     Get.toNamed(Routes.bucket, arguments: {
       'bucket_id': bucket.id,
-      'read_only': isReadOnly(index),
+      'read_only': isReadOnly(bucket),
     });
   }
 

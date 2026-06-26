@@ -9,9 +9,9 @@ import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/quiz_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/metrics_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
 import '../../shell/controller/shell_controller.dart';
@@ -21,14 +21,13 @@ class QuizHomeController extends BaseController
   QuizHomeController(
     this._auth,
     this._quizRepo,
-    this._profileRepo,
     this._tierService,
   );
 
   final AuthService _auth;
   final QuizRepository _quizRepo;
-  final ProfileRepository _profileRepo;
   final TierService _tierService;
+  final _metrics = Get.find<MetricsService>();
 
   final RxList<QuizAttempt> recentAttempts = <QuizAttempt>[].obs;
   final Rxn<QuizAttempt> resumable = Rxn<QuizAttempt>();
@@ -72,15 +71,12 @@ class QuizHomeController extends BaseController
     setLoading();
     try {
       final results = await Future.wait([
-        _profileRepo.fetchSubscription(userId),
         _quizRepo.fetchRecentAttempts(userId, limit: 8),
         _quizRepo.fetchInProgressAttempt(userId),
       ]);
 
-      final subscription = results[0] as Subscription?;
-      _tierService.setTier(subscription?.tier ?? SubscriptionTier.free);
-      recentAttempts.assignAll(results[1] as List<QuizAttempt>);
-      resumable.value = results[2] as QuizAttempt?;
+      recentAttempts.assignAll(results[0] as List<QuizAttempt>);
+      resumable.value = results[1] as QuizAttempt?;
 
       setSuccess();
       _runStagger();
@@ -103,6 +99,7 @@ class QuizHomeController extends BaseController
   void onModeTap(QuizMode mode) {
     if (locked) {
       RecallHaptics.light();
+      _metrics.downgradedGateHit('quiz_home');
       Get.toNamed(Routes.paywall);
       return;
     }

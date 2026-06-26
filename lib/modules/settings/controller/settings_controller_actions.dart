@@ -180,8 +180,8 @@ extension SettingsActions on SettingsController {
       final r = await _profiles.refreshEntitlement(userId);
       subscription.value = r.subscription;
       profile.value = r.profile;
-      tier.value = _resolveTier(r.subscription, r.profile);
-      _tier.setTier(tier.value);
+      _tier.applyEntitlement(subscription: r.subscription, profile: r.profile);
+      tier.value = _tier.tier;
     } catch (_) {
       // keep last known state
     }

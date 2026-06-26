@@ -63,6 +63,7 @@ class NodeAddController extends BaseController {
   final RxBool showDetectedChip = false.obs;
 
   final RxBool isSaving = false.obs;
+  final RxBool bucketReadOnly = false.obs;
   final RxnString validationError = RxnString();
 
   final Rxn<Uint8List> pickedFileBytes = Rxn<Uint8List>();
@@ -141,6 +142,15 @@ class NodeAddController extends BaseController {
           _populateFromNode(_existingNode!);
           selectedTags.assignAll(results[3] as List<Tag>);
           comfortReadOnly.value = results[4] as bool;
+          final nodeBucketWritable = writableBuckets
+              .any((b) => b.id == _existingNode!.bucketId);
+          if (!nodeBucketWritable) {
+            bucketReadOnly.value = true;
+            setError(
+              'This note is in a read-only bucket. Resubscribe to edit.',
+            );
+            return;
+          }
         }
       }
 
@@ -431,7 +441,8 @@ class NodeAddController extends BaseController {
     _formValid.value = _validate() == null;
   }
 
-  bool get canSave => _formValid.value && !isSaving.value;
+  bool get canSave =>
+      _formValid.value && !isSaving.value && !bucketReadOnly.value;
 
   // ── Save ──
 

@@ -137,19 +137,11 @@ class PaywallController extends BaseController {
       final r = await _profiles.refreshEntitlement(userId);
       subscription.value = r.subscription;
       profile.value = r.profile;
-      tier.value = _resolveTier(r.subscription, r.profile);
-      _tierService.setTier(tier.value);
+      _tierService.applyEntitlement(subscription: r.subscription, profile: r.profile);
+      tier.value = _tierService.tier;
     } catch (_) {
       // Keep the last known tier; the screen still renders.
     }
-  }
-
-  /// Downgraded = currently free but previously premium — mirrors the server
-  /// gate and `ai_chat_controller`.
-  SubscriptionTier _resolveTier(Subscription? sub, Profile? p) {
-    if (sub?.tier == SubscriptionTier.premium) return SubscriptionTier.premium;
-    if (p?.hadPremium == true) return SubscriptionTier.downgraded;
-    return SubscriptionTier.free;
   }
 
   // ── Intents ────────────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ class BucketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final readOnly = controller.isReadOnly(index);
+    final readOnly = controller.isReadOnly(bucket);
     final cooling = controller.isCooling(bucket);
     final mastery = controller.masteryFor(bucket);
     final heat = controller.heatFor(bucket);

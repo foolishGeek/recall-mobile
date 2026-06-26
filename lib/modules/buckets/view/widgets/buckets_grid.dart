@@ -62,7 +62,7 @@ class BucketsGrid extends StatelessWidget {
             bucket: bucket,
             index: index,
             controller: controller,
-            onTap: () => controller.onBucketTap(bucket, index),
+            onTap: () => controller.onBucketTap(bucket),
           );
 
           if (reduceMotion) return card;

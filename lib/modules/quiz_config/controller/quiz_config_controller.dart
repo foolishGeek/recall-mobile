@@ -8,7 +8,6 @@ import '../../../core/utils/recall_haptics.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/node_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/quiz_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
@@ -23,7 +22,6 @@ class QuizConfigController extends BaseController {
     this._quizRepo,
     this._bucketRepo,
     this._nodeRepo,
-    this._profileRepo,
     this._tierService,
     this._syncStatus,
   );
@@ -32,7 +30,6 @@ class QuizConfigController extends BaseController {
   final QuizRepository _quizRepo;
   final BucketRepository _bucketRepo;
   final NodeRepository _nodeRepo;
-  final ProfileRepository _profileRepo;
   final TierService _tierService;
   final SyncStatusService _syncStatus;
 
@@ -99,9 +96,6 @@ class QuizConfigController extends BaseController {
 
     setLoading();
     try {
-      final subscription = await _profileRepo.fetchSubscription(userId);
-      _tierService.setTier(subscription?.tier ?? SubscriptionTier.free);
-
       final loadedBuckets = await _bucketRepo.fetchActiveBuckets(userId);
       final loadedNodeLists = await Future.wait(
         loadedBuckets.map((bucket) => _nodeRepo.fetchByBucket(bucket.id)),

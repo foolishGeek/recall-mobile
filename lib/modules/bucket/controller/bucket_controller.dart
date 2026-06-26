@@ -16,13 +16,14 @@ import '../../buckets/controller/buckets_controller.dart';
 
 class BucketController extends BaseController {
   BucketController(
-    AuthService _,
+    this._auth,
     this._bucketRepo,
     this._nodeRepo,
     this._aiRepo,
     this._tierService,
   );
 
+  final AuthService _auth;
   final BucketRepository _bucketRepo;
   final NodeRepository _nodeRepo;
   final AiRepository _aiRepo;
@@ -107,11 +108,16 @@ class BucketController extends BaseController {
     }
     setLoading();
     try {
-      final results = await Future.wait([
+      final userId = _auth.currentUserId;
+      final futures = <Future<Object?>>[
         _bucketRepo.fetchById(bucketId),
         _bucketRepo.fetchMastery(bucketId),
         _nodeRepo.fetchByBucket(bucketId),
-      ]);
+      ];
+      if (userId != null) {
+        futures.add(_bucketRepo.fetchActiveBuckets(userId));
+      }
+      final results = await Future.wait(futures);
       final loadedBucket = results[0] as Bucket?;
       if (loadedBucket == null) {
         setError('Bucket not found.');
@@ -120,6 +126,14 @@ class BucketController extends BaseController {
       bucket.value = loadedBucket;
       mastery.value = (results[1] as double?) ?? 0.0;
       nodes.assignAll(results[2] as List<Node>);
+
+      if (results.length > 3) {
+        final active = results[3] as List<Bucket>;
+        final activeIds = active.map((b) => b.id).toSet();
+        if (_tierService.isDowngraded) {
+          readOnly.value = !activeIds.contains(bucketId);
+        }
+      }
 
       _syncDraftFromBucket(loadedBucket);
       hasPendingChanges.value = false;

@@ -23,6 +23,7 @@ import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/metrics_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
 import '../view/widgets/ai_cooldown_sheet.dart';
@@ -50,6 +51,7 @@ class AiChatController extends BaseController {
   final BucketRepository _bucketRepo;
   final ProfileRepository _profileRepo;
   final TierService _tierService;
+  final _metrics = Get.find<MetricsService>();
   final LocalStore _local = Get.find<LocalStore>();
 
   // Rating nudge tuning [feedback-nudges]. After this many answers we may show
@@ -63,7 +65,6 @@ class AiChatController extends BaseController {
   final RxList<AiChatTurn> turns = <AiChatTurn>[].obs;
   final RxInt nodeCount = 0.obs;
   final Rxn<Profile> profile = Rxn<Profile>();
-  final Rx<SubscriptionTier> _tier = SubscriptionTier.free.obs;
 
   // Optional bucket scope passed from a bucket's "Ask AI" entry point. Empty =>
   // the whole active-bucket scope (resolved server-side).
@@ -88,7 +89,7 @@ class AiChatController extends BaseController {
   String _lastQuestion = '';
   Timer? _typeTimer;
 
-  TierGate get gate => TierGate(_tier.value);
+  TierGate get gate => _tierService.gate;
   bool get answering => phase.value != AnswerPhase.idle;
   bool get showSuggestions =>
       turns.isEmpty && !answering && answerError.value == null;
@@ -126,8 +127,7 @@ class AiChatController extends BaseController {
       final heat = results[3] as Map<String, BucketHeatStats>;
 
       profile.value = p;
-      _tier.value = _resolveTier(sub, p);
-      _tierService.setTier(_tier.value);
+      _tierService.applyEntitlement(subscription: sub, profile: p);
       nodeCount.value = active.fold<int>(
         0,
         (sum, b) => sum + (heat[b.id]?.nodeCount ?? 0),
@@ -139,13 +139,6 @@ class AiChatController extends BaseController {
     }
   }
 
-  /// Downgraded = currently free but previously premium [B5] — mirrors the
-  /// server `ai_gate_check`. The DB `subscriptions.tier` is only free/premium.
-  SubscriptionTier _resolveTier(Subscription? sub, Profile? p) {
-    if (sub?.tier == SubscriptionTier.premium) return SubscriptionTier.premium;
-    if (p?.hadPremium == true) return SubscriptionTier.downgraded;
-    return SubscriptionTier.free;
-  }
 
   // ----------------------------------------------------------- gating UI --
 
@@ -180,6 +173,7 @@ class AiChatController extends BaseController {
     if (text.isEmpty || answering) return;
     if (composerLockReason != null) {
       RecallHaptics.light();
+      _metrics.downgradedGateHit('ai_chat');
       Get.toNamed(Routes.paywall);
       return;
     }
@@ -261,7 +255,7 @@ class AiChatController extends BaseController {
       case RepoErrorCode.insufficientCredits:
         _openCooldownSheet(e.extra); // sheet falls back to "Buy credits"
       case RepoErrorCode.premiumRequired:
-        _tier.value = SubscriptionTier.downgraded;
+        _tierService.setTier(SubscriptionTier.downgraded);
         _track('ai_chat_quota_hit');
       case RepoErrorCode.aiQuotaExceeded:
         unawaited(_refreshProfile());

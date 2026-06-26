@@ -31,7 +31,6 @@ class ShellBinding extends Bindings {
             Get.find(),
             Get.find(),
             Get.find(),
-            Get.find(),
           ));
     }
     if (!Get.isRegistered<InsightsController>()) {

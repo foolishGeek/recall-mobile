@@ -164,8 +164,8 @@ class SettingsController extends BaseController {
       _syncStatus.setOffline(false);
       profile.value = r.profile;
       subscription.value = r.subscription;
-      tier.value = _resolveTier(r.subscription, r.profile);
-      _tier.setTier(tier.value);
+      _tier.applyEntitlement(subscription: r.subscription, profile: r.profile);
+      tier.value = _tier.tier;
 
       final p = r.profile;
       if (p != null) {
@@ -308,12 +308,6 @@ class SettingsController extends BaseController {
   }
 
   // ── Shared helpers (used here + in the actions part) ──────────────────────
-  SubscriptionTier _resolveTier(Subscription? sub, Profile? p) {
-    if (sub?.tier == SubscriptionTier.premium) return SubscriptionTier.premium;
-    if (p?.hadPremium == true) return SubscriptionTier.downgraded;
-    return SubscriptionTier.free;
-  }
-
   StoreProduct? _creditProduct(String id) {
     for (final p in creditProducts) {
       if (p.identifier == id) return p;
