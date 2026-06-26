@@ -8,10 +8,12 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
+import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/stack_repository.dart';
 import '../../../data/repositories/today_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/metrics_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/sync_status_service.dart';
 import '../../../data/services/tier_service.dart';
@@ -22,10 +24,12 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final _auth = Get.find<AuthService>();
   final _profileRepo = Get.find<ProfileRepository>();
   final _todayRepo = Get.find<TodayRepository>();
+  final _bucketRepo = Get.find<BucketRepository>();
   final _stackRepo = Get.find<StackRepository>();
   final _aiRepo = Get.find<AiRepository>();
   final _tierService = Get.find<TierService>();
   final _syncStatus = Get.find<SyncStatusService>();
+  final _metrics = Get.find<MetricsService>();
 
   final Rxn<Profile> profile = Rxn<Profile>();
   final RxInt dueCount = 0.obs;
@@ -37,6 +41,14 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final RxInt stacksUsed = 0.obs;
   final RxBool isStarting = false.obs;
 
+  // Empty / all-caught-up state (S25).
+  final RxInt bucketCount = 0.obs;
+  final RxInt nodeCount = 0.obs;
+  final Rxn<DateTime> nextDropAt = Rxn<DateTime>();
+  final RxBool showReviewAhead = false.obs;
+  final RxBool isStartingAhead = false.obs;
+  final Rxn<DoneFastBanner> doneFastBanner = Rxn<DoneFastBanner>();
+
   // Re-learn weak skills nudge [D-AI-9]. Loaded best-effort; never blocks Today.
   final RxList<RelearnSkill> relearnSkills = <RelearnSkill>[].obs;
   final RxBool relearnDismissed = false.obs;
@@ -47,6 +59,10 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   int get relearnCount => relearnSkills.length;
 
   int get currentStreak => profile.value?.currentStreak ?? 0;
+
+  bool get isAllCaughtUp => dueCount.value == 0 && bucketCount.value > 0;
+  bool get isNoBuckets => bucketCount.value == 0;
+  bool get hasNotes => nodeCount.value > 0;
 
   String get formattedDate {
     final now = DateTime.now();
@@ -83,8 +99,6 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     );
     cardController = AnimationController(
       vsync: this,
-      // Slow, deliberate "deck fanning out" entrance — the stack should bounce
-      // open over a couple of seconds so it feels alive on every visit.
       duration: const Duration(milliseconds: 1500),
     );
     ringProgress = CurvedAnimation(
@@ -109,6 +123,8 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
         _todayRepo.fetchTodaySummary(),
         _todayRepo.fetchDuePoolPreview(),
         _profileRepo.fetchStacksCreatedThisMonth(userId),
+        _bucketRepo.fetchAll(userId),
+        _bucketRepo.fetchTotalNodeCount(userId),
       ]);
 
       profile.value = results[0] as Profile?;
@@ -120,6 +136,16 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       coolCount.value = summary.coolCount;
       peekingNodes.assignAll(results[2] as List<DuePreviewNode>);
       stacksUsed.value = results[3] as int;
+      bucketCount.value = (results[4] as List<Bucket>).length;
+      nodeCount.value = results[5] as int;
+
+      if (dueCount.value == 0 && bucketCount.value > 0) {
+        await _loadCaughtUpExtras();
+      } else {
+        nextDropAt.value = null;
+        showReviewAhead.value = false;
+        doneFastBanner.value = null;
+      }
 
       _syncStatus.setOffline(false);
       setSuccess();
@@ -135,12 +161,26 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     }
   }
 
+  Future<void> _loadCaughtUpExtras() async {
+    try {
+      final results = await Future.wait([
+        _bucketRepo.fetchGlobalNextDrop(),
+        _todayRepo.fetchReviewAheadCount(),
+        _metrics.consumeDoneFastBanner(),
+      ]);
+      nextDropAt.value = results[0] as DateTime?;
+      showReviewAhead.value = (results[1] as int) > 0;
+      doneFastBanner.value = results[2] as DoneFastBanner?;
+    } on RepoException catch (_) {
+      // Non-critical; empty state renders without next-drop / review-ahead.
+    }
+  }
+
   void _runAnimations() {
     if (isClosed) return;
     final reduceMotion =
         PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
     if (reduceMotion) {
-      // Snap to the resting state so cards/ring stay visible without motion.
       ringController.value = 1.0;
       cardController.value = 1.0;
       return;
@@ -157,8 +197,6 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     await _loadData();
   }
 
-  /// Weak skills are a quiet enhancement — a failure here must never surface as
-  /// an error on the Today screen, so we swallow exceptions.
   Future<void> _loadRelearn() async {
     try {
       final skills = await _aiRepo.fetchRelearnSkills(limit: 12);
@@ -173,7 +211,6 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     relearnDismissed.value = true;
   }
 
-  /// Seed a focused quiz from the user's weakest nodes.
   Future<void> startRelearn() async {
     if (isRelearnStarting.value) return;
     isRelearnStarting.value = true;
@@ -218,6 +255,41 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     } finally {
       isStarting.value = false;
     }
+  }
+
+  Future<void> startReviewAhead() async {
+    if (isStartingAhead.value) return;
+    isStartingAhead.value = true;
+
+    try {
+      RecallHaptics.light();
+      final result = await _stackRepo.generate(ahead: true);
+
+      if (result.stack != null) {
+        Get.toNamed(Routes.review);
+      } else {
+        showReviewAhead.value = false;
+        Get.snackbar(
+          'Nothing to review ahead',
+          'All upcoming cards are still resting.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } on RepoException catch (e) {
+      if (e.code == RepoErrorCode.freeTierStackLimit) {
+        Get.toNamed(Routes.paywall);
+      } else {
+        setError(e.message);
+      }
+    } finally {
+      isStartingAhead.value = false;
+    }
+  }
+
+  void onMakeBucket() {
+    RecallHaptics.light();
+    Get.toNamed(Routes.nodeAdd);
   }
 
   @override

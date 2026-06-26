@@ -8,12 +8,9 @@ import '../../modules/ai_chat/binding/ai_chat_binding.dart';
 import '../../modules/ai_chat/view/ai_chat_view.dart';
 import '../../modules/bucket/binding/bucket_binding.dart';
 import '../../modules/bucket/view/bucket_view.dart';
-import '../../modules/empty_buckets/binding/empty_buckets_binding.dart';
-import '../../modules/empty_buckets/view/empty_buckets_view.dart';
-import '../../modules/empty_insights/binding/empty_insights_binding.dart';
-import '../../modules/empty_insights/view/empty_insights_view.dart';
-import '../../modules/empty_today/binding/empty_today_binding.dart';
-import '../../modules/empty_today/view/empty_today_view.dart';
+import '../../modules/empty/binding/empty_binding.dart';
+import '../../modules/empty/empty_variant.dart';
+import '../../modules/empty/view/empty_view.dart';
 import '../../modules/node/binding/node_binding.dart';
 import '../../modules/node/view/node_view.dart';
 import '../../modules/node_add/binding/node_add_binding.dart';
@@ -137,21 +134,21 @@ class AppPages {
       binding: AiChatBinding(),
     ),
 
-    // Empty states
+    // Empty states (deep-link fallbacks)
     GetPage(
       name: Routes.emptyBuckets,
-      page: () => const EmptyBucketsView(),
-      binding: EmptyBucketsBinding(),
+      page: () => const EmptyView(variant: EmptyVariant.buckets),
+      binding: EmptyBinding(),
     ),
     GetPage(
       name: Routes.emptyToday,
-      page: () => const EmptyTodayView(),
-      binding: EmptyTodayBinding(),
+      page: () => const EmptyView(variant: EmptyVariant.today),
+      binding: EmptyBinding(),
     ),
     GetPage(
       name: Routes.emptyInsights,
-      page: () => const EmptyInsightsView(),
-      binding: EmptyInsightsBinding(),
+      page: () => const EmptyView(variant: EmptyVariant.insights),
+      binding: EmptyBinding(),
     ),
   ];
 }

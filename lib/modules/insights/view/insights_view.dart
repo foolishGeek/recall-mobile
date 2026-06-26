@@ -15,7 +15,7 @@ import '../../../core/theme/recall_typography.dart';
 import '../controller/insights_controller.dart';
 import 'widgets/insights_cards.dart';
 import 'widgets/insights_chrome.dart';
-import 'widgets/insights_empty_body.dart';
+import '../../empty/view/widgets/empty_insights_body.dart';
 import 'widgets/insights_locked_block.dart';
 import 'widgets/insights_stat_grid.dart';
 
@@ -31,7 +31,7 @@ class InsightsView extends GetView<InsightsController> {
         onRetry: controller.reload,
         child: Obx(() {
           if (controller.isGated.value) {
-            return InsightsEmptyBody(
+            return EmptyInsightsBody(
               days: controller.daysWithReviews.value,
               onStart: controller.onStartReview,
             );

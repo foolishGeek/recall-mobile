@@ -1,14 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
 import '../../../core/theme/recall_motion.dart';
 import '../../../core/widgets/recall_skeleton.dart';
 import '../../../core/widgets/recall_state_view.dart';
+import '../../empty/view/widgets/empty_today_body.dart';
 import '../controller/today_controller.dart';
 import 'widgets/today_heat_ring.dart';
 import 'widgets/today_peeking_stack.dart';
@@ -41,8 +40,24 @@ class _TodayContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      if (controller.dueCount.value == 0) {
-        return _TodayEmpty(controller: controller);
+      if (controller.isNoBuckets) {
+        return EmptyTodayNoBucketsBody(
+          streak: controller.currentStreak,
+          formattedDate: controller.formattedDate,
+          onMakeBucket: controller.onMakeBucket,
+        );
+      }
+      if (controller.isAllCaughtUp) {
+        return EmptyTodayBody(
+          streak: controller.currentStreak,
+          formattedDate: controller.formattedDate,
+          nextDropAt: controller.nextDropAt.value,
+          hasNotes: controller.hasNotes,
+          showReviewAhead: controller.showReviewAhead.value,
+          isStartingAhead: controller.isStartingAhead.value,
+          doneFastBanner: controller.doneFastBanner.value,
+          onReviewAhead: controller.startReviewAhead,
+        );
       }
       return _TodayLoaded(controller: controller);
     });
@@ -136,70 +151,6 @@ class _TodayLoaded extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _TodayEmpty extends StatelessWidget {
-  final TodayController controller;
-  const _TodayEmpty({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = RecallColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        children: [
-          const SizedBox(height: 8),
-          Obx(() {
-            final _ = controller.profile.value;
-            return TodayTopBar(
-              streak: controller.currentStreak,
-              formattedDate: controller.formattedDate,
-            );
-          }),
-          const Spacer(),
-          SvgPicture.asset(
-            'assets/illustrations/empty-moon-checkmark.svg',
-            height: 120,
-            colorFilter: ColorFilter.mode(c.ink, BlendMode.srcIn),
-          ),
-          const SizedBox(height: 26),
-          Text(
-            'You\'re all caught up',
-            style: GoogleFonts.fraunces(
-              fontSize: 24,
-              fontWeight: FontWeight.w500,
-              color: c.ink,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'No cards due right now. Add content\nto a bucket or check back later.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 15,
-              color: c.grey500,
-              height: 1.5,
-            ),
-          ),
-          const Spacer(flex: 2),
-          Obx(() {
-            if (!controller.showRelearn) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: TodayRelearnCard(
-                count: controller.relearnCount,
-                isStarting: controller.isRelearnStarting.value,
-                onStart: controller.startRelearn,
-                onDismiss: controller.dismissRelearn,
-              ),
-            );
-          }),
-        ],
-      ),
     );
   }
 }
