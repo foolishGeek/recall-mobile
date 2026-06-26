@@ -106,6 +106,43 @@ class InsightsRepository extends BaseRepository {
             .toList(growable: false);
       });
 
+  /// 30-day Drop send/open totals (`v_notification_stats`). The view groups by
+  /// user; RLS (security_invoker) already scopes to the caller.
+  Future<NotificationStats?> fetchNotificationStats(String userId) =>
+      guard(() async {
+        final row = await supabase
+            .from('v_notification_stats')
+            .select('sent_30d, opened_30d')
+            .eq('user_id', userId)
+            .maybeSingle();
+        return row == null ? null : NotificationStats.fromJson(row);
+      });
+
+  /// Recent per-day Drop sent/opened counts (`v_notification_daily`) for the
+  /// mini bar chart. Newest [limit] days, returned oldest-first for plotting.
+  Future<List<NotificationDaily>> fetchNotificationDaily(
+    String userId, {
+    int limit = 7,
+  }) =>
+      guard(() async {
+        final rows = await supabase
+            .from('v_notification_daily')
+            .select('day, sent, opened')
+            .eq('user_id', userId)
+            .order('day', ascending: false)
+            .limit(limit);
+        final list = mapList(rows, NotificationDaily.fromJson);
+        return list.reversed.toList(growable: false);
+      });
+
+  /// Premium 90-day forgetting-curve simulation via the `retention-simulate`
+  /// Edge Function. Throws [RepoException] (`premium_required` 403, `maintenance`
+  /// 503, etc.) so the controller can fall back to cached `profiles.retention_*`.
+  Future<RetentionSimulation> simulateRetention() => guard(() async {
+        final data = await supabase.invokeFunction('retention-simulate');
+        return RetentionSimulation.fromJson(data);
+      });
+
   Future<List<Achievement>> fetchAchievements() => guard(() async {
         final rows = await supabase.from('achievements').select();
         return mapList(rows, Achievement.fromJson);

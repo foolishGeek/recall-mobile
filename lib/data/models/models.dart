@@ -26,6 +26,8 @@ export 'achievement.dart';
 export 'user_achievement.dart';
 export 'daily_activity.dart';
 export 'notification_event.dart';
+export 'notification_stats.dart';
+export 'retention_simulation.dart';
 export 'ai_evaluation.dart';
 export 'ai_credit_ledger_entry.dart';
 export 'ai_results.dart';
