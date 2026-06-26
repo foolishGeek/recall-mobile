@@ -59,6 +59,7 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
   // ── Tier ──────────────────────────────────────────────────────────────
   TierGate get gate => _tier.gate;
   bool get isPremium => gate.isPremium;
+  bool get isDowngraded => gate.isDowngraded;
 
   // ── State (all server-authoritative) ────────────────────────────────────
   final Rxn<Profile> profile = Rxn<Profile>();

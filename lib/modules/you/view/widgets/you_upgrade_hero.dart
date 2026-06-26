@@ -12,7 +12,12 @@ import '../../../../core/widgets/soft_card.dart';
 
 class YouUpgradeHero extends StatelessWidget {
   final VoidCallback onUnlock;
-  const YouUpgradeHero({super.key, required this.onUnlock});
+  final String? subtitle;
+  const YouUpgradeHero({
+    super.key,
+    required this.onUnlock,
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +32,17 @@ class YouUpgradeHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MonoLabel('Memory simulation', size: 10, tracking: 0.2, color: c.grey400),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              style: GoogleFonts.inter(
+                fontSize: 12.5,
+                color: c.grey400,
+                height: 1.3,
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           RichText(
             text: TextSpan(

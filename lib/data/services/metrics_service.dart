@@ -11,6 +11,8 @@ import '../repositories/insights_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../repositories/review_repository.dart';
 import '../repositories/stack_repository.dart';
+import '../services/auth_service.dart';
+import '../services/tier_service.dart';
 
 typedef DoneFastBanner = ({int minutes, bool fasterThanUsual});
 
@@ -38,6 +40,24 @@ class MetricsService extends GetxService {
   void clearDoneFastCache() {
     _lastCompletedStackId = null;
     _lastCompletedAt = null;
+  }
+
+  /// S26 §7 — breadcrumb when a downgraded user hits a gated surface.
+  void downgradedGateHit(String screen, {Map<String, String>? params}) {
+    if (!Get.isRegistered<AuthService>() || !Get.isRegistered<TierService>()) {
+      return;
+    }
+    final auth = Get.find<AuthService>();
+    if (!auth.analyticsOptIn) return;
+    final tier = Get.find<TierService>();
+    if (!tier.isDowngraded) return;
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        category: 'analytics',
+        message: 'downgraded_gate_hit',
+        data: {'screen': screen, ...?params},
+      ),
+    );
   }
 
   /// Returns a done-fast banner when the last stack finished ≤5 min ago and

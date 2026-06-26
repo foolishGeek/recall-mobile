@@ -167,7 +167,12 @@ class _FreeBody extends StatelessWidget {
         StaggeredReveal(
           index: 1,
           controller: stagger,
-          child: YouUpgradeHero(onUnlock: controller.onUpgrade),
+          child: YouUpgradeHero(
+            onUnlock: controller.onUpgrade,
+            subtitle: controller.isDowngraded
+                ? 'Subscription expired — unlock to continue'
+                : null,
+          ),
         ),
         const SizedBox(height: 12),
         StaggeredReveal(

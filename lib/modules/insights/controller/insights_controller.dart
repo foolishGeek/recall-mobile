@@ -27,6 +27,7 @@ import '../../../data/repositories/insights_repository.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/metrics_service.dart';
 import '../../../data/services/sync_status_service.dart';
 import '../../../data/services/tier_service.dart';
 import '../../shell/controller/shell_controller.dart';
@@ -41,6 +42,7 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
   final AuthService _auth = Get.find();
   final TierService _tier = Get.find();
   final SyncStatusService _syncStatus = Get.find();
+  final _metrics = Get.find<MetricsService>();
 
   late final AnimationController staggerController;
   Worker? _tabWorker;
@@ -309,6 +311,7 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
   /// Locked premium teaser tapped → quiet selection haptic + paywall.
   void onLockedBlockTap(String block) {
     RecallHaptics.selection();
+    _metrics.downgradedGateHit('insights', params: {'block': block});
     _track('insights_locked_block_tapped', {'block': block});
     Get.toNamed(Routes.paywall);
   }
@@ -316,7 +319,7 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
   /// "Unlock the full picture" CTA → light haptic + paywall.
   void onUnlockTap() {
     RecallHaptics.light();
-    _track('insights_locked_block_tapped', {'block': 'cta'});
+    _metrics.downgradedGateHit('insights', params: {'block': 'cta'});
     Get.toNamed(Routes.paywall);
   }
 
