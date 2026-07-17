@@ -8,8 +8,6 @@ import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/insights_repository.dart';
 import '../../../data/repositories/profile_repository.dart';
-import '../../../data/repositories/stack_repository.dart';
-import '../../../data/repositories/today_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/metrics_service.dart';
 import '../../../data/services/repo_exception.dart';
@@ -21,8 +19,6 @@ class EmptyController extends BaseController {
   final _auth = Get.find<AuthService>();
   final _profileRepo = Get.find<ProfileRepository>();
   final _bucketRepo = Get.find<BucketRepository>();
-  final _todayRepo = Get.find<TodayRepository>();
-  final _stackRepo = Get.find<StackRepository>();
   final _insightsRepo = Get.find<InsightsRepository>();
   final _metrics = Get.find<MetricsService>();
   final _syncStatus = Get.find<SyncStatusService>();
@@ -33,8 +29,6 @@ class EmptyController extends BaseController {
   final RxString formattedDate = ''.obs;
   final Rxn<DateTime> nextDropAt = Rxn<DateTime>();
   final RxBool hasNotes = true.obs;
-  final RxBool showReviewAhead = false.obs;
-  final RxBool isStartingAhead = false.obs;
   final RxInt daysWithReviews = 0.obs;
   final Rxn<DoneFastBanner> doneFastBanner = Rxn<DoneFastBanner>();
 
@@ -133,13 +127,11 @@ class EmptyController extends BaseController {
 
     final results = await Future.wait([
       _bucketRepo.fetchGlobalNextDrop(),
-      _todayRepo.fetchReviewAheadCount(),
       _metrics.consumeDoneFastBanner(),
     ]);
 
     nextDropAt.value = results[0] as DateTime?;
-    showReviewAhead.value = (results[1] as int) > 0;
-    doneFastBanner.value = results[2] as DoneFastBanner?;
+    doneFastBanner.value = results[1] as DoneFastBanner?;
   }
 
   Future<void> _loadInsightsDays(String userId) async {
@@ -153,32 +145,11 @@ class EmptyController extends BaseController {
     Get.toNamed(Routes.nodeAdd);
   }
 
-  Future<void> onReviewAhead() async {
-    if (isStartingAhead.value) return;
-    isStartingAhead.value = true;
-    try {
-      RecallHaptics.light();
-      _track('review_ahead_started', {});
-      final result = await _stackRepo.generate(ahead: true);
-      if (result.stack != null) {
-        Get.toNamed(Routes.review);
-      } else {
-        showReviewAhead.value = false;
-        Get.snackbar(
-          'Nothing to review ahead',
-          'All upcoming cards are still resting.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 3),
-        );
-      }
-    } on RepoException catch (e) {
-      if (e.code == RepoErrorCode.freeTierStackLimit) {
-        Get.toNamed(Routes.paywall);
-      } else {
-        setError(e.message);
-      }
-    } finally {
-      isStartingAhead.value = false;
+  void openQuiz() {
+    final shell = Get.find<ShellController>();
+    shell.onTabSelected(RecallTab.quiz);
+    if (Get.currentRoute.startsWith('/empty')) {
+      Get.offAllNamed(Routes.quiz);
     }
   }
 

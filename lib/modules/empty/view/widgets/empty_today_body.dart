@@ -1,9 +1,13 @@
 // Recall · All caught up empty state (docs/13_empty.md §B).
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import '../../../../core/theme/recall_shape.dart';
 import '../../../../core/theme/recall_typography.dart';
+import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/recall_button.dart';
 import '../../../../data/services/metrics_service.dart';
 import '../../../today/view/widgets/today_top_bar.dart';
@@ -17,10 +21,8 @@ class EmptyTodayBody extends StatelessWidget {
   final String formattedDate;
   final DateTime? nextDropAt;
   final bool hasNotes;
-  final bool showReviewAhead;
-  final bool isStartingAhead;
   final DoneFastBanner? doneFastBanner;
-  final VoidCallback onReviewAhead;
+  final VoidCallback onOpenQuiz;
 
   const EmptyTodayBody({
     super.key,
@@ -28,9 +30,7 @@ class EmptyTodayBody extends StatelessWidget {
     required this.formattedDate,
     required this.nextDropAt,
     required this.hasNotes,
-    required this.showReviewAhead,
-    required this.isStartingAhead,
-    required this.onReviewAhead,
+    required this.onOpenQuiz,
     this.doneFastBanner,
   });
 
@@ -39,15 +39,15 @@ class EmptyTodayBody extends StatelessWidget {
     final c = RecallColors.of(context);
     final t = RecallType.of(context);
 
-    return Column(
-      children: [
-        const SizedBox(height: 8),
-        TodayTopBar(streak: streak, formattedDate: formattedDate),
-        Expanded(
-          child: Center(
-            child: EmptyColumnReveal(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          TodayTopBar(streak: streak, formattedDate: formattedDate),
+          Expanded(
+            child: Center(
+              child: EmptyColumnReveal(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -66,20 +66,26 @@ class EmptyTodayBody extends StatelessWidget {
                     SizedBox(
                       width: 280,
                       child: Text(
-                        "No cards due today. We'll surface your next batch "
-                        'tomorrow morning — quietly, like always.',
+                        formatCaughtUpBody(
+                          dropAt: nextDropAt,
+                          hasNotes: hasNotes,
+                        ),
                         textAlign: TextAlign.center,
                         style: t.body.copyWith(color: c.grey600),
                       ),
                     ),
-                    if (showReviewAhead) ...[
-                      const SizedBox(height: 30),
-                      SecondaryButton(
-                        label: 'Review ahead anyway',
-                        trailing: Icons.arrow_forward,
-                        onPressed: isStartingAhead ? null : onReviewAhead,
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: 280,
+                      child: Text(
+                        'Quizzes let you revisit topics on your terms — '
+                        'no due dates, no scores to lose.',
+                        textAlign: TextAlign.center,
+                        style: t.bodySm.copyWith(color: c.grey600, height: 1.4),
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 18),
+                    _QuizQuietCta(onPressed: onOpenQuiz),
                     const SizedBox(height: 18),
                     EmptyNextDropLabel(
                       dropAt: nextDropAt,
@@ -90,8 +96,65 @@ class EmptyTodayBody extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Quiet secondary treat — quiz tab mark + brand line, matches SecondaryButton.
+class _QuizQuietCta extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _QuizQuietCta({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return GestureDetector(
+      onTap: () {
+        RecallHaptics.selection();
+        onPressed();
+      },
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: c.card,
+          border: Border.all(color: c.grey200, width: 1.5),
+          borderRadius: BorderRadius.circular(RecallShape.radiusMd),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              offset: const Offset(0, 6),
+              blurRadius: 16,
+            ),
+          ],
         ),
-      ],
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.asset(
+              'assets/icons/tabs/quiz.svg',
+              width: 18,
+              height: 18,
+              colorFilter: ColorFilter.mode(c.ink, BlendMode.srcIn),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Quiz a quiet corner',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: c.ink,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(Icons.arrow_forward, color: c.grey500, size: 16),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -114,15 +177,15 @@ class EmptyTodayNoBucketsBody extends StatelessWidget {
     final c = RecallColors.of(context);
     final t = RecallType.of(context);
 
-    return Column(
-      children: [
-        const SizedBox(height: 8),
-        TodayTopBar(streak: streak, formattedDate: formattedDate),
-        Expanded(
-          child: Center(
-            child: EmptyColumnReveal(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          TodayTopBar(streak: streak, formattedDate: formattedDate),
+          Expanded(
+            child: Center(
+              child: EmptyColumnReveal(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -152,8 +215,8 @@ class EmptyTodayNoBucketsBody extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

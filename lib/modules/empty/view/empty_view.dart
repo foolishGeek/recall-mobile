@@ -42,10 +42,8 @@ class EmptyView extends GetView<EmptyController> {
             formattedDate: controller.formattedDate.value,
             nextDropAt: controller.nextDropAt.value,
             hasNotes: controller.hasNotes.value,
-            showReviewAhead: controller.showReviewAhead.value,
-            isStartingAhead: controller.isStartingAhead.value,
             doneFastBanner: controller.doneFastBanner.value,
-            onReviewAhead: controller.onReviewAhead,
+            onOpenQuiz: controller.openQuiz,
           ),
         );
       case EmptyVariant.insights:
