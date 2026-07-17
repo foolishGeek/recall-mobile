@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../core/widgets/heat_dot.dart';
 import '../../../../core/widgets/neo_chip.dart';
 import '../../../../data/models/models.dart';
 
@@ -22,8 +21,7 @@ class TodayPeekingCard extends StatelessWidget {
     this.onTap,
   });
 
-  // nodes[0] (hottest) is the detailed hero at the bottom; the rest peek above
-  // it, the furthest one rendered dimmest.
+  // nodes[0] (earliest due) is the detailed hero at the bottom; the rest peek above.
   _CardTier get _tier {
     if (index == 0) return _CardTier.front;
     if (index == total - 1) return _CardTier.back;
@@ -105,8 +103,6 @@ class TodayPeekingCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          HeatDot(heat: node.heat, size: 9),
-          const SizedBox(width: 12),
           Expanded(
             child: Text(
               node.title,
@@ -120,6 +116,14 @@ class TodayPeekingCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
+          Text(
+            _dueTimeLabel,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10,
+              color: c.grey500,
+            ),
+          ),
+          const SizedBox(width: 10),
           NeoChip.priority(_neoLevel, label: _priorityLabel),
         ],
       ),
@@ -160,7 +164,13 @@ class TodayPeekingCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _FrontHeatDot(heat: node.heat, isDark: dark),
+              Text(
+                _dueTimeLabel,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  color: c.grey500,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -177,50 +187,10 @@ class TodayPeekingCard extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              NeoChip.priority(
-                _neoLevel,
-                label: _priorityLabel,
-              ).copyWithFront(),
-              Text(
-                _dueTimeLabel,
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 11,
-                  color: c.grey500,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FrontHeatDot extends StatelessWidget {
-  final double heat;
-  final bool isDark;
-  const _FrontHeatDot({required this.heat, required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = RecallColors.of(context);
-    final haloColor = isDark
-        ? const Color(0xFFF5F4F1).withValues(alpha: 0.35)
-        : const Color(0xFF111111).withValues(alpha: 0.3);
-    return Container(
-      width: 13,
-      height: 13,
-      decoration: BoxDecoration(
-        color: c.ink.withValues(alpha: heat.clamp(0.0, 1.0)),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: haloColor,
-            blurRadius: isDark ? 10 : 9,
-          ),
+          NeoChip.priority(
+            _neoLevel,
+            label: _priorityLabel,
+          ).copyWithFront(),
         ],
       ),
     );

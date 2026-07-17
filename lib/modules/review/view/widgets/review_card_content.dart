@@ -7,13 +7,11 @@ import '../../../../data/models/models.dart' hide Stack;
 class ReviewCardContent extends StatelessWidget {
   final Node node;
   final String bucketName;
-  final double heat;
 
   const ReviewCardContent({
     super.key,
     required this.node,
     required this.bucketName,
-    required this.heat,
   });
 
   @override
@@ -35,40 +33,15 @@ class ReviewCardContent extends StatelessWidget {
 
   Widget _buildHeader(RecallColors c) {
     final typeLabel = node.type.wire;
-    final heatSize = 11.0 + (heat.clamp(0.0, 1.0) * 3.0);
-    final heatOpacity = (heat * 0.9 + 0.1).clamp(0.1, 1.0);
-    final glowRadius = heat.clamp(0.0, 1.0) * 12.0;
-    final glowOpacity = heat.clamp(0.0, 1.0) * 0.42;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          '${bucketName.toUpperCase()} \u00B7 ${typeLabel.toUpperCase()}',
-          style: GoogleFonts.jetBrainsMono(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 10 * 0.2,
-            color: c.grey500,
-          ),
-        ),
-        Container(
-          width: heatSize,
-          height: heatSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: c.ink.withValues(alpha: heatOpacity),
-            boxShadow: glowRadius > 0
-                ? [
-                    BoxShadow(
-                      color: c.ink.withValues(alpha: glowOpacity),
-                      blurRadius: glowRadius,
-                    ),
-                  ]
-                : null,
-          ),
-        ),
-      ],
+    return Text(
+      '${bucketName.toUpperCase()} \u00B7 ${typeLabel.toUpperCase()}',
+      style: GoogleFonts.jetBrainsMono(
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 10 * 0.2,
+        color: c.grey500,
+      ),
     );
   }
 

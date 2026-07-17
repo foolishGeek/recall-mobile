@@ -7,7 +7,6 @@ import '../controller/review_controller.dart';
 import 'widgets/review_card.dart';
 import 'widgets/review_card_content.dart';
 import 'widgets/review_ghost_card.dart';
-import 'widgets/review_heat_halo.dart';
 import 'widgets/review_progress_dots.dart';
 import 'widgets/review_rating_row.dart';
 import 'widgets/review_top_bar.dart';
@@ -79,16 +78,13 @@ class _ReviewContent extends StatelessWidget {
     final node = controller.currentNode;
     if (node == null) return const SizedBox.expand();
 
-    final heat = _computeHeat();
-
     return Padding(
       padding: const EdgeInsets.only(top: 24, left: 22, right: 22),
       child: Stack(
         children: [
-          ReviewHeatHalo(heat: heat),
           const ReviewGhostCard(),
           _buildNextCard(c, dark),
-          _buildFrontCard(c, dark, heat),
+          _buildFrontCard(c, dark),
         ],
       ),
     );
@@ -103,7 +99,6 @@ class _ReviewContent extends StatelessWidget {
     if (nextNode == null) return const SizedBox.shrink();
 
     final nextBucket = controller.bucketNames[nextNode.bucketId] ?? '';
-    final nextHeat = _nodeHeat(nextItem);
 
     return Positioned(
       left: 10,
@@ -130,14 +125,13 @@ class _ReviewContent extends StatelessWidget {
           child: ReviewCardContent(
             node: nextNode,
             bucketName: nextBucket,
-            heat: nextHeat,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFrontCard(RecallColors c, bool dark, double heat) {
+  Widget _buildFrontCard(RecallColors c, bool dark) {
     final item = controller.currentItem;
     final node = controller.currentNode;
     if (item == null || node == null) return const SizedBox.shrink();
@@ -155,23 +149,8 @@ class _ReviewContent extends StatelessWidget {
         child: ReviewCardContent(
           node: node,
           bucketName: bucketName,
-          heat: heat,
         ),
       ),
     );
-  }
-
-  double _computeHeat() {
-    final item = controller.currentItem;
-    return _nodeHeat(item);
-  }
-
-  double _nodeHeat(dynamic item) {
-    if (item == null) return 0.0;
-    try {
-      final snapshot = item.heatSnapshot;
-      if (snapshot is num) return snapshot.toDouble().clamp(0.0, 1.0);
-    } catch (_) {}
-    return 0.0;
   }
 }

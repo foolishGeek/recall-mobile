@@ -20,8 +20,6 @@ class BucketNodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final heatOpacity = _nodeHeatOpacity(node);
-    final isHot = heatOpacity >= 0.75;
 
     return GestureDetector(
       onTap: onTap,
@@ -35,24 +33,6 @@ class BucketNodeRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Heat dot — ink circle, opacity = heat; soft glow when hot.
-            Container(
-              width: 11,
-              height: 11,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: c.ink.withValues(alpha: heatOpacity),
-                boxShadow: isHot
-                    ? [
-                        BoxShadow(
-                          color: c.ink.withValues(alpha: 0.32),
-                          blurRadius: 7,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,12 +64,6 @@ class BucketNodeRow extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  double _nodeHeatOpacity(Node n) {
-    if (n.stability == null || n.stability == 0) return 0.2;
-    final heat = (n.comfort / 100.0).clamp(0.0, 1.0);
-    return 0.12 + (heat * 0.84); // 0.12 (cool) → 0.96 (hot)
   }
 
   List<Widget> _buildChips(RecallColors c) {

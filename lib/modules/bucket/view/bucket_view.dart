@@ -61,7 +61,8 @@ class BucketView extends GetView<BucketController> {
                             }
                             return BucketMasteryCard(
                               mastery: controller.mastery.value,
-                              heat: controller.heatSummary,
+                              dueCount: controller.dueCount,
+                              overdueCount: controller.overdueCount,
                             );
                           }),
                           Obx(() {

@@ -43,7 +43,7 @@ class BucketController extends BaseController {
 
   // Sorting
   final RxInt sortModeIndex = 0.obs;
-  static const _sortModes = ['heat ↓', 'heat ↑', 'A → Z', 'newest'];
+  static const _sortModes = ['due ↓', 'due ↑', 'A → Z', 'newest'];
 
   String get sortLabel => 'Sorted · ${_sortModes[sortModeIndex.value]}';
 
@@ -55,11 +55,27 @@ class BucketController extends BaseController {
 
   void _applySorting() {
     switch (sortModeIndex.value) {
-      case 0: // heat ↓ (high comfort = high heat first)
-        nodes.sort((a, b) => b.comfort.compareTo(a.comfort));
+      case 0: // due ↓ (earliest due first; nulls last)
+        nodes.sort((a, b) {
+          final ad = a.dueAt;
+          final bd = b.dueAt;
+          if (ad == null && bd == null) return b.priority.compareTo(a.priority);
+          if (ad == null) return 1;
+          if (bd == null) return -1;
+          final c = ad.compareTo(bd);
+          return c != 0 ? c : b.priority.compareTo(a.priority);
+        });
         break;
-      case 1: // heat ↑
-        nodes.sort((a, b) => a.comfort.compareTo(b.comfort));
+      case 1: // due ↑ (latest due first)
+        nodes.sort((a, b) {
+          final ad = a.dueAt;
+          final bd = b.dueAt;
+          if (ad == null && bd == null) return b.priority.compareTo(a.priority);
+          if (ad == null) return 1;
+          if (bd == null) return -1;
+          final c = bd.compareTo(ad);
+          return c != 0 ? c : b.priority.compareTo(a.priority);
+        });
         break;
       case 2: // A → Z
         nodes.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
@@ -80,7 +96,15 @@ class BucketController extends BaseController {
   bool get hasNodes => nodes.isNotEmpty;
   int get nodeCount => nodes.length;
 
-  HeatSummary get heatSummary => bucket.value?.heatSummary ?? HeatSummary.empty;
+  int get dueCount {
+    final now = DateTime.now().toUtc();
+    return nodes.where((n) => n.dueAt != null && !n.dueAt!.isAfter(now)).length;
+  }
+
+  int get overdueCount {
+    final now = DateTime.now().toUtc();
+    return nodes.where((n) => n.dueAt != null && n.dueAt!.isBefore(now.subtract(const Duration(days: 1)))).length;
+  }
 
   // Config maps — DB enum values (1:1 mapping)
   static const coolingLabels = ['3d', '7d', '14d', '30d', 'Custom'];

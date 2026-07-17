@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_typography.dart';
 import '../../../../core/utils/insights_heatmap.dart';
-import '../../../../core/widgets/heat_dot.dart';
 import '../../../../core/widgets/heat_ring.dart';
 import '../../../../core/widgets/heatmap.dart';
 import '../../../../core/widgets/mono_label.dart';
@@ -264,8 +263,10 @@ class _MasteryRing extends StatelessWidget {
         children: [
           AnimatedHeatRing(
             progress: ring.progress,
-            heat: ring.heat,
+            heat: 0.55,
             size: 56,
+            trackWidth: 3,
+            ringWidth: 3.5,
             center: '${(ring.progress * 100).round()}',
             centerStyle: t.monoNumeral.copyWith(fontSize: 13, color: c.ink),
           ),
@@ -331,12 +332,18 @@ class _WeakRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     final t = RecallType.of(context);
-    final heat = (1 - (topic.comfort / 5)).clamp(0.0, 1.0);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
         children: [
-          HeatDot(heat: heat),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: c.ink.withValues(alpha: 0.45),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

@@ -94,13 +94,9 @@ class _TodayLoaded extends StatelessWidget {
                       animation: controller.ringController,
                       builder: (context, _) {
                         return Obx(() {
-                          final heat =
-                              controller.aggregateHeat.value.clamp(0.0, 1.0);
                           return TodayHeatRing(
                             dueCount: controller.dueCount.value,
-                            progress: controller.ringProgress.value * heat,
-                            heat: heat,
-                            haloOpacity: controller.haloOpacity.value,
+                            progress: controller.ringProgress.value,
                           );
                         });
                       },

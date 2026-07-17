@@ -94,10 +94,10 @@ class LockedMasteryPreview extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: const [
-        HeatRing(progress: 0.72, heat: 0.3, size: 48),
-        HeatRing(progress: 0.54, heat: 0.5, size: 48),
-        HeatRing(progress: 0.86, heat: 0.2, size: 48),
-        HeatRing(progress: 0.41, heat: 0.7, size: 48),
+        HeatRing(progress: 0.72, heat: 0.55, size: 48, trackWidth: 3, ringWidth: 3.5),
+        HeatRing(progress: 0.54, heat: 0.55, size: 48, trackWidth: 3, ringWidth: 3.5),
+        HeatRing(progress: 0.86, heat: 0.55, size: 48, trackWidth: 3, ringWidth: 3.5),
+        HeatRing(progress: 0.41, heat: 0.55, size: 48, trackWidth: 3, ringWidth: 3.5),
       ],
     );
   }

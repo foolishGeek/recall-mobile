@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../core/widgets/heat_dot.dart';
 import '../../../../core/widgets/soft_card.dart';
 import '../../../../data/models/models.dart';
 import 'quiz_section_header.dart';
 
-/// "WATCHLIST" — weak topics from the quiz (low comfort, high difficulty),
-/// each pairing a greyscale heat dot with the node title + bucket. Tapping a
-/// row routes to that node. Source: `weak_topics[]` (+`bucket_name`) [D-EF-3].
+/// "WATCHLIST" — weak topics from the quiz (low comfort, high difficulty).
+/// Tapping a row routes to that node. Source: `weak_topics[]` [D-EF-3].
 class QuizWatchlist extends StatelessWidget {
   final List<QuizWeakTopic> topics;
   final ValueChanged<String> onTap;
@@ -49,8 +47,6 @@ class _WatchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final heat = (1 - topic.comfort / 100).clamp(0.0, 1.0);
-    final dotSize = 10 + 4 * heat;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -59,10 +55,13 @@ class _WatchRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            SizedBox(
-              width: 30,
-              height: 30,
-              child: Center(child: HeatDot(heat: heat, size: dotSize)),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: c.ink.withValues(alpha: 0.45),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

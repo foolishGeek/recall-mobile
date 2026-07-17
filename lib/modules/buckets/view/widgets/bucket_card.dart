@@ -28,7 +28,6 @@ class BucketCard extends StatelessWidget {
     final readOnly = controller.isReadOnly(bucket);
     final cooling = controller.isCooling(bucket);
     final mastery = controller.masteryFor(bucket);
-    final heat = controller.heatFor(bucket);
     final nodeCount = controller.nodeCountFor(bucket);
     final dominant = controller.dominantPriorityFor(bucket);
     final dropValue = controller.nextDropValue(bucket);
@@ -57,11 +56,13 @@ class BucketCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Hero(
-                        tag: 'heat_ring_${bucket.id}',
+                        tag: 'progress_ring_${bucket.id}',
                         child: HeatRing(
                           progress: mastery,
-                          heat: heat,
+                          heat: 0.55,
                           size: 44,
+                          trackWidth: 3,
+                          ringWidth: 3.5,
                         ),
                       ),
                       const Spacer(),

@@ -105,7 +105,6 @@ class NodeView extends GetView<NodeController> {
               ),
               const SizedBox(height: 18),
               Obx(() => NodeHeatRow(
-                    heatPct: controller.heatPct.value,
                     dueLabel: controller.dueAgoLabel,
                   )),
               const SizedBox(height: 18),

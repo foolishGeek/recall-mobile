@@ -4,17 +4,17 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/widgets/mono_label.dart';
 import '../../../../core/widgets/soft_card.dart';
-import '../../../../data/models/heat_summary.dart';
-import 'bucket_heat_bar.dart';
 
 class BucketMasteryCard extends StatelessWidget {
   final double mastery;
-  final HeatSummary heat;
+  final int dueCount;
+  final int overdueCount;
 
   const BucketMasteryCard({
     super.key,
     required this.mastery,
-    required this.heat,
+    this.dueCount = 0,
+    this.overdueCount = 0,
   });
 
   @override
@@ -66,10 +66,10 @@ class BucketMasteryCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const MonoLabel('Hot · warm · cool'),
+                  const MonoLabel('Due · overdue'),
                   const SizedBox(height: 4),
                   Text(
-                    '${heat.hotCount} · ${heat.warmCount} · ${heat.coolCount}',
+                    '$dueCount · $overdueCount',
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 11.5,
                       color: c.grey600,
@@ -79,8 +79,6 @@ class BucketMasteryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          BucketHeatBar(segments: heat.segments),
         ],
       ),
     );
