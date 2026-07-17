@@ -53,10 +53,8 @@ class _TodayContent extends StatelessWidget {
           formattedDate: controller.formattedDate,
           nextDropAt: controller.nextDropAt.value,
           hasNotes: controller.hasNotes,
-          showReviewAhead: controller.showReviewAhead.value,
-          isStartingAhead: controller.isStartingAhead.value,
           doneFastBanner: controller.doneFastBanner.value,
-          onReviewAhead: controller.startReviewAhead,
+          onOpenQuiz: controller.openQuiz,
         );
       }
       return _TodayLoaded(controller: controller);
@@ -101,9 +99,9 @@ class _TodayLoaded extends StatelessWidget {
                         });
                       },
                     ),
-                    const SizedBox(height: 26),
-                    // Stack sits right under the ring; the footer CTA is pushed
-                    // to the bottom by the flexible gap below.
+                    const SizedBox(height: 18),
+                    // Stack sits right under the ring; the action dock (Aura
+                    // whisper + Start CTA) is pushed to the bottom by Spacer.
                     Obx(() {
                       final nodes = controller.peekingNodes.toList();
                       return TodayPeekingStack(
@@ -115,7 +113,7 @@ class _TodayLoaded extends StatelessWidget {
                     Obx(() {
                       if (!controller.showRelearn) return const SizedBox.shrink();
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.only(bottom: 10),
                         child: TodayRelearnCard(
                           count: controller.relearnCount,
                           isStarting: controller.isRelearnStarting.value,
@@ -172,36 +170,36 @@ class _TodaySkeleton extends StatelessWidget {
           const _RingSkeleton(phase: 0.35),
           const SizedBox(height: 30),
           SizedBox(
-            height: 236,
+            height: 176,
             child: Stack(
               children: const [
                 Positioned(
                   top: 0,
-                  left: 22,
-                  right: 22,
+                  left: 18,
+                  right: 18,
                   child: RecallSkeleton(
-                    height: 62,
+                    height: 48,
                     borderRadius: BorderRadius.all(Radius.circular(22)),
                     phase: 0.5,
                   ),
                 ),
                 Positioned(
-                  top: 42,
-                  left: 11,
-                  right: 11,
+                  top: 28,
+                  left: 9,
+                  right: 9,
                   child: RecallSkeleton(
-                    height: 62,
+                    height: 48,
                     borderRadius: BorderRadius.all(Radius.circular(23)),
                     phase: 0.65,
                   ),
                 ),
                 Positioned(
-                  top: 84,
+                  top: 56,
                   left: 0,
                   right: 0,
                   bottom: 0,
                   child: RecallSkeleton(
-                    height: 152,
+                    height: 120,
                     borderRadius: BorderRadius.all(Radius.circular(26)),
                     phase: 0.8,
                   ),
@@ -211,8 +209,8 @@ class _TodaySkeleton extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           const RecallSkeleton(
-            height: 58,
-            borderRadius: BorderRadius.all(Radius.circular(19)),
+            height: 48,
+            borderRadius: BorderRadius.all(Radius.circular(14)),
             phase: 0.9,
           ),
         ],

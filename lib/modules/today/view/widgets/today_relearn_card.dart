@@ -1,7 +1,6 @@
-// Re-learn weak skills — a quiet, dismissible nudge on Today that surfaces the
-// notes Aura thinks are slipping (from v_relearn_skills) and offers a one-tap
-// focused round. Intentionally low-cortisol: soft surface, no red, easy to
-// dismiss, never auto-expanding.
+// Aura whisper strip — a quiet, dismissible tip in Today's action dock that
+// surfaces notes Aura thinks are slipping. Flat chrome (not SoftCard) so it
+// never reads as a fourth review card. AuraMark keeps breathing.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/brand/aura_brand.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/widgets/aura_mark.dart';
-import '../../../../core/widgets/soft_card.dart';
 
 class TodayRelearnCard extends StatelessWidget {
   final int count;
@@ -29,10 +27,13 @@ class TodayRelearnCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     final noun = count == 1 ? 'note is' : 'notes are';
-    return SoftCard(
-      radius: 20,
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-      background: c.cardSunken,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: c.cardSunken,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.grey200, width: 1),
+      ),
       child: Row(
         children: [
           Container(
@@ -51,6 +52,17 @@ class TodayRelearnCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  'AURA',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w500,
+                    color: c.grey500,
+                    letterSpacing: 9.5 * 0.18,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 3),
                 Text(
                   'Re-learn weak skills',
                   style: GoogleFonts.inter(

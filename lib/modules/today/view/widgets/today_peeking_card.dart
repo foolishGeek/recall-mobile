@@ -87,8 +87,8 @@ class TodayPeekingCard extends StatelessWidget {
         : (isBack ? const Color(0xFF5C5A55) : const Color(0xFF3A3935));
 
     return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
         color: c.card,
         border: Border.all(color: c.grey200, width: 1),
@@ -109,7 +109,7 @@ class TodayPeekingCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w600,
                 color: titleColor,
               ),
@@ -132,7 +132,7 @@ class TodayPeekingCard extends StatelessWidget {
 
   Widget _buildFrontCard(RecallColors c, bool dark) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: c.card,
         border: Border.all(color: c.grey200, width: 1),
@@ -140,8 +140,8 @@ class TodayPeekingCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: dark ? 0.5 : 0.12),
-            offset: const Offset(0, 18),
-            blurRadius: 38,
+            offset: const Offset(0, 12),
+            blurRadius: 28,
           ),
         ],
       ),
@@ -173,17 +173,17 @@ class TodayPeekingCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             node.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.fraunces(
-              fontSize: 27,
+              fontSize: 23,
               fontWeight: FontWeight.w500,
               color: c.ink,
               height: 1.12,
-              letterSpacing: 27 * -0.01,
+              letterSpacing: 23 * -0.01,
             ),
           ),
           const Spacer(),

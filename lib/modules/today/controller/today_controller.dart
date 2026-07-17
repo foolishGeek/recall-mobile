@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/animation.dart';
@@ -45,8 +46,6 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final RxInt bucketCount = 0.obs;
   final RxInt nodeCount = 0.obs;
   final Rxn<DateTime> nextDropAt = Rxn<DateTime>();
-  final RxBool showReviewAhead = false.obs;
-  final RxBool isStartingAhead = false.obs;
   final Rxn<DoneFastBanner> doneFastBanner = Rxn<DoneFastBanner>();
 
   // Re-learn weak skills nudge [D-AI-9]. Loaded best-effort; never blocks Today.
@@ -73,11 +72,16 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   bool get isFree => !_tierService.gate.isPremium;
   bool get isAtStackLimit => isFree && stacksUsed.value >= 2;
 
+  static const _cardFanDuration = Duration(milliseconds: 1500);
+  static const _cardNestDuration = Duration(milliseconds: 360);
+  static const _cardIdleRest = Duration(seconds: 10);
+
   late final AnimationController ringController;
   late final AnimationController cardController;
   late final Animation<double> ringProgress;
   late final Animation<double> haloOpacity;
   Worker? _tabWorker;
+  Timer? _cardIdleTimer;
 
   @override
   void onInit() {
@@ -99,7 +103,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     );
     cardController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: _cardFanDuration,
     );
     ringProgress = CurvedAnimation(
       parent: ringController,
@@ -143,7 +147,6 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
         await _loadCaughtUpExtras();
       } else {
         nextDropAt.value = null;
-        showReviewAhead.value = false;
         doneFastBanner.value = null;
       }
 
@@ -165,18 +168,17 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     try {
       final results = await Future.wait([
         _bucketRepo.fetchGlobalNextDrop(),
-        _todayRepo.fetchReviewAheadCount(),
         _metrics.consumeDoneFastBanner(),
       ]);
       nextDropAt.value = results[0] as DateTime?;
-      showReviewAhead.value = (results[1] as int) > 0;
-      doneFastBanner.value = results[2] as DoneFastBanner?;
+      doneFastBanner.value = results[1] as DoneFastBanner?;
     } on RepoException catch (_) {
-      // Non-critical; empty state renders without next-drop / review-ahead.
+      // Non-critical; empty state renders without next-drop extras.
     }
   }
 
   void _runAnimations() {
+    _cancelCardIdleLoop();
     if (isClosed) return;
     final reduceMotion =
         PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
@@ -187,12 +189,63 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     }
 
     ringController.forward(from: 0);
-    cardController.forward(from: 0);
+    unawaited(_playCardFanThenScheduleIdle(fromZero: true));
+  }
+
+  /// Fan the peeking stack in, then rest 10s and gently nest → re-fan on loop.
+  Future<void> _playCardFanThenScheduleIdle({bool fromZero = false}) async {
+    if (isClosed || dueCount.value == 0) return;
+    cardController.duration = _cardFanDuration;
+    try {
+      await cardController.forward(from: fromZero ? 0 : null);
+    } catch (_) {
+      return;
+    }
+    if (isClosed || dueCount.value == 0) return;
+    _scheduleCardIdleCycle();
+  }
+
+  void _scheduleCardIdleCycle() {
+    _cancelCardIdleLoop();
+    if (isClosed || dueCount.value == 0) return;
+    if (PlatformDispatcher.instance.accessibilityFeatures.disableAnimations) {
+      return;
+    }
+
+    _cardIdleTimer = Timer(_cardIdleRest, () {
+      unawaited(_runCardIdleCycle());
+    });
+  }
+
+  Future<void> _runCardIdleCycle() async {
+    if (isClosed || dueCount.value == 0) return;
+    if (PlatformDispatcher.instance.accessibilityFeatures.disableAnimations) {
+      cardController.value = 1.0;
+      return;
+    }
+
+    // Soft nest — calm ease, short duration — then bubbly re-fan.
+    cardController.duration = _cardNestDuration;
+    try {
+      await cardController.reverse();
+    } catch (_) {
+      return;
+    }
+    if (isClosed || dueCount.value == 0) return;
+
+    await _playCardFanThenScheduleIdle();
+  }
+
+  void _cancelCardIdleLoop() {
+    _cardIdleTimer?.cancel();
+    _cardIdleTimer = null;
   }
 
   Future<void> reload() async {
     if (isClosed) return;
+    _cancelCardIdleLoop();
     ringController.reset();
+    cardController.duration = _cardFanDuration;
     cardController.reset();
     await _loadData();
   }
@@ -257,34 +310,8 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     }
   }
 
-  Future<void> startReviewAhead() async {
-    if (isStartingAhead.value) return;
-    isStartingAhead.value = true;
-
-    try {
-      RecallHaptics.light();
-      final result = await _stackRepo.generate(ahead: true);
-
-      if (result.stack != null) {
-        Get.toNamed(Routes.review);
-      } else {
-        showReviewAhead.value = false;
-        Get.snackbar(
-          'Nothing to review ahead',
-          'All upcoming cards are still resting.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 3),
-        );
-      }
-    } on RepoException catch (e) {
-      if (e.code == RepoErrorCode.freeTierStackLimit) {
-        Get.toNamed(Routes.paywall);
-      } else {
-        setError(e.message);
-      }
-    } finally {
-      isStartingAhead.value = false;
-    }
+  void openQuiz() {
+    Get.find<ShellController>().onTabSelected(RecallTab.quiz);
   }
 
   void onMakeBucket() {
@@ -294,6 +321,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
 
   @override
   void onClose() {
+    _cancelCardIdleLoop();
     _tabWorker?.dispose();
     ringController.dispose();
     cardController.dispose();

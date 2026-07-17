@@ -45,16 +45,16 @@ class _TodayStartCtaState extends State<TodayStartCta> {
         },
         child: Container(
           width: double.infinity,
-          height: 58,
+          height: 48,
           decoration: BoxDecoration(
             color: c.ink,
             border: Border.all(color: c.ink, width: 1.5),
-            borderRadius: BorderRadius.circular(19),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: dark ? 0.45 : 0.16),
-                offset: const Offset(0, 12),
-                blurRadius: 26,
+                color: Colors.black.withValues(alpha: dark ? 0.35 : 0.10),
+                offset: Offset(0, dark ? 8 : 6),
+                blurRadius: dark ? 20 : 16,
               ),
             ],
           ),
@@ -74,19 +74,17 @@ class _TodayStartCtaState extends State<TodayStartCta> {
                     Text(
                       widget.label,
                       style: GoogleFonts.inter(
-                        fontSize: 16.5,
+                        fontSize: 15.5,
                         fontWeight: FontWeight.w600,
+                        letterSpacing: 15.5 * -0.01,
                         color: c.inkOnInk,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      '→',
-                      style: GoogleFonts.inter(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: c.inkOnInk,
-                      ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 16,
+                      color: c.inkOnInk,
                     ),
                   ],
                 ),
