@@ -92,10 +92,25 @@ class NodeRepository extends BaseRepository {
         return mapList(rows, Node.fromJson);
       });
 
-  Future<Node?> fetchById(String id) async {
+  /// Cache-first by default `[D-OFF-1]`. Pass [forceRemote] for one-shot reads
+  /// that must not show a stale body (e.g. review session after Aura Apply).
+  Future<Node?> fetchById(String id, {bool forceRemote = false}) async {
+    if (forceRemote) {
+      try {
+        final fresh = await _remoteById(id);
+        if (fresh != null && _local.isEnabled) {
+          await _local.upsertNodes([fresh]);
+        }
+        if (fresh != null) return fresh;
+      } on RepoException catch (e) {
+        if (!e.isOffline) rethrow;
+        // Offline: fall through to cache.
+      }
+    }
+
     final cached = _local.isEnabled ? await _local.cachedNodeById(id) : null;
     if (cached != null) {
-      unawaited(_reconcileOne(id));
+      if (!forceRemote) unawaited(_reconcileOne(id));
       return cached;
     }
     return _remoteById(id);

@@ -519,6 +519,18 @@ class NodeController extends BaseController {
     );
     if (apply != true) return;
 
+    // Never write an empty prose body over real note text.
+    final beforeProse = stripStandaloneUrls(before);
+    if (beforeProse.isNotEmpty && stripStandaloneUrls(after).isEmpty) {
+      Get.snackbar(
+        'Rewrite skipped',
+        'Aura\'s rewrite removed your note text. Nothing was changed.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     RecallHaptics.medium();
     _preRewriteMarkdown.value = before;
     // Keep the searchable corpus + embeddings in sync with the new body, else

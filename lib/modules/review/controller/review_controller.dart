@@ -5,9 +5,11 @@ import 'package:get/get.dart' hide Node;
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
+import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/node_repository.dart';
 import '../../../data/repositories/review_repository.dart';
@@ -26,6 +28,7 @@ class ReviewController extends BaseController {
   final _reviewRepo = Get.find<ReviewRepository>();
   final _nodeRepo = Get.find<NodeRepository>();
   final _bucketRepo = Get.find<BucketRepository>();
+  final _aiRepo = Get.find<AiRepository>();
   final _supabase = Get.find<SupabaseService>();
   final _metrics = Get.find<MetricsService>();
 
@@ -34,11 +37,14 @@ class ReviewController extends BaseController {
   final RxMap<String, Node> nodes = <String, Node>{}.obs;
   final RxMap<String, String> bucketNames = <String, String>{}.obs;
 
-  // Attachments for pdf/image nodes, keyed by nodeId, plus their signed URLs
-  // keyed by asset id — so the swipe card can render the real file content.
+  // Attachments for any node that has files (modern notes are type=text),
+  // plus signed URLs keyed by asset id.
   final RxMap<String, List<NodeAsset>> nodeAssets =
       <String, List<NodeAsset>>{}.obs;
   final RxMap<String, String> signedUrls = <String, String>{}.obs;
+  /// LINKED / WATCH previews from markdown URLs, keyed by nodeId.
+  final RxMap<String, List<LinkPreview>> contentLinks =
+      <String, List<LinkPreview>>{}.obs;
   final RxMap<String, IntervalPreview> intervalPreviews =
       <String, IntervalPreview>{}.obs;
   final RxInt currentIndex = 0.obs;
@@ -156,13 +162,13 @@ class ReviewController extends BaseController {
     final bucketIds = <String>{};
 
     for (final nodeId in nodeIds) {
-      final node = await _nodeRepo.fetchById(nodeId);
+      // Await remote so a just-applied Aura rewrite is what the card shows.
+      final node = await _nodeRepo.fetchById(nodeId, forceRemote: true);
       if (node != null) {
         nodes[nodeId] = node;
         bucketIds.add(node.bucketId);
-        if (node.type == NodeType.pdf || node.type == NodeType.image) {
-          await _loadAssets(node);
-        }
+        await _loadAssets(node);
+        _loadContentLinks(node);
       }
     }
 
@@ -176,9 +182,8 @@ class ReviewController extends BaseController {
     }
   }
 
-  /// Loads and signs a pdf/image node's attachments so the swipe card can show
-  /// the real file. Best-effort: a failure (offline / signing) leaves the card
-  /// to fall back to its text/placeholder body instead of failing the session.
+  /// Loads and signs attachments for any node. Best-effort: failure leaves the
+  /// card on text / link cards instead of failing the session.
   Future<void> _loadAssets(Node node) async {
     try {
       final assets = await _nodeRepo.fetchAssets(node.id);
@@ -192,6 +197,99 @@ class ReviewController extends BaseController {
         } catch (_) {}
       }
     } catch (_) {}
+  }
+
+  /// Seeds LINKED / WATCH cards from markdown (and legacy `url`), then enriches
+  /// via `link-preview` in the background so the card is never blank waiting.
+  void _loadContentLinks(Node n) {
+    final seen = <String>{};
+    final urls = <String>[];
+
+    final structuredUrl = n.linkPreview?.canonicalUrl;
+    if ((n.type == NodeType.link || n.type == NodeType.youtube) &&
+        n.url != null &&
+        n.url!.trim().isNotEmpty &&
+        (structuredUrl == null || structuredUrl.isEmpty)) {
+      final u = n.url!.trim();
+      if (seen.add(u)) urls.add(u);
+    }
+
+    for (final u in standaloneUrls(n.markdown)) {
+      if (u == structuredUrl) continue;
+      if (seen.add(u)) urls.add(u);
+      if (urls.length >= 6) break;
+    }
+
+    // Also pick up inline http(s) URLs in prose (capped).
+    if (urls.length < 6) {
+      final md = n.markdown;
+      if (md != null && md.trim().isNotEmpty) {
+        for (final match in RegExp(r'https?://[^\s)\]<>"]+').allMatches(md)) {
+          var url = match.group(0)!;
+          url = url.replaceAll(RegExp(r'[.,;:!?]+$'), '');
+          if (url == structuredUrl) continue;
+          if (seen.add(url)) urls.add(url);
+          if (urls.length >= 6) break;
+        }
+      }
+    }
+
+    if (urls.isEmpty) {
+      contentLinks.remove(n.id);
+      return;
+    }
+
+    final seeds = [for (final u in urls) _seedPreview(u)];
+    contentLinks[n.id] = seeds;
+
+    for (var i = 0; i < urls.length; i++) {
+      unawaited(_enrichLink(n.id, urls[i], i));
+    }
+  }
+
+  LinkPreview _seedPreview(String url) {
+    return LinkPreview(canonicalUrl: url, videoId: _youtubeId(url));
+  }
+
+  static String? _youtubeId(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    final host = uri.host.toLowerCase();
+    if (host.contains('youtu.be')) {
+      return uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+    }
+    if (host.contains('youtube.com')) {
+      final v = uri.queryParameters['v'];
+      if (v != null && v.isNotEmpty) return v;
+      if (uri.pathSegments.length >= 2 &&
+          (uri.pathSegments.first == 'embed' ||
+              uri.pathSegments.first == 'shorts')) {
+        return uri.pathSegments[1];
+      }
+    }
+    return null;
+  }
+
+  Future<void> _enrichLink(String nodeId, String url, int index) async {
+    try {
+      final preview =
+          await _aiRepo.linkPreview(url).timeout(const Duration(seconds: 6));
+      var enriched =
+          preview.canonicalUrl == null || preview.canonicalUrl!.isEmpty
+              ? preview.copyWith(canonicalUrl: url)
+              : preview;
+      if (enriched.videoId == null || enriched.videoId!.isEmpty) {
+        final vid = _youtubeId(url);
+        if (vid != null) enriched = enriched.copyWith(videoId: vid);
+      }
+      final list = contentLinks[nodeId];
+      if (list == null || index >= list.length) return;
+      final next = List<LinkPreview>.from(list);
+      next[index] = enriched;
+      contentLinks[nodeId] = next;
+    } catch (_) {
+      // Keep the seed preview already shown.
+    }
   }
 
   /// Skip a missing node without crashing the session.
