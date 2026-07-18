@@ -39,6 +39,7 @@ class SaveBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Delete only in edit mode; create mode gives "Save note" full width.
           if (isEditMode && onDelete != null) ...[
             _SecondaryButton(
               icon: Icons.delete_outline,
@@ -46,17 +47,10 @@ class SaveBar extends StatelessWidget {
               onTap: onDelete!,
             ),
             const SizedBox(width: 8),
-          ] else ...[
-            _SecondaryButton(
-              icon: Icons.auto_awesome,
-              colors: c,
-              onTap: () {},
-            ),
-            const SizedBox(width: 8),
           ],
           Expanded(
             child: Container(
-              height: 54,
+              height: 48,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: canSave
@@ -137,8 +131,8 @@ class _SecondaryButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 50,
-        height: 54,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
           color: colors.card,
           border: Border.all(color: colors.grey400, width: 1),

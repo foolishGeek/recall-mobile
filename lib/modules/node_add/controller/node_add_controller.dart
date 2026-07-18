@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide Node;
@@ -7,6 +6,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/base/base_controller.dart';
+import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/neo_chip.dart';
 import '../../../data/models/models.dart';
@@ -16,6 +16,7 @@ import '../../../data/repositories/node_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
+import 'picked_file.dart';
 
 class NodeAddController extends BaseController {
   NodeAddController(
@@ -40,11 +41,11 @@ class NodeAddController extends BaseController {
   // ── Text controllers ──
   late final TextEditingController titleCtrl;
   late final TextEditingController bodyCtrl;
-  late final TextEditingController urlCtrl;
+  late final TextEditingController linkUrlCtrl;
+  late final TextEditingController youtubeUrlCtrl;
   late final TextEditingController tagInputCtrl;
 
   // ── Reactive state ──
-  final Rx<NodeType> selectedType = NodeType.text.obs;
   final RxInt priority = 3.obs;
   final RxInt difficulty = 3.obs;
   final RxInt comfort = 50.obs;
@@ -55,27 +56,27 @@ class NodeAddController extends BaseController {
   final RxList<Bucket> writableBuckets = <Bucket>[].obs;
   final Rxn<Bucket> selectedBucket = Rxn<Bucket>();
 
-  final Rxn<LinkPreview> linkPreview = Rxn<LinkPreview>();
-  final RxBool isPreviewLoading = false.obs;
-  final RxnString previewError = RxnString();
-
-  final Rxn<NodeType> detectedType = Rxn<NodeType>();
-  final RxBool showDetectedChip = false.obs;
+  // ── Reference links (added via CTAs below attachments) ──
+  final RxBool showLinkField = false.obs;
+  final RxBool showYoutubeField = false.obs;
+  final RxnString linkError = RxnString();
+  final RxnString youtubeError = RxnString();
 
   final RxBool isSaving = false.obs;
   final RxBool bucketReadOnly = false.obs;
   final RxnString validationError = RxnString();
 
-  final Rxn<Uint8List> pickedFileBytes = Rxn<Uint8List>();
-  final RxnString pickedFileName = RxnString();
-  final RxInt pickedFileSizeBytes = 0.obs;
+  // ── Unified attachments (multiple PDFs + images, any note type) ──
+  final RxList<PickedFile> pickedFiles = <PickedFile>[].obs;
+  final RxList<NodeAsset> existingAssets = <NodeAsset>[].obs;
+  final RxMap<String, String> existingSignedUrls = <String, String>{}.obs;
+  final List<NodeAsset> _removedAssets = [];
   final RxBool isUploadingFile = false.obs;
 
-  final RxBool _formValid = false.obs;
+  int get attachmentCount => existingAssets.length + pickedFiles.length;
+  bool get hasAttachments => attachmentCount > 0;
 
-  Timer? _smartPasteTimer;
-  Timer? _detectedChipTimer;
-  Timer? _previewDebounce;
+  final RxBool _formValid = false.obs;
 
   Node? _existingNode;
 
@@ -86,11 +87,13 @@ class NodeAddController extends BaseController {
     super.onInit();
     titleCtrl = TextEditingController();
     bodyCtrl = TextEditingController();
-    urlCtrl = TextEditingController();
+    linkUrlCtrl = TextEditingController();
+    youtubeUrlCtrl = TextEditingController();
     tagInputCtrl = TextEditingController();
 
     titleCtrl.addListener(_revalidate);
-    urlCtrl.addListener(_revalidate);
+    linkUrlCtrl.addListener(_onLinkChanged);
+    youtubeUrlCtrl.addListener(_onYoutubeChanged);
 
     final args = Get.arguments as Map<String, dynamic>? ?? {};
     _existingNodeId = args['node_id'] as String?;
@@ -102,14 +105,13 @@ class NodeAddController extends BaseController {
   @override
   void onClose() {
     titleCtrl.removeListener(_revalidate);
-    urlCtrl.removeListener(_revalidate);
+    linkUrlCtrl.removeListener(_onLinkChanged);
+    youtubeUrlCtrl.removeListener(_onYoutubeChanged);
     titleCtrl.dispose();
     bodyCtrl.dispose();
-    urlCtrl.dispose();
+    linkUrlCtrl.dispose();
+    youtubeUrlCtrl.dispose();
     tagInputCtrl.dispose();
-    _smartPasteTimer?.cancel();
-    _detectedChipTimer?.cancel();
-    _previewDebounce?.cancel();
     super.onClose();
   }
 
@@ -131,6 +133,7 @@ class NodeAddController extends BaseController {
         if (_existingNodeId != null)
           _nodeRepo.fetchTagsForNode(_existingNodeId!),
         if (_existingNodeId != null) _nodeRepo.hasReviews(_existingNodeId!),
+        if (_existingNodeId != null) _nodeRepo.fetchAssets(_existingNodeId!),
       ]);
 
       writableBuckets.assignAll(results[0] as List<Bucket>);
@@ -142,6 +145,8 @@ class NodeAddController extends BaseController {
           _populateFromNode(_existingNode!);
           selectedTags.assignAll(results[3] as List<Tag>);
           comfortReadOnly.value = results[4] as bool;
+          existingAssets.assignAll(results[5] as List<NodeAsset>);
+          _signExistingAssets();
           final nodeBucketWritable = writableBuckets
               .any((b) => b.id == _existingNode!.bucketId);
           if (!nodeBucketWritable) {
@@ -173,131 +178,112 @@ class NodeAddController extends BaseController {
 
   void _populateFromNode(Node n) {
     titleCtrl.text = n.title;
-    bodyCtrl.text = n.markdown ?? '';
-    urlCtrl.text = n.url ?? '';
-    selectedType.value = n.type;
     priority.value = n.priority;
     difficulty.value = n.difficulty;
     comfort.value = n.comfort;
-    linkPreview.value = n.linkPreview;
+
+    // Reference links/videos are stored as standalone URL lines in markdown.
+    // Split them back into the dedicated fields; keep prose as the body.
+    bodyCtrl.text = stripStandaloneUrls(n.markdown);
+
+    final urls = <String>[
+      // Legacy link/youtube nodes stored their URL in `url`.
+      if (n.url != null && n.url!.trim().isNotEmpty) n.url!.trim(),
+      ...standaloneUrls(n.markdown),
+    ];
+    for (final url in urls) {
+      if (isYoutubeUrl(url)) {
+        if (youtubeUrlCtrl.text.isEmpty) {
+          youtubeUrlCtrl.text = url;
+          showYoutubeField.value = true;
+        }
+      } else {
+        if (linkUrlCtrl.text.isEmpty) {
+          linkUrlCtrl.text = url;
+          showLinkField.value = true;
+        }
+      }
+    }
 
     _initialBucketId ??= n.bucketId;
   }
 
-  // ── Type switching ──
+  // ── Reference links (link + YouTube CTAs) ──
 
-  void onTypeChanged(NodeType type) {
+  void toggleLinkField() {
     RecallHaptics.selection();
-    selectedType.value = type;
-    previewError.value = null;
-    linkPreview.value = null;
+    showLinkField.value = !showLinkField.value;
+    if (!showLinkField.value) {
+      linkUrlCtrl.clear();
+      linkError.value = null;
+    }
     _revalidate();
   }
 
-  // ── Smart paste ──
-
-  void onBodyOrUrlChanged(String text) {
-    _smartPasteTimer?.cancel();
-    _smartPasteTimer = Timer(const Duration(milliseconds: 400), () {
-      _detectContentType(text);
-    });
-  }
-
-  void _detectContentType(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
-
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null || !uri.hasScheme || !uri.hasAuthority) return;
-
-    final detected =
-        _isYouTubeUrl(trimmed) ? NodeType.youtube : NodeType.link;
-
-    if (detected != selectedType.value) {
-      RecallHaptics.selection();
-      detectedType.value = detected;
-      selectedType.value = detected;
-      urlCtrl.text = trimmed;
-      showDetectedChip.value = true;
-
-      _detectedChipTimer?.cancel();
-      _detectedChipTimer = Timer(const Duration(milliseconds: 2400), () {
-        showDetectedChip.value = false;
-      });
-
-      _fetchLinkPreview(trimmed);
+  void toggleYoutubeField() {
+    RecallHaptics.selection();
+    showYoutubeField.value = !showYoutubeField.value;
+    if (!showYoutubeField.value) {
+      youtubeUrlCtrl.clear();
+      youtubeError.value = null;
     }
+    _revalidate();
   }
 
-  bool _isYouTubeUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.contains('youtube.com/watch') ||
-        lower.contains('youtu.be/') ||
-        lower.contains('youtube.com/embed/');
+  void _onLinkChanged() {
+    final t = linkUrlCtrl.text.trim();
+    linkError.value =
+        (t.isEmpty || isValidHttpUrl(t)) ? null : 'Enter a valid https link';
+    _revalidate();
   }
 
-  // ── Link preview ──
-
-  void clearLinkPreview() {
-    linkPreview.value = null;
-    previewError.value = null;
+  void _onYoutubeChanged() {
+    final t = youtubeUrlCtrl.text.trim();
+    youtubeError.value =
+        (t.isEmpty || isYoutubeUrl(t)) ? null : 'Enter a valid YouTube link';
+    _revalidate();
   }
 
-  void onUrlSubmitted(String url) {
-    final trimmed = url.trim();
-    if (trimmed.isEmpty) return;
-    _fetchLinkPreview(trimmed);
-  }
+  // ── Attachments (multi PDF / image) ──
 
-  void _fetchLinkPreview(String url) {
-    _previewDebounce?.cancel();
-    _previewDebounce = Timer(const Duration(milliseconds: 300), () async {
-      final uri = Uri.tryParse(url);
-      if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-        previewError.value = "Doesn't look like a link we can read";
-        linkPreview.value = null;
-        return;
-      }
-
-      isPreviewLoading.value = true;
-      previewError.value = null;
+  Future<void> _signExistingAssets() async {
+    for (final asset in existingAssets) {
+      if (asset.storagePath.isEmpty) continue;
       try {
-        final preview = await _aiRepo.linkPreview(url);
-        linkPreview.value = preview;
-
-        if (preview.videoId != null &&
-            selectedType.value != NodeType.youtube) {
-          selectedType.value = NodeType.youtube;
-        }
-
-        _trackEvent('link_previewed', {'url': url});
-      } on RepoException catch (e, st) {
-        previewError.value = e.message;
-        _capture(e, st);
-      } finally {
-        isPreviewLoading.value = false;
-      }
-    });
+        final url =
+            await _nodeRepo.signAssetUrl(asset.storagePath, asset.mimeType);
+        existingSignedUrls[asset.id] = url;
+      } catch (_) {}
+    }
   }
 
-  // ── File picking (PDF / Image) ──
-
-  void onFilePicked(Uint8List bytes, String name, String mimeType) {
-    if (mimeType.contains('pdf') && bytes.lengthInBytes > 20 * 1024 * 1024) {
-      validationError.value = 'PDF must be 20 MB or smaller';
-      return;
+  /// Appends newly picked files. Enforces the 20 MB per-PDF cap; oversized PDFs
+  /// are skipped with a quiet validation message.
+  void onFilesPicked(List<PickedFile> files) {
+    var rejected = false;
+    for (final f in files) {
+      if (f.isPdf && f.sizeBytes > 20 * 1024 * 1024) {
+        rejected = true;
+        continue;
+      }
+      pickedFiles.add(f);
     }
-    pickedFileBytes.value = bytes;
-    pickedFileName.value = name;
-    pickedFileSizeBytes.value = bytes.lengthInBytes;
-    validationError.value = null;
+    validationError.value = rejected ? 'PDF must be 20 MB or smaller' : null;
+    RecallHaptics.selection();
     _revalidate();
   }
 
-  void clearPickedFile() {
-    pickedFileBytes.value = null;
-    pickedFileName.value = null;
-    pickedFileSizeBytes.value = 0;
+  void removePickedFile(PickedFile file) {
+    pickedFiles.remove(file);
+    _revalidate();
+  }
+
+  /// Marks an already-saved asset for deletion; it's removed from view now and
+  /// its row + Storage object are deleted on save.
+  void removeExistingAsset(NodeAsset asset) {
+    existingAssets.remove(asset);
+    existingSignedUrls.remove(asset.id);
+    _removedAssets.add(asset);
     _revalidate();
   }
 
@@ -419,19 +405,18 @@ class NodeAddController extends BaseController {
   String? _validate() {
     if (titleCtrl.text.trim().isEmpty) return 'Title is required';
 
-    final type = selectedType.value;
-    if (type == NodeType.link || type == NodeType.youtube) {
-      if (urlCtrl.text.trim().isEmpty) return 'URL is required';
+    final link = linkUrlCtrl.text.trim();
+    if (showLinkField.value && link.isNotEmpty && !isValidHttpUrl(link)) {
+      return 'Enter a valid https link';
     }
-    if (type == NodeType.pdf || type == NodeType.image) {
-      if (!isEditMode && pickedFileBytes.value == null) {
-        return 'Please select a file';
+    final yt = youtubeUrlCtrl.text.trim();
+    if (showYoutubeField.value && yt.isNotEmpty && !isYoutubeUrl(yt)) {
+      return 'Enter a valid YouTube link';
+    }
+    for (final f in pickedFiles) {
+      if (f.isPdf && f.sizeBytes > 20 * 1024 * 1024) {
+        return 'PDF must be 20 MB or smaller';
       }
-    }
-    if (type == NodeType.pdf &&
-        pickedFileBytes.value != null &&
-        pickedFileSizeBytes.value > 20 * 1024 * 1024) {
-      return 'PDF must be 20 MB or smaller';
     }
     if (selectedBucket.value == null) return 'Select a bucket';
     return null;
@@ -460,21 +445,22 @@ class NodeAddController extends BaseController {
     try {
       final userId = _auth.currentUserId!;
       final bucket = selectedBucket.value!;
-      final type = selectedType.value;
+      const type = NodeType.text;
 
-      // Build the content hash for text-based types.
+      final markdown = _composeMarkdown();
+
       String? contentHash;
       String? extractedText;
-      final hashableText = _buildHashableText(type);
-      if (hashableText.isNotEmpty) {
-        contentHash = NodeRepository.computeContentHash(hashableText);
-        extractedText = hashableText;
+      if (markdown.isNotEmpty) {
+        contentHash = NodeRepository.computeContentHash(markdown);
+        extractedText = markdown;
       }
 
       if (isEditMode) {
-        await _updateExistingNode(type, contentHash, extractedText);
+        await _updateExistingNode(markdown, contentHash, extractedText);
       } else {
-        await _createNewNode(userId, bucket, type, contentHash, extractedText);
+        await _createNewNode(
+            userId, bucket, markdown, contentHash, extractedText);
       }
 
       // Sync tags.
@@ -500,7 +486,7 @@ class NodeAddController extends BaseController {
   Future<void> _createNewNode(
     String userId,
     Bucket bucket,
-    NodeType type,
+    String markdown,
     String? contentHash,
     String? extractedText,
   ) async {
@@ -509,11 +495,9 @@ class NodeAddController extends BaseController {
     final node = Node(
       id: nodeId,
       bucketId: bucket.id,
-      type: type,
+      type: NodeType.text,
       title: titleCtrl.text.trim(),
-      markdown: type == NodeType.text ? bodyCtrl.text : null,
-      url: _urlForType(type),
-      linkPreview: linkPreview.value,
+      markdown: markdown.isEmpty ? null : markdown,
       priority: priority.value,
       difficulty: difficulty.value,
       comfort: comfort.value,
@@ -524,20 +508,21 @@ class NodeAddController extends BaseController {
     final created = await _nodeRepo.create(node);
     _existingNodeId = created.id;
 
-    await _handleFileUpload(created.id, userId, type);
+    await _syncAttachments(created.id, userId);
   }
 
   Future<void> _updateExistingNode(
-    NodeType type,
+    String markdown,
     String? contentHash,
     String? extractedText,
   ) async {
     final changes = <String, dynamic>{
-      'type': type.wire,
+      'type': NodeType.text.wire,
       'title': titleCtrl.text.trim(),
-      'markdown': type == NodeType.text ? bodyCtrl.text : null,
-      'url': _urlForType(type),
-      'link_preview_json': linkPreview.value?.toJson(),
+      'markdown': markdown.isEmpty ? null : markdown,
+      // Reference links now live inside markdown; clear legacy single-link cols.
+      'url': null,
+      'link_preview_json': null,
       'priority': priority.value,
       'difficulty': difficulty.value,
       'comfort': comfort.value,
@@ -551,67 +536,67 @@ class NodeAddController extends BaseController {
 
     await _nodeRepo.update(_existingNodeId!, changes);
 
-    if (pickedFileBytes.value != null) {
-      await _handleFileUpload(
-          _existingNodeId!, _auth.currentUserId!, type);
-    }
+    await _syncAttachments(_existingNodeId!, _auth.currentUserId!);
   }
 
-  String? _urlForType(NodeType type) {
-    if (type == NodeType.link || type == NodeType.youtube) {
-      return urlCtrl.text.trim();
-    }
-    return null;
+  /// Body prose followed by any reference links/videos as standalone URL lines,
+  /// so the detail view can render them as rich cards.
+  String _composeMarkdown() {
+    final parts = <String>[];
+    final body = bodyCtrl.text.trim();
+    if (body.isNotEmpty) parts.add(body);
+
+    final link = linkUrlCtrl.text.trim();
+    if (showLinkField.value && isValidHttpUrl(link)) parts.add(link);
+
+    final yt = youtubeUrlCtrl.text.trim();
+    if (showYoutubeField.value && isYoutubeUrl(yt)) parts.add(yt);
+
+    return parts.join('\n\n');
   }
 
-  String _buildHashableText(NodeType type) {
-    switch (type) {
-      case NodeType.text:
-        return bodyCtrl.text;
-      case NodeType.link:
-      case NodeType.youtube:
-        final lp = linkPreview.value;
-        return [lp?.title, lp?.description, urlCtrl.text.trim()]
-            .where((s) => s != null && s.isNotEmpty)
-            .join('\n');
-      case NodeType.pdf:
-      case NodeType.image:
-        return '';
+  /// Uploads any newly picked files and deletes any removed existing assets
+  /// (row + Storage). Supports multiple + mixed PDF/image per note.
+  Future<void> _syncAttachments(String nodeId, String userId) async {
+    for (final asset in _removedAssets) {
+      await _nodeRepo.deleteNodeAsset(
+        asset.id,
+        storagePath: asset.storagePath,
+        mimeType: asset.mimeType,
+      );
     }
-  }
+    _removedAssets.clear();
 
-  Future<void> _handleFileUpload(
-    String nodeId,
-    String userId,
-    NodeType type,
-  ) async {
-    final bytes = pickedFileBytes.value;
-    if (bytes == null) return;
+    if (pickedFiles.isEmpty) return;
 
     isUploadingFile.value = true;
     try {
-      final isPdf = type == NodeType.pdf;
-      final bucket = isPdf ? 'node-pdfs' : 'node-images';
-      final ext = isPdf ? 'pdf' : _imageExt(pickedFileName.value ?? 'img.png');
-      final path = '$userId/nodes/$nodeId/file.$ext';
-      final mime = isPdf ? 'application/pdf' : 'image/$ext';
+      final base = existingAssets.length;
+      for (var i = 0; i < pickedFiles.length; i++) {
+        final f = pickedFiles[i];
+        final storageBucket = f.isPdf ? 'node-pdfs' : 'node-images';
+        final ext = f.isPdf ? 'pdf' : _imageExt(f.name);
+        final path = '$userId/nodes/$nodeId/${const Uuid().v4()}.$ext';
+        final mime = f.isPdf ? 'application/pdf' : 'image/$ext';
 
-      await _nodeRepo.uploadToStorage(
-        storageBucket: bucket,
-        path: path,
-        bytes: bytes,
-        contentType: mime,
-      );
+        await _nodeRepo.uploadToStorage(
+          storageBucket: storageBucket,
+          path: path,
+          bytes: f.bytes,
+          contentType: mime,
+        );
 
-      await _nodeRepo.createNodeAsset(
-        nodeId: nodeId,
-        storagePath: path,
-        mimeType: mime,
-        fileSizeBytes: bytes.lengthInBytes,
-      );
+        await _nodeRepo.createNodeAsset(
+          nodeId: nodeId,
+          storagePath: path,
+          mimeType: mime,
+          fileSizeBytes: f.sizeBytes,
+          sortOrder: base + i,
+        );
 
-      if (isPdf) {
-        unawaited(_aiRepo.extractPdfText(path));
+        if (f.isPdf) {
+          unawaited(_aiRepo.extractPdfText(path));
+        }
       }
     } finally {
       isUploadingFile.value = false;
