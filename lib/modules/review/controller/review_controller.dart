@@ -161,25 +161,43 @@ class ReviewController extends BaseController {
     final nodeIds = items.map((i) => i.nodeId).toSet();
     final bucketIds = <String>{};
 
-    for (final nodeId in nodeIds) {
-      // Await remote so a just-applied Aura rewrite is what the card shows.
-      final node = await _nodeRepo.fetchById(nodeId, forceRemote: true);
-      if (node != null) {
-        nodes[nodeId] = node;
-        bucketIds.add(node.bucketId);
-        await _loadAssets(node);
-        _loadContentLinks(node);
-      }
-    }
+    // Load every stack node before the first card paints — never swipe on a
+    // half-empty map.
+    await Future.wait([
+      for (final nodeId in nodeIds) _loadOneNode(nodeId, bucketIds),
+    ]);
 
-    for (final bucketId in bucketIds) {
-      if (!bucketNames.containsKey(bucketId)) {
-        final bucket = await _bucketRepo.fetchById(bucketId);
-        if (bucket != null) {
-          bucketNames[bucketId] = bucket.name;
-        }
+    await Future.wait([
+      for (final bucketId in bucketIds)
+        if (!bucketNames.containsKey(bucketId)) _loadBucketName(bucketId),
+    ]);
+  }
+
+  Future<void> _loadOneNode(String nodeId, Set<String> bucketIds) async {
+    var node = await _nodeRepo.fetchById(nodeId, forceRemote: true);
+    // If remote came back empty-bodied but cache has text, prefer cache.
+    if (node != null && _nodeLooksEmpty(node)) {
+      final cached = await _nodeRepo.fetchById(nodeId);
+      if (cached != null && !_nodeLooksEmpty(cached)) {
+        node = cached;
       }
     }
+    if (node == null) return;
+    nodes[nodeId] = node;
+    bucketIds.add(node.bucketId);
+    await _loadAssets(node);
+    _loadContentLinks(node);
+  }
+
+  bool _nodeLooksEmpty(Node n) {
+    final md = (n.markdown ?? '').trim();
+    final et = (n.extractedText ?? '').trim();
+    return md.isEmpty && et.isEmpty && (n.title.trim().isEmpty);
+  }
+
+  Future<void> _loadBucketName(String bucketId) async {
+    final bucket = await _bucketRepo.fetchById(bucketId);
+    if (bucket != null) bucketNames[bucketId] = bucket.name;
   }
 
   /// Loads and signs attachments for any node. Best-effort: failure leaves the

@@ -131,9 +131,15 @@ class _ReviewContentState extends State<_ReviewContent> {
       );
     }
 
+    // Touch reactive maps so Obx rebuilds when assets / links resolve.
+    final _ = controller.nodeAssets.length +
+        controller.contentLinks.length +
+        controller.signedUrls.length;
+
     return Padding(
-      padding: const EdgeInsets.only(top: 24, left: 22, right: 22),
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
       child: Stack(
+        fit: StackFit.expand,
         children: [
           const ReviewGhostCard(),
           _buildNextCard(c, dark),
@@ -153,34 +159,33 @@ class _ReviewContentState extends State<_ReviewContent> {
 
     final nextBucket = controller.bucketNames[nextNode.bucketId] ?? '';
 
-    return Positioned(
-      left: 10,
-      right: 10,
-      top: 10,
-      bottom: 64,
-      child: Transform(
-        transform: Matrix4.identity()..scale(0.97, 0.97),
-        alignment: const Alignment(0, 0.7),
-        child: Container(
-          decoration: BoxDecoration(
-            color: c.card,
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: c.grey200, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: dark ? 0.45 : 0.07),
-                offset: const Offset(0, 14),
-                blurRadius: 30,
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(22),
-          child: ReviewCardContent(
-            node: nextNode,
-            bucketName: nextBucket,
-            assets: controller.nodeAssets[nextNode.id] ?? const [],
-            signedUrls: controller.signedUrls,
-            contentLinks: controller.contentLinks[nextNode.id] ?? const [],
+    return Positioned.fill(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+        child: Transform(
+          transform: Matrix4.identity()..scale(0.97, 0.97),
+          alignment: const Alignment(0, 0.7),
+          child: Container(
+            decoration: BoxDecoration(
+              color: c.card,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: c.grey200, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: dark ? 0.45 : 0.07),
+                  offset: const Offset(0, 14),
+                  blurRadius: 30,
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(22),
+            child: ReviewCardContent(
+              node: nextNode,
+              bucketName: nextBucket,
+              assets: controller.nodeAssets[nextNode.id] ?? const [],
+              signedUrls: Map<String, String>.from(controller.signedUrls),
+              contentLinks: controller.contentLinks[nextNode.id] ?? const [],
+            ),
           ),
         ),
       ),
@@ -195,11 +200,7 @@ class _ReviewContentState extends State<_ReviewContent> {
   ) {
     final bucketName = controller.currentBucketName;
 
-    return Positioned(
-      left: 0,
-      right: 0,
-      top: 0,
-      bottom: 64,
+    return Positioned.fill(
       child: ReviewCard(
         key: _keyFor(item.id),
         onRate: controller.onRate,
@@ -210,7 +211,7 @@ class _ReviewContentState extends State<_ReviewContent> {
           node: node,
           bucketName: bucketName,
           assets: controller.nodeAssets[node.id] ?? const [],
-          signedUrls: controller.signedUrls,
+          signedUrls: Map<String, String>.from(controller.signedUrls),
           contentLinks: controller.contentLinks[node.id] ?? const [],
           onOpenAttachment: (i) => _openAttachment(node, i),
         ),

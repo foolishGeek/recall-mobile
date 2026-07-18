@@ -272,7 +272,10 @@ class ReviewCardState extends State<ReviewCard>
         transform: transform,
         alignment: Alignment.center,
         child: Stack(
+          fit: StackFit.expand,
           children: [
+            // Fill the stage so Column+Expanded inside the card always has
+            // a real height — never collapses to a blank zero-size box.
             Container(
               decoration: BoxDecoration(
                 color: c.card,
