@@ -17,6 +17,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../app/routes/app_routes.dart';
 import '../../core/firebase/firebase_bootstrap.dart';
+import '../../core/theme/recall_colors.dart';
 import '../models/models.dart';
 import '../repositories/notification_repository.dart';
 import 'auth_service.dart';
@@ -122,6 +123,41 @@ class NotificationService extends GetxService {
     final dedupeKey = message.data['dedupe_key'] as String?;
     unawaited(onMessageDelivered(dedupeKey));
     _trackDropEvent('drop_received', {'dedupe_key': dedupeKey});
+    _showForegroundBanner(message);
+  }
+
+  /// FCM does not display a system notification while the app is foregrounded,
+  /// so we surface a tappable, on-brand in-app banner for parity — no extra
+  /// plugin needed. Tapping it logs `opened` and deep-links like a real tap.
+  void _showForegroundBanner(RemoteMessage message) {
+    if (Get.isSnackbarOpen) return;
+    final ctx = Get.context;
+    final colors = ctx == null ? null : RecallColors.of(ctx);
+    final title = message.notification?.title ?? 'Your cards are ready';
+    final body = message.notification?.body ??
+        'A fresh set is ready to review — tap to open Today.';
+    try {
+      Get.snackbar(
+        title,
+        body,
+        snackPosition: SnackPosition.TOP,
+        duration: const Duration(seconds: 5),
+        margin: const EdgeInsets.all(12),
+        borderRadius: 14,
+        backgroundColor: colors?.card,
+        colorText: colors?.ink,
+        onTap: (_) {
+          if (Get.isSnackbarOpen) Get.closeCurrentSnackbar();
+          unawaited(onNotificationOpened(message.data['dedupe_key'] as String?));
+          _trackDropEvent('drop_opened', {
+            'dedupe_key': message.data['dedupe_key'],
+          });
+          _deepLink(message.data['route'] as String?);
+        },
+      );
+    } catch (e, st) {
+      _capture(e, st);
+    }
   }
 
   void _handleOpened(RemoteMessage message) {
