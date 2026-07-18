@@ -64,6 +64,10 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Recall saves your shared summary image to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Recall needs photo library access to save your shared summary into a Recall album.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
