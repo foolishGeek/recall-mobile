@@ -45,7 +45,25 @@ class AuraPrefs {
         out.add('Keep a formal tone');
         break;
     }
+    if (directives['format'] == 'steps') out.add('Prefer step-by-step answers');
     return out;
+  }
+
+  /// Full transparency list for the Tune sheet: mapped directives first, then
+  /// the user's raw suggestions (newest first), skipping blanks and anything
+  /// that already reads the same as a mapped directive line.
+  static List<String> learnedLines({
+    required Map<String, dynamic> styleDirectives,
+    required List<String> customNotes,
+  }) {
+    final lines = describe(styleDirectives);
+    final seen = lines.map((l) => l.toLowerCase()).toSet();
+    for (final note in customNotes.reversed) {
+      final t = note.trim();
+      if (t.isEmpty) continue;
+      if (seen.add(t.toLowerCase())) lines.add(t);
+    }
+    return lines;
   }
 
   static String _joinLower(List<String> lines) {

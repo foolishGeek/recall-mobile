@@ -278,6 +278,7 @@ class NodeRepository extends BaseRepository {
     required String storagePath,
     required String mimeType,
     int? fileSizeBytes,
+    int sortOrder = 0,
   }) =>
       guard(() async {
         final row = await supabase
@@ -287,7 +288,7 @@ class NodeRepository extends BaseRepository {
               'storage_path': storagePath,
               'mime_type': mimeType,
               'file_size_bytes': fileSizeBytes,
-              'sort_order': 0,
+              'sort_order': sortOrder,
             })
             .select()
             .single();
@@ -309,9 +310,25 @@ class NodeRepository extends BaseRepository {
     return path;
   }
 
-  /// Delete a node_asset row (and its storage object if needed).
-  Future<void> deleteNodeAsset(String assetId) => guard(() async {
+  /// Delete a node_asset row and, when the storage location is known, its
+  /// underlying Storage object too (delete-both, avoids orphaned files). The
+  /// bucket is inferred from the mime type (pdf → `node-pdfs`, else images).
+  Future<void> deleteNodeAsset(
+    String assetId, {
+    String? storagePath,
+    String? mimeType,
+  }) =>
+      guard(() async {
         await supabase.from('node_assets').delete().eq('id', assetId);
+        if (storagePath != null && storagePath.isNotEmpty) {
+          final bucket =
+              (mimeType ?? '').contains('pdf') ? 'node-pdfs' : 'node-images';
+          try {
+            await supabase.client.storage.from(bucket).remove([storagePath]);
+          } catch (_) {
+            // Row is gone; a failed storage cleanup shouldn't block the edit.
+          }
+        }
       });
 
   /// SHA-256 hex digest for content_hash (triggers embed pipeline on change).
