@@ -2,6 +2,7 @@
 // content_hash). Written server-side by ai-forge (S06); read-only on the client.
 
 import 'json_utils.dart';
+import 'link_suggestion.dart';
 
 class AiEvaluation {
   final String id;
@@ -11,6 +12,7 @@ class AiEvaluation {
   final int? suggestedDifficulty;
   final String? feedback;
   final String? suggestedMarkdown;
+  final List<LinkSuggestion> linkSuggestions;
   final String? model;
   final String? contentHash;
   final DateTime? createdAt;
@@ -27,6 +29,7 @@ class AiEvaluation {
     this.suggestedDifficulty,
     this.feedback,
     this.suggestedMarkdown,
+    this.linkSuggestions = const [],
     this.model,
     this.contentHash,
     this.createdAt,
@@ -41,6 +44,7 @@ class AiEvaluation {
         suggestedDifficulty: asIntOrNull(json['suggested_difficulty']),
         feedback: asStringOrNull(json['feedback']),
         suggestedMarkdown: asStringOrNull(json['suggested_markdown']),
+        linkSuggestions: linkSuggestionsFromJson(json['link_suggestions']),
         model: asStringOrNull(json['model']),
         contentHash: asStringOrNull(json['content_hash']),
         createdAt: asDateTime(json['created_at']),
@@ -54,6 +58,8 @@ class AiEvaluation {
         'suggested_difficulty': suggestedDifficulty,
         'feedback': feedback,
         'suggested_markdown': suggestedMarkdown,
+        'link_suggestions':
+            linkSuggestions.map((e) => e.toJson()).toList(growable: false),
         'model': model,
         'content_hash': contentHash,
         'created_at': dateToJson(createdAt),
@@ -67,6 +73,7 @@ class AiEvaluation {
     int? suggestedDifficulty,
     String? feedback,
     String? suggestedMarkdown,
+    List<LinkSuggestion>? linkSuggestions,
     String? model,
     String? contentHash,
     DateTime? createdAt,
@@ -80,6 +87,7 @@ class AiEvaluation {
       suggestedDifficulty: suggestedDifficulty ?? this.suggestedDifficulty,
       feedback: feedback ?? this.feedback,
       suggestedMarkdown: suggestedMarkdown ?? this.suggestedMarkdown,
+      linkSuggestions: linkSuggestions ?? this.linkSuggestions,
       model: model ?? this.model,
       contentHash: contentHash ?? this.contentHash,
       createdAt: createdAt ?? this.createdAt,

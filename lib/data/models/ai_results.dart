@@ -4,6 +4,7 @@
 
 import 'enums.dart';
 import 'json_utils.dart';
+import 'link_suggestion.dart';
 
 /// Provider token usage echoed by generative features (informational).
 class AiUsage {
@@ -92,12 +93,14 @@ class SummarizeResult {
 
 /// `evaluate` (AI overview) response; [cached] true when served from cache.
 /// [suggestedMarkdown] is an improved rewrite of the note for the diff view.
+/// [linkSuggestions] are optional closer-match URLs (never auto-applied).
 class EvaluateResult {
   final int? qualityScore;
   final int? suggestedComfort;
   final int? suggestedDifficulty;
   final String? feedback;
   final String? suggestedMarkdown;
+  final List<LinkSuggestion> linkSuggestions;
   final String? model;
   final bool cached;
   final String? interactionId;
@@ -108,6 +111,7 @@ class EvaluateResult {
     this.suggestedDifficulty,
     this.feedback,
     this.suggestedMarkdown,
+    this.linkSuggestions = const [],
     this.model,
     this.cached = false,
     this.interactionId,
@@ -119,6 +123,7 @@ class EvaluateResult {
         suggestedDifficulty: asIntOrNull(json['suggested_difficulty']),
         feedback: asStringOrNull(json['feedback']),
         suggestedMarkdown: asStringOrNull(json['suggested_markdown']),
+        linkSuggestions: linkSuggestionsFromJson(json['link_suggestions']),
         model: asStringOrNull(json['model']),
         cached: asBool(json['cached']),
         interactionId: asStringOrNull(json['interaction_id']),

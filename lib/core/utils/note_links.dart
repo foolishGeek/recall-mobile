@@ -28,6 +28,44 @@ String stripStandaloneUrls(String? md) {
   return kept.join('\n').trim();
 }
 
+/// Append any standalone URLs from [before] that are missing in [after], so an
+/// Aura rewrite never drops LINKED / WATCH cards.
+String mergeStandaloneUrls(String? before, String after) {
+  final original = standaloneUrls(before);
+  if (original.isEmpty) return after;
+
+  final present = standaloneUrls(after).map(_normalizeUrl).toSet();
+  final missing =
+      original.where((u) => !present.contains(_normalizeUrl(u))).toList();
+  if (missing.isEmpty) return after;
+
+  final trimmed = after.replaceFirst(RegExp(r'\s+$'), '');
+  final block = missing.join('\n');
+  if (trimmed.isEmpty) return block;
+  return '$trimmed\n\n$block';
+}
+
+/// Replace the first standalone URL line matching [from] with [to]. Leaves the
+/// rest of the markdown untouched. Returns [md] unchanged when [from] is absent.
+String replaceStandaloneUrl(String? md, String from, String to) {
+  if (md == null || md.isEmpty) return md ?? '';
+  final fromKey = _normalizeUrl(from);
+  final lines = md.split('\n');
+  var replaced = false;
+  for (var i = 0; i < lines.length; i++) {
+    final m = _urlLineRegex.firstMatch(lines[i]);
+    if (m == null) continue;
+    if (_normalizeUrl(m.group(1)!) != fromKey) continue;
+    lines[i] = to.trim();
+    replaced = true;
+    break;
+  }
+  return replaced ? lines.join('\n') : md;
+}
+
+String _normalizeUrl(String u) =>
+    u.trim().replaceAll(RegExp(r'/+$'), '').toLowerCase();
+
 /// A valid http/https URL with a host.
 bool isValidHttpUrl(String url) {
   final uri = Uri.tryParse(url.trim());
@@ -41,4 +79,11 @@ bool isYoutubeUrl(String url) {
   if (!isValidHttpUrl(url)) return false;
   final host = Uri.parse(url.trim()).host.toLowerCase();
   return host.contains('youtube.com') || host.contains('youtu.be');
+}
+
+/// Host without leading www — for quiet suggestion labels.
+String urlDomain(String url) {
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null || uri.host.isEmpty) return url.trim();
+  return uri.host.replaceFirst(RegExp(r'^www\.'), '');
 }
