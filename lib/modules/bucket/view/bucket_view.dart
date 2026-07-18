@@ -5,6 +5,8 @@ import 'package:get/get.dart' hide Node;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/utils/recall_haptics.dart';
+import '../../../core/utils/recall_share.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
@@ -18,6 +20,8 @@ import 'widgets/bucket_mastery_card.dart';
 import 'widgets/bucket_more_menu.dart';
 import 'widgets/bucket_node_row.dart';
 import 'widgets/bucket_top_bar.dart';
+import 'widgets/summary_share_card.dart';
+import 'widgets/summary_sheet_actions.dart';
 
 class BucketView extends GetView<BucketController> {
   const BucketView({super.key});
@@ -261,76 +265,120 @@ class BucketView extends GetView<BucketController> {
         initialChildSize: 0.55,
         maxChildSize: 0.85,
         minChildSize: 0.3,
-        builder: (_, scroll) => ListView(
-          controller: scroll,
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: c.grey400,
-                  borderRadius: BorderRadius.circular(2),
+        builder: (sheetCtx, scroll) {
+          SummaryShareCard buildShareCard() => SummaryShareCard(
+                bucketName: controller.bucket.value?.name ?? '',
+                result: result,
+                colors: c,
+              );
+          return ListView(
+            controller: scroll,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: c.grey400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Summary',
-              style: GoogleFonts.fraunces(
-                fontSize: 24,
-                fontWeight: FontWeight.w500,
-                color: c.ink,
-              ),
-            ),
-            const SizedBox(height: 12),
-            for (final bullet in result.summary)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('•  ',
-                        style: GoogleFonts.inter(
-                            fontSize: 14, color: c.grey600)),
-                    Expanded(
-                      child: Text(
-                        bullet,
-                        style:
-                            GoogleFonts.inter(fontSize: 14, color: c.ink),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Summary',
+                      style: GoogleFonts.fraunces(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w500,
+                        color: c.ink,
                       ),
                     ),
-                  ],
+                  ),
+                  SummarySheetAction(
+                    tooltip: 'Share',
+                    icon: ShareMarkIcon(color: c.ink, size: 15),
+                    onTap: () async {
+                      RecallHaptics.selection();
+                      await RecallShare.shareWidget(
+                        card: buildShareCard(),
+                        context: sheetCtx,
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  SummarySheetAction(
+                    tooltip: 'Save',
+                    icon: SaveMarkIcon(color: c.ink, size: 15),
+                    onTap: () async {
+                      RecallHaptics.selection();
+                      final ok = await RecallShare.saveWidgetToGallery(
+                        card: buildShareCard(),
+                        context: sheetCtx,
+                      );
+                      if (!sheetCtx.mounted) return;
+                      ScaffoldMessenger.of(sheetCtx).showSnackBar(
+                        SnackBar(
+                          content: Text(ok
+                              ? 'Saved to Photos'
+                              : "Couldn't save image — try again."),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              for (final bullet in result.summary)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('•  ',
+                          style: GoogleFonts.inter(
+                              fontSize: 14, color: c.grey600)),
+                      Expanded(
+                        child: Text(
+                          bullet,
+                          style:
+                              GoogleFonts.inter(fontSize: 14, color: c.ink),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            if (result.keyThemes.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: result.keyThemes
-                    .map((t) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: c.grey300,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            t,
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 10,
-                              color: c.grey600,
-                              letterSpacing: 0.4,
+              if (result.keyThemes.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: result.keyThemes
+                      .map((t) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: c.grey300,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ),
-                        ))
-                    .toList(),
-              ),
+                            child: Text(
+                              t,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 10,
+                                color: c.grey600,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ],
             ],
-          ],
-        ),
+          );
+        },
       ),
     );
   }
