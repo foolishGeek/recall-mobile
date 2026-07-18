@@ -33,7 +33,7 @@ class QuizHomeModeCards extends StatelessWidget {
       _ModeSpec(
         mode: QuizMode.byNode,
         icon: Icons.article_outlined,
-        title: 'By node',
+        title: 'By note',
         body: 'Pick a single note to drill into.',
       ),
     ];

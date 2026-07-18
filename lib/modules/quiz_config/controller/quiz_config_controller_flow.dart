@@ -49,10 +49,12 @@ extension QuizConfigControllerFlow on QuizConfigController {
           id: '',
           userId: userId,
           mode: mode.value,
-          bucketIds: selectedBucketIds.toList(),
-          nodeIds: selectedNodeIds.toList(),
-          prompt: promptController.text.trim(),
-          useMyNotes: useMyNotes.value,
+          bucketIds: isByBucket || (isFreehand && useMyNotes.value)
+              ? selectedBucketIds.toList()
+              : const [],
+          nodeIds: isByNode ? selectedNodeIds.toList() : const [],
+          prompt: isFreehand ? promptController.text.trim() : null,
+          useMyNotes: isFreehand ? useMyNotes.value : true,
           questionCount: questionCount.value,
           questionType: questionType.value,
           difficulty: difficulty.value,
@@ -68,6 +70,11 @@ extension QuizConfigControllerFlow on QuizConfigController {
       if (e.code == RepoErrorCode.premiumRequired) {
         inlineMessage.value = 'Premium required.';
         Get.toNamed(Routes.paywall);
+      } else if (e.code == RepoErrorCode.emptyContext) {
+        inlineMessage.value =
+            'Your selected notes have no readable content yet. Add text and retry.';
+      } else if (e.code == RepoErrorCode.aiCooldown) {
+        inlineMessage.value = 'Aura is on a short break. Try again in a bit.';
       } else if (e.code == RepoErrorCode.maintenance ||
           e.code == RepoErrorCode.providerError) {
         inlineMessage.value = '${e.message} Tap Generate to retry.';

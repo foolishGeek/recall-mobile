@@ -8,6 +8,7 @@ import '../../../core/utils/recall_haptics.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/node_repository.dart';
+import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/quiz_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
@@ -22,6 +23,7 @@ class QuizConfigController extends BaseController {
     this._quizRepo,
     this._bucketRepo,
     this._nodeRepo,
+    this._profileRepo,
     this._tierService,
     this._syncStatus,
   );
@@ -30,6 +32,7 @@ class QuizConfigController extends BaseController {
   final QuizRepository _quizRepo;
   final BucketRepository _bucketRepo;
   final NodeRepository _nodeRepo;
+  final ProfileRepository _profileRepo;
   final TierService _tierService;
   final SyncStatusService _syncStatus;
 
@@ -96,6 +99,8 @@ class QuizConfigController extends BaseController {
 
     setLoading();
     try {
+      await _tierService.refreshFromServer(_profileRepo, userId);
+
       final loadedBuckets = await _bucketRepo.fetchActiveBuckets(userId);
       final loadedNodeLists = await Future.wait(
         loadedBuckets.map((bucket) => _nodeRepo.fetchByBucket(bucket.id)),
@@ -186,6 +191,14 @@ class QuizConfigController extends BaseController {
   }
 
   void setTimerEnabled(bool value) => timerEnabled.value = value;
+
+  void applyGhostPrompt(String text) {
+    final cleaned = text.replaceAll(RegExp(r'^try\s+'), '').replaceAll('"', '').trim();
+    if (cleaned.isEmpty) return;
+    promptController.text = cleaned;
+    promptController.selection = TextSelection.collapsed(offset: cleaned.length);
+    RecallHaptics.selection();
+  }
 
   void _track(String event) {
     if (!_auth.analyticsOptIn) return;

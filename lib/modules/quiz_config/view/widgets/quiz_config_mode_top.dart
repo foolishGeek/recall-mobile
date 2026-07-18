@@ -62,10 +62,19 @@ class _PromptBox extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: const [
-              _GhostPrompt(label: 'try "Krebs, harder"'),
-              _GhostPrompt(label: '"German dates"'),
-              _GhostPrompt(label: '"git rebase"'),
+            children: [
+              _GhostPrompt(
+                label: 'try "Krebs, harder"',
+                onTap: () => controller.applyGhostPrompt('Krebs, harder'),
+              ),
+              _GhostPrompt(
+                label: '"German dates"',
+                onTap: () => controller.applyGhostPrompt('German dates'),
+              ),
+              _GhostPrompt(
+                label: '"git rebase"',
+                onTap: () => controller.applyGhostPrompt('git rebase'),
+              ),
             ],
           ),
         ],
@@ -181,20 +190,24 @@ class _NodePicker extends StatelessWidget {
 
 class _GhostPrompt extends StatelessWidget {
   final String label;
+  final VoidCallback onTap;
 
-  const _GhostPrompt({required this.label});
+  const _GhostPrompt({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     final t = RecallType.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        border: Border.all(color: c.grey200),
-        borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          border: Border.all(color: c.grey200),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(label, style: t.bodyXs.copyWith(color: c.grey500)),
       ),
-      child: Text(label, style: t.bodyXs.copyWith(color: c.grey500)),
     );
   }
 }
