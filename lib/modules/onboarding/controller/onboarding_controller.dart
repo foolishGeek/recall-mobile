@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -27,6 +29,12 @@ class OnboardingController extends BaseController {
   final currentPage = 0.obs;
   final dropEnabled = true.obs;
   final isCompleting = false.obs;
+
+  // OS notification permission is requested once, the moment the user reaches
+  // the Recall Drop panel (contextual) — and again as a fallback on any
+  // completion path (incl. Skip), so a fresh install always gets prompted.
+  bool _pushPrompted = false;
+  bool _pushGranted = false;
 
   @override
   void onInit() {
@@ -63,6 +71,25 @@ class OnboardingController extends BaseController {
     if (index == currentPage.value) return;
     RecallHaptics.selection();
     currentPage.value = index;
+    // Panel C introduces Recall Drop — ask for the OS permission in context.
+    if (index == 2) unawaited(_promptPushOnce());
+  }
+
+  /// Requests the OS notification permission exactly once per onboarding run.
+  /// Idempotent: safe to call from the panel-C hook and from completion.
+  Future<void> _promptPushOnce() async {
+    if (_pushPrompted) return;
+    _pushPrompted = true;
+    try {
+      _pushGranted = await _notifications.requestPushPermission();
+      if (_pushGranted) await _notifications.registerDeviceToken();
+    } catch (e, st) {
+      await Sentry.captureException(
+        e,
+        stackTrace: st,
+        withScope: (scope) => scope.setTag('feature', 'onboarding'),
+      );
+    }
   }
 
   void goToPage(int index) {
@@ -100,7 +127,7 @@ class OnboardingController extends BaseController {
     }
     _completeOnboarding(
       route: Routes.today,
-      requestPush: false,
+      requestPush: true,
     );
   }
 
@@ -137,24 +164,14 @@ class OnboardingController extends BaseController {
       return;
     }
 
-    var pushOptIn = false;
     const dropFrequency = 'daily';
 
-    if (requestPush && dropEnabled.value) {
-      try {
-        final granted = await _notifications.requestPushPermission();
-        if (granted) {
-          pushOptIn = true;
-          await _notifications.registerDeviceToken();
-        }
-      } catch (e, st) {
-        await Sentry.captureException(
-          e,
-          stackTrace: st,
-          withScope: (scope) => scope.setTag('feature', 'onboarding'),
-        );
-      }
-    }
+    // Ensure the OS prompt has fired on every path (incl. Skip, which never
+    // reaches panel C). Idempotent — no dialog if already answered.
+    if (requestPush) await _promptPushOnce();
+
+    // App-level opt-in requires both the OS grant and the Recall Drop toggle.
+    final pushOptIn = _pushGranted && dropEnabled.value;
 
     try {
       await _profiles.ensureProfile();

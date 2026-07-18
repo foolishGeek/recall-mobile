@@ -18,6 +18,9 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../app/routes/app_routes.dart';
 import '../../core/firebase/firebase_bootstrap.dart';
 import '../../core/theme/recall_colors.dart';
+import '../../core/widgets/recall_scaffold.dart';
+import '../../modules/shell/controller/shell_controller.dart';
+import '../../modules/today/controller/today_controller.dart';
 import '../models/models.dart';
 import '../repositories/notification_repository.dart';
 import 'auth_service.dart';
@@ -36,6 +39,18 @@ class NotificationService extends GetxService {
   StreamSubscription<RemoteMessage>? _onMessageSub;
   StreamSubscription<RemoteMessage>? _onOpenedSub;
   bool _listenersReady = false;
+
+  /// Deep-link target captured before the app tree is ready (cold-start tap).
+  /// SplashController consumes and clears this once the session is hydrated so
+  /// the tap navigates through the normal AuthGate flow instead of racing it.
+  String? pendingRoute;
+
+  /// Consumes the pending deep link (returns and clears it). Called by splash.
+  String? takePendingRoute() {
+    final route = pendingRoute;
+    pendingRoute = null;
+    return route;
+  }
 
   @override
   void onInit() {
@@ -87,6 +102,26 @@ class NotificationService extends GetxService {
     } catch (e, st) {
       _capture(e, st);
       return false;
+    }
+  }
+
+  /// Ensures an opted-in user actually has the OS permission + a live token.
+  /// Covers reinstall / permission-reset: if the grant is missing (and not
+  /// permanently denied) we re-prompt, then refresh the token. Idempotent — the
+  /// OS shows no dialog when already granted or permanently denied.
+  Future<void> ensurePermissionAndToken() async {
+    if (!isFirebaseReady) return;
+    try {
+      final status = await Permission.notification.status;
+      if (status.isGranted) {
+        await registerDeviceToken();
+        return;
+      }
+      if (status.isPermanentlyDenied) return;
+      final granted = await requestPushPermission();
+      if (granted) await registerDeviceToken();
+    } catch (e, st) {
+      _capture(e, st);
     }
   }
 
@@ -190,13 +225,28 @@ class NotificationService extends GetxService {
     }
   }
 
-  /// Routes the payload's `route` (fallback /today). Deferred to post-frame so a
-  /// cold-start (terminated) tap navigates after the app tree is built.
+  /// Routes the payload's `route` (fallback /today) without racing app startup.
+  /// - App already in the tab shell: switch to Today in-place (no `offAllNamed`
+  ///   re-entry churn) and refresh so the freshly-matured cards show.
+  /// - App not yet in the shell (cold start / still on splash): stash the target
+  ///   as a pending deep link for SplashController to honor after hydration.
+  /// - Authed but outside the shell (edge case): fall back to `offAllNamed`.
   void _deepLink(String? route) {
     if (_auth.currentUserId == null) return;
     final target = (route == null || route.isEmpty) ? Routes.today : route;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
+        if (_isInShell) {
+          Get.find<ShellController>().onTabSelected(RecallTab.today);
+          if (Get.isRegistered<TodayController>()) {
+            unawaited(Get.find<TodayController>().reload());
+          }
+          return;
+        }
+        if (!Get.isRegistered<ShellController>()) {
+          pendingRoute = target;
+          return;
+        }
         Get.offAllNamed(target);
       } catch (e, st) {
         _capture(e, st);
@@ -206,6 +256,11 @@ class NotificationService extends GetxService {
       }
     });
   }
+
+  /// True when the tab shell is live and currently the active route.
+  bool get _isInShell =>
+      Get.isRegistered<ShellController>() &&
+      ShellController.tabForRoute(Get.currentRoute) != null;
 
   /// Provider-agnostic analytics stub, gated by analytics opt-in [D-OBS-2].
   void _trackDropEvent(String name, Map<String, dynamic> params) {

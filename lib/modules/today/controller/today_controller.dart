@@ -15,6 +15,7 @@ import '../../../data/repositories/stack_repository.dart';
 import '../../../data/repositories/today_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/metrics_service.dart';
+import '../../../data/services/notification_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/sync_status_service.dart';
 import '../../../data/services/tier_service.dart';
@@ -81,6 +82,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   late final Animation<double> ringProgress;
   late final Animation<double> haloOpacity;
   Worker? _tabWorker;
+  Worker? _sessionWorker;
   Timer? _cardIdleTimer;
 
   @override
@@ -117,7 +119,13 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
 
   Future<void> _loadData() async {
     final userId = _auth.currentUserId;
-    if (userId == null) return;
+    if (userId == null) {
+      // Reached before the Supabase session restored (e.g. cold-start from a
+      // notification tap). Keep the skeleton up and retry once the session
+      // appears so Today never sticks on a permanent grey shimmer.
+      _awaitSession();
+      return;
+    }
 
     setLoading();
 
@@ -154,6 +162,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       setSuccess();
       if (dueCount.value > 0) _runAnimations();
       _loadRelearn();
+      _ensurePushPermission();
     } on RepoException catch (e) {
       if (e.isOffline) {
         _syncStatus.setOffline(true);
@@ -161,7 +170,23 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       } else {
         setError(e.message);
       }
+    } catch (_) {
+      // Any non-RepoException must not leave Today stuck on the skeleton —
+      // surface the retry card instead of a frozen grey screen.
+      setError('Something went wrong. Pull to retry.');
     }
+  }
+
+  /// One-shot: re-run the load as soon as a session appears. Guards the
+  /// cold-start window where Today builds before Supabase restores the session.
+  void _awaitSession() {
+    _sessionWorker?.dispose();
+    _sessionWorker = ever(_auth.sessionRx, (session) {
+      if (isClosed || session == null) return;
+      _sessionWorker?.dispose();
+      _sessionWorker = null;
+      _loadData();
+    });
   }
 
   Future<void> _loadCaughtUpExtras() async {
@@ -250,6 +275,18 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     await _loadData();
   }
 
+  bool _pushEnsured = false;
+
+  /// Catch-all for users who skipped onboarding (e.g. reinstall with an account
+  /// that already finished it): if they want drops but the OS grant is missing,
+  /// re-request it once. Opted-out users are left alone.
+  void _ensurePushPermission() {
+    if (_pushEnsured) return;
+    _pushEnsured = true;
+    if (profile.value?.pushOptIn != true) return;
+    unawaited(Get.find<NotificationService>().ensurePermissionAndToken());
+  }
+
   Future<void> _loadRelearn() async {
     try {
       final skills = await _aiRepo.fetchRelearnSkills(limit: 12);
@@ -331,6 +368,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   void onClose() {
     _cancelCardIdleLoop();
     _tabWorker?.dispose();
+    _sessionWorker?.dispose();
     ringController.dispose();
     cardController.dispose();
     super.onClose();

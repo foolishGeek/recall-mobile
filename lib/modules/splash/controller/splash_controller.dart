@@ -11,6 +11,7 @@ import '../../../core/gates/auth_gate.dart';
 import '../../../core/theme/recall_motion.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/notification_service.dart';
 import '../../../data/services/sync_service.dart';
 import '../../../data/services/tier_service.dart';
 import '../../../data/services/repo_exception.dart';
@@ -182,6 +183,13 @@ class SplashController extends GetxController
         onboardingDone: _auth.onboardingDone,
       );
       route = gate.resolvePostSplashRoute();
+      // A notification tapped from a terminated state stashes its deep link;
+      // honor it only when the user is authed + onboarded (gate == /today).
+      // Unauthed/onboarding users follow the normal gate and drop the link.
+      if (route == Routes.today) {
+        final pending = _pendingNotificationRoute();
+        if (pending != null && pending.isNotEmpty) route = pending;
+      }
     } catch (e, st) {
       Sentry.captureException(
         e,
@@ -191,6 +199,11 @@ class SplashController extends GetxController
       route = Routes.signin;
     }
     Get.offAllNamed(route);
+  }
+
+  String? _pendingNotificationRoute() {
+    if (!Get.isRegistered<NotificationService>()) return null;
+    return Get.find<NotificationService>().takePendingRoute();
   }
 
   @override
