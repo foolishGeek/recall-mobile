@@ -430,13 +430,14 @@ class NodeController extends BaseController {
 
   // ── AI Evaluation ──
 
-  Future<void> _triggerEvaluate() async {
+  Future<void> _triggerEvaluate({bool forceRefresh = false}) async {
     if (!showAiPanel || overviewLocked) return;
     isEvalLoading.value = true;
     evalError.value = null;
     _trackEvent('ai_overview_viewed', {'node_id': nodeId});
     try {
-      final result = await _aiRepo.evaluate(nodeId);
+      final result =
+          await _aiRepo.evaluate(nodeId, forceRefresh: forceRefresh);
       final draft = AiEvaluation(
         id: '',
         nodeId: nodeId,
@@ -462,7 +463,7 @@ class NodeController extends BaseController {
   }
 
   Future<void> onRegenerateTap() async {
-    await _triggerEvaluate();
+    await _triggerEvaluate(forceRefresh: true);
   }
 
   /// Panel primary action. When Aura proposed a body rewrite, open the diff
@@ -537,11 +538,10 @@ class NodeController extends BaseController {
   /// Closer-match suggestion for a LINKED/WATCH card URL, if any and not dismissed.
   LinkSuggestion? linkSuggestionFor(String? url) {
     if (url == null || url.isEmpty) return null;
-    final key = _urlKey(url);
-    if (dismissedLinkSuggestions.contains(key)) return null;
+    if (dismissedLinkSuggestions.contains(_urlKey(url))) return null;
     final list = evaluation.value?.linkSuggestions ?? const <LinkSuggestion>[];
     for (final s in list) {
-      if (_urlKey(s.currentUrl) == key) return s;
+      if (_urlsMatch(s.currentUrl, url)) return s;
     }
     return null;
   }
@@ -599,6 +599,19 @@ class NodeController extends BaseController {
 
   static String _urlKey(String u) =>
       u.trim().replaceAll(RegExp(r'/+$'), '').toLowerCase();
+
+  /// Match card URL to suggestion even if www / trailing slash / case differ.
+  static bool _urlsMatch(String a, String b) {
+    if (_urlKey(a) == _urlKey(b)) return true;
+    final ua = Uri.tryParse(a.trim());
+    final ub = Uri.tryParse(b.trim());
+    if (ua == null || ub == null) return false;
+    final hostA = ua.host.replaceFirst(RegExp(r'^www\.'), '').toLowerCase();
+    final hostB = ub.host.replaceFirst(RegExp(r'^www\.'), '').toLowerCase();
+    final pathA = ua.path.replaceAll(RegExp(r'/+$'), '').toLowerCase();
+    final pathB = ub.path.replaceAll(RegExp(r'/+$'), '').toLowerCase();
+    return hostA == hostB && pathA == pathB;
+  }
 
   /// Restore the note body to what it was before applying Aura's rewrite.
   Future<void> revertRewrite() async {

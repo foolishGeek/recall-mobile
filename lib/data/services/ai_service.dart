@@ -62,9 +62,16 @@ class AiService extends GetxService {
     return SummarizeResult.fromJson(body);
   }
 
-  /// AI overview for a node (separate quota). Cached by content_hash server-side.
-  Future<EvaluateResult> evaluate({required String nodeId}) async {
-    final body = await invokeForge('evaluate', payload: {'node_id': nodeId});
+  /// AI overview for a node (separate quota). Cached by content_hash server-side
+  /// unless [forceRefresh] is true (Regenerate).
+  Future<EvaluateResult> evaluate({
+    required String nodeId,
+    bool forceRefresh = false,
+  }) async {
+    final body = await invokeForge('evaluate', payload: {
+      'node_id': nodeId,
+      if (forceRefresh) 'force_refresh': true,
+    });
     return EvaluateResult.fromJson(body);
   }
 

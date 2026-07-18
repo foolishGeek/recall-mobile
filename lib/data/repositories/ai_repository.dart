@@ -73,8 +73,9 @@ class AiRepository extends BaseRepository {
       guard(() => _ai.summarize(scope: scope, nodeId: nodeId, bucketId: bucketId));
 
   /// Generate (or return cached) AI overview for a node.
-  Future<EvaluateResult> evaluate(String nodeId) =>
-      guard(() => _ai.evaluate(nodeId: nodeId));
+  /// Pass [forceRefresh] from Regenerate so stale cached suggestions refresh.
+  Future<EvaluateResult> evaluate(String nodeId, {bool forceRefresh = false}) =>
+      guard(() => _ai.evaluate(nodeId: nodeId, forceRefresh: forceRefresh));
 
   /// Grade a short answer (premium).
   Future<QuizGradeResult> quizGrade({
