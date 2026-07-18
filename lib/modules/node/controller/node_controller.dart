@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/gates/tier_gate.dart';
+import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/neo_chip.dart';
 import '../../../data/models/models.dart';
@@ -61,6 +62,9 @@ class NodeController extends BaseController {
   final RxBool didApplyRewrite = false.obs;
   bool get canRevertRewrite =>
       didApplyRewrite.value && _preRewriteMarkdown.value != null;
+
+  // Local dismissals for Aura closer-match nudges (this screen session only).
+  final RxSet<String> dismissedLinkSuggestions = <String>{}.obs;
 
   // AI model label from app_config.
   final RxString aiModelLabel = ''.obs;
@@ -172,7 +176,11 @@ class NodeController extends BaseController {
       tags.assignAll(results[2] as List<Tag>);
       heatPct.value = results[3] as double;
       hasReviews.value = results[4] as bool;
-      evaluation.value = results[5] as AiEvaluation?;
+      final loadedEval = results[5] as AiEvaluation?;
+      evaluation.value = loadedEval == null
+          ? null
+          : _withPreservedUrls(loadedEval, loadedNode.markdown);
+      dismissedLinkSuggestions.clear();
 
       _loadBucketName(loadedNode.bucketId);
       _loadModelLabel();
@@ -429,7 +437,7 @@ class NodeController extends BaseController {
     _trackEvent('ai_overview_viewed', {'node_id': nodeId});
     try {
       final result = await _aiRepo.evaluate(nodeId);
-      evaluation.value = AiEvaluation(
+      final draft = AiEvaluation(
         id: '',
         nodeId: nodeId,
         qualityScore: result.qualityScore,
@@ -437,9 +445,12 @@ class NodeController extends BaseController {
         suggestedDifficulty: result.suggestedDifficulty,
         feedback: result.feedback,
         suggestedMarkdown: result.suggestedMarkdown,
+        linkSuggestions: result.linkSuggestions,
         model: result.model,
         interactionId: result.interactionId,
       );
+      evaluation.value = _withPreservedUrls(draft, node.value?.markdown);
+      dismissedLinkSuggestions.clear();
       evalRating.value = 0;
     } on RepoException catch (e, st) {
       evalError.value = e.message;
@@ -493,10 +504,12 @@ class NodeController extends BaseController {
     final ctx = Get.context;
     final n = node.value;
     final eval = evaluation.value;
-    final after = eval?.suggestedMarkdown;
-    if (ctx == null || n == null || after == null) return;
+    final rawAfter = eval?.suggestedMarkdown;
+    if (ctx == null || n == null || rawAfter == null) return;
 
     final before = n.markdown ?? '';
+    // Never let Apply wipe standalone URL lines (LINKED / WATCH cards).
+    final after = mergeStandaloneUrls(before, rawAfter);
     final apply = await NodeAiDiffView.show(
       ctx,
       before: before,
@@ -520,6 +533,72 @@ class NodeController extends BaseController {
     if (current != null) _loadContentLinks(current);
     _trackEvent('ai_rewrite_applied', {'node_id': nodeId});
   }
+
+  /// Closer-match suggestion for a LINKED/WATCH card URL, if any and not dismissed.
+  LinkSuggestion? linkSuggestionFor(String? url) {
+    if (url == null || url.isEmpty) return null;
+    final key = _urlKey(url);
+    if (dismissedLinkSuggestions.contains(key)) return null;
+    final list = evaluation.value?.linkSuggestions ?? const <LinkSuggestion>[];
+    for (final s in list) {
+      if (_urlKey(s.currentUrl) == key) return s;
+    }
+    return null;
+  }
+
+  /// How many closer-match nudges are still visible (cap UX at 2 from server).
+  int get visibleLinkSuggestionCount {
+    final list = evaluation.value?.linkSuggestions ?? const <LinkSuggestion>[];
+    var n = 0;
+    for (final s in list) {
+      if (!dismissedLinkSuggestions.contains(_urlKey(s.currentUrl))) n++;
+    }
+    return n;
+  }
+
+  void dismissLinkSuggestion(String currentUrl) {
+    dismissedLinkSuggestions.add(_urlKey(currentUrl));
+    RecallHaptics.selection();
+  }
+
+  /// Swap one standalone URL line for Aura's closer match; refresh that card.
+  Future<void> acceptLinkSuggestion(LinkSuggestion suggestion) async {
+    final n = node.value;
+    if (n == null) return;
+    final next = replaceStandaloneUrl(
+      n.markdown,
+      suggestion.currentUrl,
+      suggestion.suggestedUrl,
+    );
+    if (next == (n.markdown ?? '')) return;
+
+    RecallHaptics.light();
+    dismissedLinkSuggestions.add(_urlKey(suggestion.currentUrl));
+    final hash = NodeRepository.computeContentHash(next);
+    await _updateNodeFields(
+      {'markdown': next, 'extracted_text': next, 'content_hash': hash},
+      n.copyWith(markdown: next, extractedText: next, contentHash: hash),
+    );
+    final current = node.value;
+    if (current != null) _loadContentLinks(current);
+    _trackEvent('ai_link_suggestion_accepted', {
+      'node_id': nodeId,
+      'from': suggestion.currentUrl,
+      'to': suggestion.suggestedUrl,
+    });
+  }
+
+  /// Ensure cached/fresh suggested_markdown still carries the note's URL lines.
+  AiEvaluation _withPreservedUrls(AiEvaluation eval, String? markdown) {
+    final raw = eval.suggestedMarkdown;
+    if (raw == null) return eval;
+    final merged = mergeStandaloneUrls(markdown, raw);
+    if (merged == raw) return eval;
+    return eval.copyWith(suggestedMarkdown: merged);
+  }
+
+  static String _urlKey(String u) =>
+      u.trim().replaceAll(RegExp(r'/+$'), '').toLowerCase();
 
   /// Restore the note body to what it was before applying Aura's rewrite.
   Future<void> revertRewrite() async {

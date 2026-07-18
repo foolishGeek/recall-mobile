@@ -19,6 +19,7 @@ import 'widgets/node_chip_row.dart';
 import 'widgets/node_delete_sheet.dart';
 import 'widgets/node_eyebrow.dart';
 import 'widgets/node_heat_row.dart';
+import 'widgets/node_link_suggestion_nudge.dart';
 import 'widgets/node_tag_chips.dart';
 import 'widgets/node_top_bar.dart';
 
@@ -208,6 +209,7 @@ class NodeView extends GetView<NodeController> {
                 preview: links[i],
                 onTap: () => controller.openUrl(links[i].canonicalUrl),
               ),
+              _linkNudge(links[i]),
               if (i != links.length - 1) const SizedBox(height: 10),
             ],
             const SizedBox(height: 20),
@@ -219,6 +221,7 @@ class NodeView extends GetView<NodeController> {
             const SizedBox(height: 10),
             for (int i = 0; i < videos.length; i++) ...[
               _videoCard(c, videos[i]),
+              _linkNudge(videos[i]),
               if (i != videos.length - 1) const SizedBox(height: 16),
             ],
             const SizedBox(height: 20),
@@ -261,6 +264,21 @@ class NodeView extends GetView<NodeController> {
           ),
         ],
       ],
+    );
+  }
+
+  /// Quiet Use / Dismiss row under a card when Aura has a closer match.
+  Widget _linkNudge(LinkPreview lp) {
+    final url = lp.canonicalUrl;
+    if (url == null || url.isEmpty) return const SizedBox.shrink();
+    // Touch dismissed set so Obx rebuilds when the user dismisses.
+    final _ = controller.dismissedLinkSuggestions.length;
+    final suggestion = controller.linkSuggestionFor(url);
+    if (suggestion == null) return const SizedBox.shrink();
+    return NodeLinkSuggestionNudge(
+      suggestion: suggestion,
+      onUse: () => controller.acceptLinkSuggestion(suggestion),
+      onDismiss: () => controller.dismissLinkSuggestion(suggestion.currentUrl),
     );
   }
 
