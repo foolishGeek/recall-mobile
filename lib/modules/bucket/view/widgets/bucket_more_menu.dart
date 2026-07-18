@@ -3,11 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../buckets/view/widgets/create_bucket_sheet.dart';
 
 Future<void> showBucketMoreMenu({
   required BuildContext context,
   required String currentName,
-  required ValueChanged<String> onRename,
+  String? currentDescription,
+  required void Function(String name, String? description) onEditBucket,
   required VoidCallback onDelete,
 }) async {
   final c = RecallColors.of(context);
@@ -34,13 +36,17 @@ Future<void> showBucketMoreMenu({
             const SizedBox(height: 16),
             _MenuRow(
               icon: Icons.edit_outlined,
-              label: 'Rename bucket',
+              label: 'Edit bucket',
               onTap: () {
                 Navigator.pop(ctx);
-                _showRenameDialog(
-                  context: context,
-                  currentName: currentName,
-                  onRename: onRename,
+                CreateBucketSheet.show(
+                  context,
+                  initialName: currentName,
+                  initialDescription: currentDescription,
+                  title: 'Edit bucket',
+                  subtitle: 'Update the name and description.',
+                  ctaLabel: 'Edit bucket',
+                  onCreate: onEditBucket,
                 );
               },
             ),
@@ -106,75 +112,6 @@ class _MenuRow extends StatelessWidget {
   }
 }
 
-void _showRenameDialog({
-  required BuildContext context,
-  required String currentName,
-  required ValueChanged<String> onRename,
-}) {
-  final c = RecallColors.of(context);
-  final ctrl = TextEditingController(text: currentName);
-
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: c.card,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: Text(
-        'Rename bucket',
-        style: GoogleFonts.fraunces(
-          fontSize: 22,
-          fontWeight: FontWeight.w500,
-          color: c.ink,
-        ),
-      ),
-      content: TextField(
-        controller: ctrl,
-        autofocus: true,
-        style: GoogleFonts.inter(fontSize: 15, color: c.ink),
-        decoration: InputDecoration(
-          hintText: 'Bucket name',
-          hintStyle: GoogleFonts.inter(fontSize: 15, color: c.grey400),
-          filled: true,
-          fillColor: c.canvas,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: c.grey200),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: c.grey200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: c.ink, width: 1.5),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx),
-          child: Text('Cancel',
-              style: GoogleFonts.inter(color: c.grey600, fontSize: 14)),
-        ),
-        TextButton(
-          onPressed: () {
-            final name = ctrl.text.trim();
-            if (name.isNotEmpty) {
-              Navigator.pop(ctx);
-              onRename(name);
-            }
-          },
-          child: Text('Save',
-              style: GoogleFonts.inter(
-                  color: c.ink, fontSize: 14, fontWeight: FontWeight.w600)),
-        ),
-      ],
-    ),
-  );
-}
-
 void _showDeleteConfirm({
   required BuildContext context,
   required String bucketName,
@@ -212,7 +149,7 @@ void _showDeleteConfirm({
             ),
             const SizedBox(height: 8),
             Text(
-              'All nodes in this bucket will be removed. This can\'t be undone.',
+              'All notes in this bucket will be removed. This can\'t be undone.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(fontSize: 14, color: c.grey600),
             ),

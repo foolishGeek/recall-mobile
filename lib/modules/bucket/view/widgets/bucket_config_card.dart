@@ -8,6 +8,7 @@ import '../../../../core/widgets/soft_card.dart';
 
 class BucketConfigCard extends StatelessWidget {
   final int coolingIndex;
+  final int? customDays;
   final int frequencyIndex;
   final bool disabled;
   final ValueChanged<int> onCoolingChanged;
@@ -16,6 +17,7 @@ class BucketConfigCard extends StatelessWidget {
   const BucketConfigCard({
     super.key,
     required this.coolingIndex,
+    this.customDays,
     required this.frequencyIndex,
     required this.disabled,
     required this.onCoolingChanged,
@@ -28,7 +30,7 @@ class BucketConfigCard extends StatelessWidget {
   String get _coolingReadout {
     if (coolingIndex < 0 || coolingIndex >= coolingLabels.length) return '';
     final label = coolingLabels[coolingIndex];
-    if (label == 'Custom') return 'Custom';
+    if (label == 'Custom') return customDays != null ? '$customDays d' : 'Custom';
     return '${label.replaceAll('d', '')} d';
   }
 

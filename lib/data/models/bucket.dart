@@ -8,6 +8,7 @@ class Bucket {
   final String id;
   final String userId;
   final String name;
+  final String? description;
   final String coolingPeriod; // raw Postgres interval text
   final String frequency;
   final DateTime? cooldownUntil;
@@ -22,6 +23,7 @@ class Bucket {
     required this.id,
     required this.userId,
     this.name = '',
+    this.description,
     this.coolingPeriod = '24:00:00',
     this.frequency = 'daily',
     this.cooldownUntil,
@@ -39,6 +41,7 @@ class Bucket {
         id: asString(json['id']),
         userId: asString(json['user_id']),
         name: asString(json['name']),
+        description: asStringOrNull(json['description']),
         coolingPeriod: asString(json['cooling_period'], '24:00:00'),
         frequency: asString(json['frequency'], 'daily'),
         cooldownUntil: asDateTime(json['cooldown_until']),
@@ -54,6 +57,7 @@ class Bucket {
         'id': id,
         'user_id': userId,
         'name': name,
+        'description': description,
         'cooling_period': coolingPeriod,
         'frequency': frequency,
         'cooldown_until': dateToJson(cooldownUntil),
@@ -69,6 +73,7 @@ class Bucket {
     String? id,
     String? userId,
     String? name,
+    String? description,
     String? coolingPeriod,
     String? frequency,
     DateTime? cooldownUntil,
@@ -83,6 +88,7 @@ class Bucket {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       name: name ?? this.name,
+      description: description ?? this.description,
       coolingPeriod: coolingPeriod ?? this.coolingPeriod,
       frequency: frequency ?? this.frequency,
       cooldownUntil: cooldownUntil ?? this.cooldownUntil,

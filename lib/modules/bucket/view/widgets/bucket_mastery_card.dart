@@ -25,62 +25,105 @@ class BucketMasteryCard extends StatelessWidget {
 
     return SoftCard(
       radius: 22,
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const MonoLabel('Mastery'),
-                  const SizedBox(height: 3),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '$whole',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w500,
-                          height: 1,
-                          letterSpacing: -0.7,
-                          color: c.ink,
-                        ),
-                      ),
-                      Text(
-                        '%',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 16,
-                          color: c.grey500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _Cell(
+                label: 'Mastery',
+                value: '$whole',
+                suffix: '%',
+                alignment: CrossAxisAlignment.start,
               ),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const MonoLabel('Due · overdue'),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$dueCount · $overdueCount',
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 11.5,
-                      color: c.grey600,
-                    ),
-                  ),
-                ],
+            ),
+            _Divider(color: c.grey200),
+            Expanded(
+              child: _Cell(
+                label: 'Due',
+                value: '$dueCount',
+                alignment: CrossAxisAlignment.center,
               ),
-            ],
-          ),
-        ],
+            ),
+            _Divider(color: c.grey200),
+            Expanded(
+              child: _Cell(
+                label: 'Overdue',
+                value: '$overdueCount',
+                alignment: CrossAxisAlignment.center,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _Cell extends StatelessWidget {
+  final String label;
+  final String value;
+  final String? suffix;
+  final CrossAxisAlignment alignment;
+
+  const _Cell({
+    required this.label,
+    required this.value,
+    this.suffix,
+    required this.alignment,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Column(
+      crossAxisAlignment: alignment,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        MonoLabel(label),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 34,
+                fontWeight: FontWeight.w500,
+                height: 1,
+                letterSpacing: -0.7,
+                color: c.ink,
+              ),
+            ),
+            if (suffix != null)
+              Text(
+                suffix!,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 16,
+                  color: c.grey500,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  final Color color;
+
+  const _Divider({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: color,
     );
   }
 }

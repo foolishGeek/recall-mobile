@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/brand/aura_brand.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
+import '../../../../core/theme/recall_shape.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/aura_mark.dart';
 
 class BucketAiChips extends StatelessWidget {
   final String modelLabel;
   final bool isSummarizing;
+  final bool disabled;
   final VoidCallback onSummarize;
   final VoidCallback onAskAi;
 
@@ -15,142 +19,149 @@ class BucketAiChips extends StatelessWidget {
     super.key,
     required this.modelLabel,
     required this.isSummarizing,
+    this.disabled = false,
     required this.onSummarize,
     required this.onAskAi,
   });
 
   @override
   Widget build(BuildContext context) {
+    return Opacity(
+      opacity: disabled ? 0.45 : 1.0,
+      child: IgnorePointer(
+        ignoring: disabled,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _AuraSectionHeader(),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _AiButton(
+                    label: 'Summarize',
+                    icon: Icons.summarize_outlined,
+                    isLoading: isSummarizing,
+                    onTap: onSummarize,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _AiButton(
+                    label: 'Ask Aura',
+                    icon: Icons.chat_bubble_outline_rounded,
+                    onTap: onAskAi,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuraSectionHeader extends StatelessWidget {
+  const _AuraSectionHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
     return Row(
       children: [
-        Expanded(
-          child: _AiChipButton(
-            label: 'Summarize bucket',
-            modelTag: 'Aura',
-            icon: Icons.sort,
-            isLoading: isSummarizing,
-            onTap: onSummarize,
+        const AuraMark(size: 14),
+        const SizedBox(width: 7),
+        Text(
+          AuraBrand.full.toUpperCase(),
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w700,
+            color: c.grey500,
+            letterSpacing: 0.16 * 9.5,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(
-          child: _AiChipButton(
-            label: 'Ask Aura',
-            modelTag: 'Aura',
-            icon: Icons.refresh,
-            onTap: onAskAi,
-          ),
+          child: Container(height: 1, color: c.grey200),
         ),
       ],
     );
   }
 }
 
-class _AiChipButton extends StatefulWidget {
+class _AiButton extends StatefulWidget {
   final String label;
-  final String modelTag;
   final IconData icon;
   final bool isLoading;
   final VoidCallback onTap;
 
-  const _AiChipButton({
+  const _AiButton({
     required this.label,
-    required this.modelTag,
     required this.icon,
     this.isLoading = false,
     required this.onTap,
   });
 
   @override
-  State<_AiChipButton> createState() => _AiChipButtonState();
+  State<_AiButton> createState() => _AiButtonState();
 }
 
-class _AiChipButtonState extends State<_AiChipButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 180),
-    );
-    _scale = Tween(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _ctrl, curve: RecallMotion.bubbly),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+class _AiButtonState extends State<_AiButton> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    return GestureDetector(
-      onTapDown: (_) => _ctrl.forward(),
-      onTapUp: (_) {
-        _ctrl.reverse();
-        RecallHaptics.light();
-        widget.onTap();
-      },
-      onTapCancel: () => _ctrl.reverse(),
-      child: ScaleTransition(
-        scale: _scale,
+    final loading = widget.isLoading;
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1.0,
+      duration: RecallMotion.fast,
+      curve: RecallMotion.bubbly,
+      child: GestureDetector(
+        onTapDown: loading ? null : (_) => setState(() => _pressed = true),
+        onTapCancel: loading ? null : () => setState(() => _pressed = false),
+        onTapUp: loading
+            ? null
+            : (_) {
+                setState(() => _pressed = false);
+                RecallHaptics.light();
+                widget.onTap();
+              },
         child: Container(
-          height: 46,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c.ink, width: 1.2),
+            color: c.card,
+            border: Border.all(color: c.grey200, width: 1.5),
+            borderRadius: BorderRadius.circular(RecallShape.radiusMd),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                offset: const Offset(0, 6),
+                blurRadius: 16,
+              ),
+            ],
           ),
+          alignment: Alignment.center,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (widget.isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
+              if (loading)
+                const AuraMark(size: 17)
+              else
+                Icon(widget.icon, size: 17, color: c.ink),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  loading ? 'Summarizing' : widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
                     color: c.ink,
                   ),
-                )
-              else
-                Icon(widget.icon, size: 16, color: c.ink),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      widget.label,
-                      style: GoogleFonts.inter(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: c.ink,
-                        height: 1.1,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.modelTag.toUpperCase(),
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 9,
-                        color: c.grey500,
-                        letterSpacing: 0.12 * 9,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
                 ),
               ),
             ],

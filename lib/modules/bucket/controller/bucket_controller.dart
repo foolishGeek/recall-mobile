@@ -88,6 +88,7 @@ class BucketController extends BaseController {
 
   // ── Draft state for config (deferred save) ──
   final RxInt draftCoolingIndex = 2.obs; // default 14d
+  final RxnInt draftCustomDays = RxnInt(); // set when cooling index == Custom
   final RxInt draftFrequencyIndex = 2.obs; // default Daily
   final RxBool hasPendingChanges = false.obs;
   final RxBool isSavingConfig = false.obs;
@@ -106,13 +107,15 @@ class BucketController extends BaseController {
     return nodes.where((n) => n.dueAt != null && n.dueAt!.isBefore(now.subtract(const Duration(days: 1)))).length;
   }
 
-  // Config maps — DB enum values (1:1 mapping)
+  // Config maps — cooling_period is a Postgres interval, so we save "N days".
   static const coolingLabels = ['3d', '7d', '14d', '30d', 'Custom'];
-  static const _coolingDbValues = ['3 days', '7 days', '14 days', '30 days', 'custom'];
+  static const _coolingPresetDays = [3, 7, 14, 30];
+  static const _customCoolingIndex = 4;
   static const frequencyLabels = ['Weekly', '3×/wk', 'Daily'];
   static const _frequencyDbValues = ['weekly', '3xwk', 'daily'];
 
   int get coolingIndex => draftCoolingIndex.value;
+  int? get customCoolingDays => draftCustomDays.value;
   int get frequencyIndex => draftFrequencyIndex.value;
 
   @override
@@ -168,17 +171,31 @@ class BucketController extends BaseController {
   }
 
   void _syncDraftFromBucket(Bucket b) {
-    draftCoolingIndex.value = _coolingIndexFromString(b.coolingPeriod);
+    final days = b.coolingPeriodDuration?.inDays;
+    final presetIndex =
+        days == null ? -1 : _coolingPresetDays.indexOf(days);
+    if (presetIndex >= 0) {
+      draftCoolingIndex.value = presetIndex;
+      draftCustomDays.value = null;
+    } else if (days != null && days > 0) {
+      // Non-preset interval → treat as a custom day count so it survives reload.
+      draftCoolingIndex.value = _customCoolingIndex;
+      draftCustomDays.value = days;
+    } else {
+      draftCoolingIndex.value = 2; // default 14d
+      draftCustomDays.value = null;
+    }
     draftFrequencyIndex.value = _frequencyIndexFromString(b.frequency);
   }
 
-  int _coolingIndexFromString(String cp) {
-    if (cp.contains('3') && !cp.contains('30')) return 0;
-    if (cp.contains('7')) return 1;
-    if (cp.contains('14')) return 2;
-    if (cp.contains('30')) return 3;
-    if (cp == 'custom') return 4;
-    return 2; // default 14d
+  /// Maps the current cooling draft to a Postgres interval string ("N days").
+  String _coolingDbValue() {
+    if (draftCoolingIndex.value == _customCoolingIndex) {
+      final days = (draftCustomDays.value ?? 14).clamp(1, 365);
+      return '$days days';
+    }
+    final idx = draftCoolingIndex.value.clamp(0, _coolingPresetDays.length - 1);
+    return '${_coolingPresetDays[idx]} days';
   }
 
   int _frequencyIndexFromString(String f) {
@@ -217,6 +234,19 @@ class BucketController extends BaseController {
     if (readOnly.value) return;
     RecallHaptics.selection();
     draftCoolingIndex.value = index.clamp(0, coolingLabels.length - 1);
+    if (draftCoolingIndex.value != _customCoolingIndex) {
+      draftCustomDays.value = null;
+    }
+    hasPendingChanges.value = true;
+  }
+
+  /// Called after the custom-days dialog resolves. Stores the day count and
+  /// pins the cooling selection to the Custom slot.
+  void onCustomCoolingChanged(int days) {
+    if (readOnly.value) return;
+    RecallHaptics.selection();
+    draftCoolingIndex.value = _customCoolingIndex;
+    draftCustomDays.value = days;
     hasPendingChanges.value = true;
   }
 
@@ -240,7 +270,7 @@ class BucketController extends BaseController {
     RecallHaptics.medium();
     isSavingConfig.value = true;
 
-    final coolingVal = _coolingDbValues[draftCoolingIndex.value.clamp(0, _coolingDbValues.length - 1)];
+    final coolingVal = _coolingDbValue();
     final freqVal = _frequencyDbValues[draftFrequencyIndex.value.clamp(0, _frequencyDbValues.length - 1)];
 
     try {
@@ -302,17 +332,43 @@ class BucketController extends BaseController {
     });
   }
 
-  // ── Rename ──
+  // ── Edit (name + description) ──
 
-  Future<void> onRename(String newName) async {
-    if (newName.trim().isEmpty) return;
+  Future<void> onEditBucket(String newName, String? newDescription) async {
+    if (readOnly.value) return;
+    final name = newName.trim();
+    if (name.isEmpty) return;
     final prev = bucket.value;
     if (prev == null) return;
+    final description = newDescription?.trim() ?? '';
 
-    bucket.value = prev.copyWith(name: newName.trim());
+    bucket.value = prev.copyWith(name: name, description: description);
+    try {
+      final updated = await _bucketRepo.update(bucketId, {
+        'name': name,
+        'description': description,
+      });
+      bucket.value = updated;
+      _refreshBucketsList();
+    } on RepoException catch (e, st) {
+      bucket.value = prev;
+      Sentry.captureException(e, stackTrace: st,
+          withScope: (s) => s.setTag('feature', 'bucket_detail'));
+    }
+  }
+
+  // ── Description ──
+
+  Future<void> onEditDescription(String newDescription) async {
+    if (readOnly.value) return;
+    final prev = bucket.value;
+    if (prev == null) return;
+    final trimmed = newDescription.trim();
+
+    bucket.value = prev.copyWith(description: trimmed);
     try {
       final updated =
-          await _bucketRepo.update(bucketId, {'name': newName.trim()});
+          await _bucketRepo.update(bucketId, {'description': trimmed});
       bucket.value = updated;
     } on RepoException catch (e, st) {
       bucket.value = prev;

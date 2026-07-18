@@ -12,7 +12,7 @@ import '../../../data/models/models.dart';
 import '../controller/bucket_controller.dart';
 import 'widgets/bucket_ai_chips.dart';
 import 'widgets/bucket_config_card.dart';
-import 'widgets/bucket_fab.dart';
+import 'widgets/bucket_custom_cooling_dialog.dart';
 import 'widgets/bucket_header.dart';
 import 'widgets/bucket_mastery_card.dart';
 import 'widgets/bucket_more_menu.dart';
@@ -51,8 +51,13 @@ class BucketView extends GetView<BucketController> {
                           const SizedBox(height: 14),
                           Obx(() => BucketHeader(
                                 name: controller.bucket.value?.name ?? '',
+                                description:
+                                    controller.bucket.value?.description,
                                 nodeCount: controller.nodeCount,
                                 bucketId: controller.bucketId,
+                                readOnly: controller.readOnly.value,
+                                onEditDescription:
+                                    controller.onEditDescription,
                               )),
                           const SizedBox(height: 18),
                           Obx(() {
@@ -73,9 +78,11 @@ class BucketView extends GetView<BucketController> {
                           }),
                           Obx(() => BucketConfigCard(
                                 coolingIndex: controller.coolingIndex,
+                                customDays: controller.customCoolingDays,
                                 frequencyIndex: controller.frequencyIndex,
                                 disabled: controller.readOnly.value,
-                                onCoolingChanged: controller.onCoolingChanged,
+                                onCoolingChanged: (i) =>
+                                    _onCoolingChanged(context, i),
                                 onFrequencyChanged:
                                     controller.onFrequencyChanged,
                               )),
@@ -91,12 +98,19 @@ class BucketView extends GetView<BucketController> {
                                   modelLabel: controller.aiModelLabel.value,
                                   isSummarizing:
                                       controller.isSummarizing.value,
+                                  disabled: !controller.hasNodes,
                                   onSummarize: () => _onSummarize(context),
                                   onAskAi: controller.onAskAiTap,
                                 ),
                                 const SizedBox(height: 18),
                               ],
                             );
+                          }),
+                          Obx(() {
+                            if (!controller.hasNodes) {
+                              return const SizedBox.shrink();
+                            }
+                            return const _CenterDivider();
                           }),
                           Obx(() => _buildNodeSection(context)),
                         ],
@@ -106,11 +120,7 @@ class BucketView extends GetView<BucketController> {
                       if (controller.readOnly.value) {
                         return _ReadOnlyBanner();
                       }
-                      return Positioned(
-                        right: 24,
-                        bottom: 24,
-                        child: BucketFab(onTap: controller.onAddNodeTap),
-                      );
+                      return const SizedBox.shrink();
                     }),
                   ],
                 ),
@@ -143,13 +153,24 @@ class BucketView extends GetView<BucketController> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
-              'Nodes',
+              'Notes',
               style: GoogleFonts.fraunces(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
                 color: c.ink,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '(${controller.nodeCount})',
+              style: GoogleFonts.fraunces(
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: c.grey500,
               ),
             ),
             const Spacer(),
@@ -183,12 +204,28 @@ class BucketView extends GetView<BucketController> {
     );
   }
 
+  Future<void> _onCoolingChanged(BuildContext context, int index) async {
+    // Custom slot (last index) prompts for a day count; presets apply directly.
+    if (index == BucketConfigCard.coolingLabels.length - 1) {
+      final days = await showCustomCoolingDialog(
+        context: context,
+        initialDays: controller.customCoolingDays ?? 14,
+      );
+      if (days != null) {
+        controller.onCustomCoolingChanged(days);
+      }
+      return;
+    }
+    controller.onCoolingChanged(index);
+  }
+
   void _onMore(BuildContext context) {
     if (controller.readOnly.value) return;
     showBucketMoreMenu(
       context: context,
       currentName: controller.bucket.value?.name ?? '',
-      onRename: controller.onRename,
+      currentDescription: controller.bucket.value?.description,
+      onEditBucket: controller.onEditBucket,
       onDelete: controller.onDeleteConfirmed,
     );
   }
@@ -299,6 +336,25 @@ class BucketView extends GetView<BucketController> {
   }
 }
 
+class _CenterDivider extends StatelessWidget {
+  const _CenterDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: Container(
+          width: 40,
+          height: 1,
+          color: c.grey200,
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyNodesBody extends StatelessWidget {
   final VoidCallback onAddFirst;
   const _EmptyNodesBody({required this.onAddFirst});
@@ -318,7 +374,7 @@ class _EmptyNodesBody extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'No nodes yet',
+              'No notes yet',
               style: GoogleFonts.fraunces(
                 fontSize: 20,
                 fontWeight: FontWeight.w500,
@@ -341,7 +397,7 @@ class _EmptyNodesBody extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
-                  '+ first node',
+                  '+ first note',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
