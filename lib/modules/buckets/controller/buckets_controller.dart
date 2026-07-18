@@ -254,13 +254,37 @@ class BucketsController extends BaseController
     if (!isSearchVisible.value) searchQuery.value = '';
   }
 
-  void onFabTap() {
+  /// Free-tier bucket cap hit: send the user to the paywall.
+  void onBucketLimitTap() {
     RecallHaptics.light();
-    if (fabLocked) {
-      _metrics.downgradedGateHit('buckets_fab');
-      Get.toNamed(Routes.paywall);
-    } else {
-      Get.toNamed(Routes.nodeAdd);
+    _metrics.downgradedGateHit('buckets_fab');
+    Get.toNamed(Routes.paywall);
+  }
+
+  void onCreateNoteTap() {
+    RecallHaptics.light();
+    Get.toNamed(Routes.nodeAdd);
+  }
+
+  Future<void> createBucket(String name, String? description) async {
+    final userId = _auth.currentUserId;
+    if (userId == null) return;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    try {
+      await _bucketRepo.create(Bucket(
+        id: '',
+        userId: userId,
+        name: trimmed,
+        description: description,
+      ));
+      RecallHaptics.medium();
+      await reload(forceRemote: true);
+    } on RepoException catch (e) {
+      setError(e.isOffline
+          ? 'You\'re offline. Check your connection and try again.'
+          : e.message);
     }
   }
 

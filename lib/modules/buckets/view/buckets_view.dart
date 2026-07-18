@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../app/routes/app_routes.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
 import '../../empty/view/widgets/empty_buckets_body.dart';
 import '../controller/buckets_controller.dart';
-import 'widgets/buckets_fab.dart';
+import 'widgets/buckets_action_bar.dart';
 import 'widgets/buckets_filter_row.dart';
 import 'widgets/buckets_grid.dart';
 import 'widgets/buckets_header.dart';
 import 'widgets/buckets_search_field.dart';
 import 'widgets/buckets_top_bar.dart';
+import 'widgets/create_bucket_sheet.dart';
 
 class BucketsView extends GetView<BucketsController> {
   const BucketsView({super.key});
@@ -34,10 +34,7 @@ class BucketsView extends GetView<BucketsController> {
                   ),
                   Expanded(
                     child: EmptyBucketsBody(
-                      onMakeBucket: () {
-                        RecallHaptics.light();
-                        Get.toNamed(Routes.nodeAdd);
-                      },
+                      onMakeBucket: () => _onCreateBucket(context),
                       onSearchTap: controller.toggleSearch,
                     ),
                   ),
@@ -48,7 +45,7 @@ class BucketsView extends GetView<BucketsController> {
             return Stack(
               children: [
                 SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 96),
                   child: ConstrainedBox(
                     constraints:
                         BoxConstraints(minHeight: constraints.maxHeight - 24),
@@ -87,11 +84,13 @@ class BucketsView extends GetView<BucketsController> {
                   ),
                 ),
                 Positioned(
-                  right: 24,
-                  bottom: 24,
-                  child: Obx(() => BucketsFab(
-                        locked: controller.fabLocked,
-                        onTap: controller.onFabTap,
+                  left: 18,
+                  right: 18,
+                  bottom: 20,
+                  child: Obx(() => BucketsActionBar(
+                        bucketLocked: controller.fabLocked,
+                        onCreateBucket: () => _onCreateBucket(context),
+                        onCreateNote: controller.onCreateNoteTap,
                       )),
                 ),
               ],
@@ -100,5 +99,17 @@ class BucketsView extends GetView<BucketsController> {
         ),
       );
     });
+  }
+
+  void _onCreateBucket(BuildContext context) {
+    RecallHaptics.light();
+    if (controller.fabLocked) {
+      controller.onBucketLimitTap();
+      return;
+    }
+    CreateBucketSheet.show(
+      context,
+      onCreate: controller.createBucket,
+    );
   }
 }

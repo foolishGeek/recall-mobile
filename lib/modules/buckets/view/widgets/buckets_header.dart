@@ -51,7 +51,7 @@ class BucketsHeader extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '$nodeCount nodes',
+                '$nodeCount ${nodeCount == 1 ? 'note' : 'notes'}',
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 13,
                   color: c.grey600,

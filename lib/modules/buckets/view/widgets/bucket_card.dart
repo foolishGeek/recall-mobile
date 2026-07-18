@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../core/widgets/heat_ring.dart';
+import '../../../../core/theme/recall_motion.dart';
 import '../../../../core/widgets/neo_chip.dart';
 import '../../../../core/widgets/soft_card.dart';
 import '../../../../data/models/bucket.dart';
@@ -31,6 +31,7 @@ class BucketCard extends StatelessWidget {
     final nodeCount = controller.nodeCountFor(bucket);
     final dominant = controller.dominantPriorityFor(bucket);
     final dropValue = controller.nextDropValue(bucket);
+    final description = bucket.description?.trim() ?? '';
 
     NeoChip? chip;
     if (dominant >= 4) {
@@ -47,103 +48,114 @@ class BucketCard extends StatelessWidget {
           children: [
             SoftCard(
               radius: 22,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.zero,
               sunken: readOnly,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Hero(
-                        tag: 'progress_ring_${bucket.id}',
-                        child: HeatRing(
-                          progress: mastery,
-                          heat: 0.55,
-                          size: 44,
-                          trackWidth: 3,
-                          ringWidth: 3.5,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (chip != null) chip,
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Hero(
-                    tag: 'bucket_name_${bucket.id}',
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Text(
-                        bucket.name,
-                        style: GoogleFonts.fraunces(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w500,
-                          height: 1.1,
-                          letterSpacing: -0.2,
-                          color: c.ink,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '$nodeCount',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 12,
-                          color: c.grey600,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'nodes',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          color: c.grey500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'NEXT DROP',
-                              style: GoogleFonts.jetBrainsMono(
-                                fontSize: 8.5,
-                                color: c.grey500,
-                                letterSpacing: 0.16 * 8.5,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MasteryStrip(progress: mastery, c: c),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Hero(
+                                  tag: 'bucket_name_${bucket.id}',
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: Text(
+                                      bucket.name,
+                                      style: GoogleFonts.fraunces(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.1,
+                                        letterSpacing: -0.2,
+                                        color: c.ink,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
                               ),
+                              if (chip != null) ...[
+                                const SizedBox(width: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: chip,
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '$nodeCount',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 12,
+                                  color: c.grey600,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                nodeCount == 1 ? 'note' : 'notes',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: c.grey500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'NEXT DROP',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 8.5,
+                              color: c.grey500,
+                              letterSpacing: 0.16 * 8.5,
                             ),
-                            const SizedBox(height: 2),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            dropValue,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 11.5,
+                              color: cooling ? c.grey500 : c.ink,
+                            ),
+                          ),
+                          if (description.isNotEmpty) ...[
+                            const SizedBox(height: 8),
                             Text(
-                              dropValue,
-                              maxLines: 1,
+                              description,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.jetBrainsMono(
+                              style: GoogleFonts.inter(
                                 fontSize: 11.5,
-                                color: cooling ? c.grey500 : c.ink,
+                                height: 1.3,
+                                color: c.grey500,
                               ),
                             ),
                           ],
-                        ),
+                          const SizedBox(height: 12),
+                          _StatusPill(cooling: cooling, c: c),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      _StatusPill(cooling: cooling, c: c),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
             if (readOnly)
@@ -157,6 +169,86 @@ class BucketCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The horizontal mastery meter at the top of the card. The fill grows to the
+/// mastery fraction; the centred "NN%" is drawn twice so it stays legible on
+/// both sides of the fill edge — ink over the track, inkOnInk over the fill.
+class _MasteryStrip extends StatelessWidget {
+  final double progress; // 0..1
+  final RecallColors c;
+  const _MasteryStrip({required this.progress, required this.c});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = progress.clamp(0.0, 1.0);
+    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final label = '${(value * 100).round()}%';
+    const height = 30.0;
+
+    final baseStyle = GoogleFonts.jetBrainsMono(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.5,
+      height: 1,
+    );
+
+    return SizedBox(
+      height: height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: reduceMotion ? value : 0.0, end: value),
+            duration: reduceMotion ? Duration.zero : RecallMotion.slow,
+            curve: RecallMotion.easeOut,
+            builder: (context, t, _) {
+              final fillWidth = width * t;
+              return Stack(
+                children: [
+                  Positioned.fill(child: ColoredBox(color: c.grey200)),
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: fillWidth,
+                    child: ColoredBox(color: c.ink),
+                  ),
+                  Positioned.fill(
+                    child: Center(
+                      child: Text(label, style: baseStyle.copyWith(color: c.ink)),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: ClipRect(
+                      clipper: _LeftClipper(fillWidth),
+                      child: Center(
+                        child: Text(
+                          label,
+                          style: baseStyle.copyWith(color: c.inkOnInk),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LeftClipper extends CustomClipper<Rect> {
+  final double width;
+  const _LeftClipper(this.width);
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, width, size.height);
+
+  @override
+  bool shouldReclip(_LeftClipper old) => old.width != width;
 }
 
 class _StatusPill extends StatelessWidget {
