@@ -160,14 +160,18 @@ class SummaryShareCard extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // Brand foot — ink strip, mark + wordmark left, RippleLabs right.
+          // Brand foot — follows the theme (light stays light). Hairline top,
+          // sunken surface, mark + wordmark left, RippleLabs right.
           Container(
             width: double.infinity,
-            color: c.ink,
+            decoration: BoxDecoration(
+              color: c.cardSunken,
+              border: Border(top: BorderSide(color: c.grey200)),
+            ),
             padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
             child: Row(
               children: [
-                RecallMark(size: 22, color: c.inkOnInk, strokeWidth: 8),
+                RecallMark(size: 22, color: c.ink, strokeWidth: 8),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -181,7 +185,7 @@ class SummaryShareCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           height: 1.0,
                           letterSpacing: 0.2,
-                          color: c.inkOnInk,
+                          color: c.ink,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -190,7 +194,7 @@ class SummaryShareCard extends StatelessWidget {
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           height: 1.1,
-                          color: c.inkOnInk.withValues(alpha: 0.55),
+                          color: c.grey500,
                         ),
                       ),
                     ],
@@ -202,7 +206,7 @@ class SummaryShareCard extends StatelessWidget {
                     fontSize: 9,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.8,
-                    color: c.inkOnInk.withValues(alpha: 0.45),
+                    color: c.grey500,
                   ),
                 ),
               ],
