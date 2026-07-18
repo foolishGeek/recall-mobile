@@ -24,14 +24,28 @@ android {
     }
 
     defaultConfig {
-        // S02: single staging bundle (full staging/prod flavors deferred to S27).
-        applicationId = "app.recall.staging"
         // supabase_flutter transitive deps require minSdk 23
         // (ua_client_hints ≥22, passkeys_android ≥23).
         minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    // google-services.json is per-flavor under src/<flavor>/ — no manual swap.
+    // Run with: flutter run --flavor staging|prod --dart-define-from-file=config/<flavor>.json
+    flavorDimensions += "env"
+    productFlavors {
+        create("staging") {
+            dimension = "env"
+            applicationId = "app.recall.staging"
+            resValue("string", "app_name", "Recall Stage")
+        }
+        create("prod") {
+            dimension = "env"
+            applicationId = "app.recall"
+            resValue("string", "app_name", "Recall")
+        }
     }
 
     buildTypes {

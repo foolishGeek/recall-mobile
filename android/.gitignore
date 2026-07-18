@@ -12,3 +12,10 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Firebase config is env-specific; source of truth lives in
+# recall-backend/secrets/firebase/. Copy per flavor before building
+# (see recall-mobile/README.md). Never commit.
+app/src/staging/google-services.json
+app/src/prod/google-services.json
+app/google-services.json
