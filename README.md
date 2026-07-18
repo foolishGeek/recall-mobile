@@ -52,6 +52,41 @@ rsvg-convert -w 1024 -h 1024 assets/logo/app-icon-dark.svg -o assets/icon/app-ic
 fvm dart run flutter_launcher_icons
 ```
 
+## Release signing & AAB
+
+Release builds read signing from `android/key.properties` (gitignored). Without
+it, release falls back to the debug keystore, so a real upload key is required
+before shipping to Play.
+
+1. Generate an upload keystore (one-time; keep it safe + backed up):
+
+```bash
+keytool -genkey -v -keystore recall-mobile/android/upload-keystore.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+2. Create `android/key.properties` from the template and fill in values:
+
+```bash
+cp android/key.properties.example android/key.properties
+# edit storePassword / keyPassword / keyAlias / storeFile
+```
+
+3. Build the AAB (flavor + dart-defines required):
+
+```bash
+# staging → app.recall.staging (Play internal testing)
+fvm flutter build appbundle --flavor staging --release \
+  --dart-define-from-file=config/staging.json
+
+# prod → app.recall (Play production / closed testing)
+fvm flutter build appbundle --flavor prod --release \
+  --dart-define-from-file=config/prod.json
+```
+
+Outputs: `build/app/outputs/bundle/<flavor>Release/app-<flavor>-release.aab`.
+Don't upload a staging AAB to the production Play listing.
+
 ## Structure
 
 ```
