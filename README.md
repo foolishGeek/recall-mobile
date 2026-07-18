@@ -12,24 +12,33 @@ Environment values are read from a `--dart-define-from-file` JSON (never committ
 
 ```bash
 cp config/staging.example.json config/staging.json   # then fill in the secret values
+# or for Recall-prod:
+cp config/prod.example.json config/prod.json         # then fill from secrets/LOCAL-SECRETS.md
 fvm flutter pub get
-fvm flutter run --dart-define-from-file=config/staging.json
+fvm flutter run --flavor staging --dart-define-from-file=config/staging.json
+# prod:
+# fvm flutter run --flavor prod --dart-define-from-file=config/prod.json
 ```
 
-In **VS Code / Cursor** just press Run — `.vscode/launch.json` already passes the file.
-In **Android Studio**: Run config → "Additional run args" → `--dart-define-from-file=config/staging.json`.
+In **VS Code / Cursor** pick **recall (staging)** or **recall (prod)** — `.vscode/launch.json` sets `--flavor` + the matching dart-define file.
+In **Android Studio**: add `--flavor staging` (or `prod`) and `--dart-define-from-file=config/…`.
 
 Required keys (see [`../recall-backend/docs/DART-DEFINES.md`](../recall-backend/docs/DART-DEFINES.md)):
 `ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `REVENUECAT_API_KEY`.
 Empty `SENTRY_DSN` is allowed (Sentry init is skipped for local dev).
+Empty `REVENUECAT_API_KEY` is allowed (SDK no-ops until IAP is wired).
 
-**Firebase (Recall Drop / onboarding):** copy staging config before `flutter run`:
+**Firebase:** no manual swap at run time — Android flavors pick the file automatically. The files are gitignored (source of truth in the backend vault); populate them once:
 
 ```bash
-cp ../recall-backend/secrets/firebase/google-services.staging.json android/app/google-services.json
+cp ../recall-backend/secrets/firebase/google-services.staging.json android/app/src/staging/google-services.json
+cp ../recall-backend/secrets/firebase/google-services.prod.json    android/app/src/prod/google-services.json
 ```
 
-(iOS `GoogleService-Info.plist` deferred until Apple Developer / APNs — Android-first for staging.)
+- `src/staging/` → package `app.recall.staging`
+- `src/prod/` → package `app.recall`
+
+(iOS `GoogleService-Info.plist` deferred until Apple Developer / APNs — Android-first.)
 
 Cold start: `/splash` → `AuthGate` → sign-in / onboarding / today.
 
