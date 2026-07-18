@@ -18,6 +18,7 @@ class ShellView extends StatelessWidget {
 
   /// Hot reload clears GetX controllers without re-running route bindings; ensure
   /// the shell (and tab controllers) are registered before the first Obx read.
+  /// Route-churn resilience is handled by the fenix factories in ShellBinding.
   void _ensureRegistered() {
     if (!Get.isRegistered<ShellController>()) {
       ShellBinding().dependencies();
