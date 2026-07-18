@@ -153,6 +153,11 @@ class EmptyController extends BaseController {
     }
   }
 
+  void onAddNote() {
+    RecallHaptics.selection();
+    Get.toNamed(Routes.nodeAdd);
+  }
+
   void onStartReview() {
     RecallHaptics.light();
     final shell = Get.find<ShellController>();

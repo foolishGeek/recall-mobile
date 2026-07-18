@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/recall_time.dart';
 import '../../../../core/widgets/mono_label.dart';
 
 class _DropRelative {
@@ -18,9 +19,7 @@ _DropRelative? _relativeDrop(DateTime dropAt) {
   final today = DateTime(now.year, now.month, now.day);
   final dropDay = DateTime(local.year, local.month, local.day);
   final dayDiff = dropDay.difference(today).inDays;
-  final h = local.hour.toString().padLeft(2, '0');
-  final m = local.minute.toString().padLeft(2, '0');
-  return _DropRelative(dayDiff: dayDiff, time: '$h:$m');
+  return _DropRelative(dayDiff: dayDiff, time: RecallTime.clock12h(local));
 }
 
 /// When [dropAt] is null or [hasNotes] is false → fallback copy per S25 §6.

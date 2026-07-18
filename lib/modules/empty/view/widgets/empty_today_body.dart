@@ -23,6 +23,7 @@ class EmptyTodayBody extends StatelessWidget {
   final bool hasNotes;
   final DoneFastBanner? doneFastBanner;
   final VoidCallback onOpenQuiz;
+  final VoidCallback onAddNote;
 
   const EmptyTodayBody({
     super.key,
@@ -31,6 +32,7 @@ class EmptyTodayBody extends StatelessWidget {
     required this.nextDropAt,
     required this.hasNotes,
     required this.onOpenQuiz,
+    required this.onAddNote,
     this.doneFastBanner,
   });
 
@@ -74,19 +76,9 @@ class EmptyTodayBody extends StatelessWidget {
                         style: t.body.copyWith(color: c.grey600),
                       ),
                     ),
-                    const SizedBox(height: 22),
-                    SizedBox(
-                      width: 280,
-                      child: Text(
-                        'Quizzes let you revisit topics on your terms — '
-                        'no due dates, no scores to lose.',
-                        textAlign: TextAlign.center,
-                        style: t.bodySm.copyWith(color: c.grey600, height: 1.4),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    _QuizQuietCta(onPressed: onOpenQuiz),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 20),
+                    const _CenterHairline(),
+                    const SizedBox(height: 16),
                     EmptyNextDropLabel(
                       dropAt: nextDropAt,
                       hasNotes: hasNotes,
@@ -96,13 +88,82 @@ class EmptyTodayBody extends StatelessWidget {
               ),
             ),
           ),
+          _BottomActions(
+            onOpenQuiz: onOpenQuiz,
+            onAddNote: onAddNote,
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
   }
 }
 
-/// Quiet secondary treat — quiz tab mark + brand line, matches SecondaryButton.
+/// Quiet hairline that closes the rest message before the next-drop mono.
+class _CenterHairline extends StatelessWidget {
+  const _CenterHairline();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Center(
+      child: Container(
+        width: 40,
+        height: 1,
+        color: c.grey300,
+      ),
+    );
+  }
+}
+
+/// Bottom strip: quiz (2/3) + add-note (1/3), with the quiz whisper below.
+class _BottomActions extends StatelessWidget {
+  final VoidCallback onOpenQuiz;
+  final VoidCallback onAddNote;
+
+  const _BottomActions({
+    required this.onOpenQuiz,
+    required this.onAddNote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    final t = RecallType.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _QuizQuietCta(onPressed: onOpenQuiz),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 1,
+              child: _AddNoteCta(onPressed: onAddNote),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Quizzes let you revisit topics on your terms — '
+          'no due dates, no scores to lose.',
+          textAlign: TextAlign.center,
+          style: t.bodySm.copyWith(
+            color: c.grey500,
+            height: 1.4,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Quiet secondary treat — quiz tab mark + brand line.
 class _QuizQuietCta extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -118,7 +179,7 @@ class _QuizQuietCta extends StatelessWidget {
       },
       child: Container(
         height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: c.card,
           border: Border.all(color: c.grey200, width: 1.5),
@@ -133,7 +194,7 @@ class _QuizQuietCta extends StatelessWidget {
         ),
         alignment: Alignment.center,
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SvgPicture.asset(
               'assets/icons/tabs/quiz.svg',
@@ -141,17 +202,73 @@ class _QuizQuietCta extends StatelessWidget {
               height: 18,
               colorFilter: ColorFilter.mode(c.ink, BlendMode.srcIn),
             ),
-            const SizedBox(width: 10),
-            Text(
-              'Quiz a quiet corner',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: c.ink,
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'Quiz a quiet corner',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: c.ink,
+                ),
               ),
             ),
-            const SizedBox(width: 10),
-            Icon(Icons.arrow_forward, color: c.grey500, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact companion CTA — add a note (1/3 of the bottom row).
+class _AddNoteCta extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _AddNoteCta({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return GestureDetector(
+      onTap: () {
+        RecallHaptics.selection();
+        onPressed();
+      },
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: c.card,
+          border: Border.all(color: c.grey200, width: 1.5),
+          borderRadius: BorderRadius.circular(RecallShape.radiusMd),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              offset: const Offset(0, 6),
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, size: 16, color: c.ink),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                'Note',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: c.ink,
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -55,6 +55,7 @@ class _TodayContent extends StatelessWidget {
           hasNotes: controller.hasNotes,
           doneFastBanner: controller.doneFastBanner.value,
           onOpenQuiz: controller.openQuiz,
+          onAddNote: controller.onAddNote,
         );
       }
       return _TodayLoaded(controller: controller);

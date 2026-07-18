@@ -317,6 +317,11 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     Get.find<ShellController>().onTabSelected(RecallTab.quiz);
   }
 
+  void onAddNote() {
+    RecallHaptics.selection();
+    Get.toNamed(Routes.nodeAdd);
+  }
+
   void onMakeBucket() {
     RecallHaptics.light();
     Get.toNamed(Routes.nodeAdd);

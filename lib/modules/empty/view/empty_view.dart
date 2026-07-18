@@ -44,6 +44,7 @@ class EmptyView extends GetView<EmptyController> {
             hasNotes: controller.hasNotes.value,
             doneFastBanner: controller.doneFastBanner.value,
             onOpenQuiz: controller.openQuiz,
+            onAddNote: controller.onAddNote,
           ),
         );
       case EmptyVariant.insights:
