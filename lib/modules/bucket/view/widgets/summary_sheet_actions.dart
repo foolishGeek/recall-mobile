@@ -86,28 +86,26 @@ class _ShareMarkPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width;
-    final stroke = Paint()
-      ..color = color
+
+    // Share-nodes glyph, but the nodes are Recall's "falling seed" dots: one
+    // source (left) sending to two destinations (right). Reads as share, on-brand.
+    final source = Offset(s * 0.26, s * 0.50);
+    final upper = Offset(s * 0.74, s * 0.24);
+    final lower = Offset(s * 0.74, s * 0.76);
+
+    final link = Paint()
+      ..color = color.withValues(alpha: 0.55)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.11
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeWidth = s * 0.085
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(source, upper, link);
+    canvas.drawLine(source, lower, link);
 
-    // Paper plane: tip at top-right, body folding left.
-    final plane = Path()
-      ..moveTo(s * 0.14, s * 0.48)
-      ..lineTo(s * 0.86, s * 0.18)
-      ..lineTo(s * 0.52, s * 0.86)
-      ..lineTo(s * 0.42, s * 0.56)
-      ..close();
-    canvas.drawPath(plane, stroke);
-
-    // Fold crease — reads as a plane, not a triangle.
-    canvas.drawLine(
-      Offset(s * 0.42, s * 0.56),
-      Offset(s * 0.86, s * 0.18),
-      stroke,
-    );
+    final dot = Paint()..color = color;
+    // Source is the biggest seed; destinations echo the fading dots of the mark.
+    canvas.drawCircle(source, s * 0.135, dot);
+    canvas.drawCircle(upper, s * 0.11, dot);
+    canvas.drawCircle(lower, s * 0.11, dot);
   }
 
   @override
