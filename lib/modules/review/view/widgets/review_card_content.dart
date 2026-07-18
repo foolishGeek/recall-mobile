@@ -3,16 +3,29 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../data/models/models.dart' hide Stack;
+import '../../../node/view/widgets/node_body_image.dart';
 import '../../../node/view/widgets/node_body_markdown.dart';
+import '../../../node/view/widgets/node_body_pdf.dart';
 
 class ReviewCardContent extends StatelessWidget {
   final Node node;
   final String bucketName;
 
+  /// Attachments for this node (pdf/image) and their signed URLs, keyed by
+  /// asset id. Empty when the node has no files or they failed to load.
+  final List<NodeAsset> assets;
+  final Map<String, String> signedUrls;
+
+  /// Opens the fullscreen attachment viewer at [index]. Null disables tapping.
+  final void Function(int index)? onOpenAttachment;
+
   const ReviewCardContent({
     super.key,
     required this.node,
     required this.bucketName,
+    this.assets = const [],
+    this.signedUrls = const {},
+    this.onOpenAttachment,
   });
 
   @override
@@ -67,9 +80,68 @@ class ReviewCardContent extends StatelessWidget {
         return _buildLinkPreview(context, c);
       case NodeType.youtube:
         return _buildYouTubePreview(context, c);
+      case NodeType.pdf:
+      case NodeType.image:
+        return _buildAttachmentPreview(context, c);
       default:
         return _buildMarkdown(context, c);
     }
+  }
+
+  Widget _buildAttachmentPreview(BuildContext context, RecallColors c) {
+    if (assets.isEmpty) {
+      // Attachments unavailable (offline / signing failed) — fall back to any
+      // text, else a quiet placeholder so the card is never blank.
+      final text = node.markdown ?? node.extractedText ?? '';
+      if (text.isNotEmpty) return _buildMarkdown(context, c);
+      return _buildAttachmentPlaceholder(c);
+    }
+
+    final first = assets.first;
+    final isPdf = first.mimeType.contains('pdf');
+    final sizeLabel = _fileSizeLabel(first.fileSizeBytes);
+    final Widget preview = isPdf
+        ? NodeBodyPdf(
+            signedUrl: signedUrls[first.id],
+            sizeLabel: first.pageCount != null
+                ? '$sizeLabel \u00B7 ${first.pageCount}p'
+                : sizeLabel,
+            cacheKey: first.id,
+          )
+        : NodeBodyImage(
+            signedUrl: signedUrls[first.id],
+            sizeLabel: sizeLabel,
+          );
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onOpenAttachment == null ? null : () => onOpenAttachment!(0),
+        child: preview,
+      ),
+    );
+  }
+
+  Widget _buildAttachmentPlaceholder(RecallColors c) {
+    final isPdf = node.type == NodeType.pdf;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
+            size: 36,
+            color: c.grey400,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isPdf ? 'PDF attachment' : 'Image attachment',
+            style: GoogleFonts.inter(fontSize: 13, color: c.grey500),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMarkdown(BuildContext context, RecallColors c) {
@@ -354,6 +426,13 @@ class ReviewCardContent extends StatelessWidget {
     } catch (_) {
       return '';
     }
+  }
+
+  String _fileSizeLabel(int? bytes) {
+    if (bytes == null) return '';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   String _formatDuration(int seconds) {

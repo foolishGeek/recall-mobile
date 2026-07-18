@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/recall_colors.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../data/models/models.dart' hide Stack;
+import '../../node/view/widgets/node_attachment_viewer.dart';
 import '../controller/review_controller.dart';
 import 'widgets/review_card.dart';
 import 'widgets/review_card_content.dart';
@@ -54,6 +55,17 @@ class _ReviewContentState extends State<_ReviewContent> {
 
   GlobalKey<ReviewCardState> _keyFor(String itemId) =>
       _cardKeys.putIfAbsent(itemId, () => GlobalKey<ReviewCardState>());
+
+  void _openAttachment(Node node, int index) {
+    final assets = controller.nodeAssets[node.id] ?? const <NodeAsset>[];
+    if (assets.isEmpty) return;
+    NodeAttachmentViewer.open(
+      context,
+      assets: assets,
+      signedUrls: controller.signedUrls,
+      initialIndex: index,
+    );
+  }
 
   void _onRateViaThrow(ReviewGrade grade) {
     if (!controller.canRate) return;
@@ -166,6 +178,8 @@ class _ReviewContentState extends State<_ReviewContent> {
           child: ReviewCardContent(
             node: nextNode,
             bucketName: nextBucket,
+            assets: controller.nodeAssets[nextNode.id] ?? const [],
+            signedUrls: controller.signedUrls,
           ),
         ),
       ),
@@ -194,6 +208,9 @@ class _ReviewContentState extends State<_ReviewContent> {
         child: ReviewCardContent(
           node: node,
           bucketName: bucketName,
+          assets: controller.nodeAssets[node.id] ?? const [],
+          signedUrls: controller.signedUrls,
+          onOpenAttachment: (i) => _openAttachment(node, i),
         ),
       ),
     );

@@ -33,6 +33,12 @@ class ReviewController extends BaseController {
   final RxList<StackItem> items = <StackItem>[].obs;
   final RxMap<String, Node> nodes = <String, Node>{}.obs;
   final RxMap<String, String> bucketNames = <String, String>{}.obs;
+
+  // Attachments for pdf/image nodes, keyed by nodeId, plus their signed URLs
+  // keyed by asset id — so the swipe card can render the real file content.
+  final RxMap<String, List<NodeAsset>> nodeAssets =
+      <String, List<NodeAsset>>{}.obs;
+  final RxMap<String, String> signedUrls = <String, String>{}.obs;
   final RxMap<String, IntervalPreview> intervalPreviews =
       <String, IntervalPreview>{}.obs;
   final RxInt currentIndex = 0.obs;
@@ -154,6 +160,9 @@ class ReviewController extends BaseController {
       if (node != null) {
         nodes[nodeId] = node;
         bucketIds.add(node.bucketId);
+        if (node.type == NodeType.pdf || node.type == NodeType.image) {
+          await _loadAssets(node);
+        }
       }
     }
 
@@ -165,6 +174,24 @@ class ReviewController extends BaseController {
         }
       }
     }
+  }
+
+  /// Loads and signs a pdf/image node's attachments so the swipe card can show
+  /// the real file. Best-effort: a failure (offline / signing) leaves the card
+  /// to fall back to its text/placeholder body instead of failing the session.
+  Future<void> _loadAssets(Node node) async {
+    try {
+      final assets = await _nodeRepo.fetchAssets(node.id);
+      if (assets.isEmpty) return;
+      nodeAssets[node.id] = assets;
+      for (final asset in assets) {
+        if (asset.storagePath.isEmpty) continue;
+        try {
+          signedUrls[asset.id] =
+              await _nodeRepo.signAssetUrl(asset.storagePath, asset.mimeType);
+        } catch (_) {}
+      }
+    } catch (_) {}
   }
 
   /// Skip a missing node without crashing the session.
