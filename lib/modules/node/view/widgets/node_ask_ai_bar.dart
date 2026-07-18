@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/brand/aura_brand.dart';
@@ -14,6 +15,7 @@ class NodeAskAiBar extends StatefulWidget {
   final String? error;
   final ValueChanged<String> onSend;
   final VoidCallback onClear;
+  final ValueChanged<String>? onUpdateNote;
 
   const NodeAskAiBar({
     super.key,
@@ -23,6 +25,7 @@ class NodeAskAiBar extends StatefulWidget {
     this.error,
     required this.onSend,
     required this.onClear,
+    this.onUpdateNote,
   });
 
   @override
@@ -32,12 +35,22 @@ class NodeAskAiBar extends StatefulWidget {
 class _NodeAskAiBarState extends State<NodeAskAiBar> {
   final _ctrl = TextEditingController();
   final _focus = FocusNode();
+  bool _copied = false;
 
   @override
   void dispose() {
     _ctrl.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant NodeAskAiBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Fresh answer → clear the "Copied" chip so it doesn't linger.
+    if (oldWidget.result?.answer != widget.result?.answer) {
+      _copied = false;
+    }
   }
 
   void _send() {
@@ -47,6 +60,15 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
     widget.onSend(q);
     _ctrl.clear();
     _focus.unfocus();
+  }
+
+  Future<void> _copyAnswer() async {
+    final text = widget.result?.answer.trim() ?? '';
+    if (text.isEmpty) return;
+    RecallHaptics.selection();
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    setState(() => _copied = true);
   }
 
   @override
@@ -64,6 +86,9 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
   }
 
   Widget _responseCard(RecallColors c) {
+    final hasAnswer = widget.error == null &&
+        (widget.result?.answer.trim().isNotEmpty ?? false);
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -97,14 +122,50 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            widget.error ?? widget.result?.answer ?? '',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: widget.error != null ? Colors.redAccent : c.ink,
-              height: 1.55,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Text(
+                widget.error ?? widget.result?.answer ?? '',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: widget.error != null ? Colors.redAccent : c.ink,
+                  height: 1.55,
+                ),
+              ),
             ),
           ),
+          if (hasAnswer) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                if (widget.onUpdateNote != null) ...[
+                  Expanded(
+                    flex: 3,
+                    child: _ReplyActionCta(
+                      icon: Icons.note_alt_outlined,
+                      label: 'Update note',
+                      showArrow: true,
+                      emphasized: true,
+                      onPressed: () =>
+                          widget.onUpdateNote!(widget.result!.answer.trim()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  flex: 2,
+                  child: _ReplyActionCta(
+                    icon: _copied ? Icons.check_rounded : Icons.copy_outlined,
+                    label: _copied ? 'Copied' : 'Copy',
+                    emphasized: false,
+                    onPressed: _copyAnswer,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -230,6 +291,66 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
           fontWeight: FontWeight.w600,
           color: c.grey600,
           letterSpacing: 0.1 * 9,
+        ),
+      ),
+    );
+  }
+}
+
+/// Quiet CTAs under Aura's reply — update the note, or just copy the text.
+class _ReplyActionCta extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool emphasized;
+  final bool showArrow;
+
+  const _ReplyActionCta({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.emphasized = false,
+    this.showArrow = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return GestureDetector(
+      onTap: () {
+        RecallHaptics.selection();
+        onPressed();
+      },
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: emphasized ? c.canvas : Colors.transparent,
+          border: Border.all(color: c.grey200),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 15, color: c.ink),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: c.ink,
+                ),
+              ),
+            ),
+            if (showArrow) ...[
+              const SizedBox(width: 4),
+              Icon(Icons.arrow_forward_rounded, size: 13, color: c.grey500),
+            ],
+          ],
         ),
       ),
     );

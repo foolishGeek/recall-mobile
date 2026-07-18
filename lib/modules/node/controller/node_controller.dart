@@ -15,6 +15,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
 import '../view/widgets/node_ai_diff_view.dart';
+import '../view/widgets/node_ask_ai_update_sheet.dart';
 
 class NodeController extends BaseController {
   NodeController(
@@ -240,36 +241,94 @@ class NodeController extends BaseController {
   /// previews resolve. Excludes the node's primary structured link preview.
   Future<void> _loadContentLinks(Node n) async {
     contentLinks.clear();
-    final md = n.markdown;
-    if (md == null || md.trim().isEmpty) return;
 
-    final primaryUrl = n.linkPreview?.canonicalUrl;
     final seen = <String>{};
     final urls = <String>[];
-    for (final match in _urlRegex.allMatches(md)) {
-      var url = match.group(0)!;
-      // Strip trailing punctuation that commonly hugs a URL in prose.
-      url = url.replaceAll(RegExp(r'[.,;:!?]+$'), '');
-      if (url == primaryUrl) continue;
-      if (seen.add(url)) urls.add(url);
-      if (urls.length >= 6) break; // keep the screen + network bounded
-    }
-    if (urls.isEmpty) return;
 
-    final resolved = <LinkPreview>[];
-    for (final url in urls) {
-      try {
-        final preview = await _aiRepo.linkPreview(url);
-        resolved.add(
-          preview.canonicalUrl == null || preview.canonicalUrl!.isEmpty
-              ? preview.copyWith(canonicalUrl: url)
-              : preview,
-        );
-      } catch (_) {
-        // Skip links we can't preview (offline, blocked, etc.).
+    // 1) Link / YouTube nodes keep their URL on `n.url` (not in markdown). If
+    //    the stored structured preview is missing/empty, seed a card from that
+    //    URL so a link node never renders as a bare link.
+    final structuredUrl = n.linkPreview?.canonicalUrl;
+    if ((n.type == NodeType.link || n.type == NodeType.youtube) &&
+        n.url != null &&
+        n.url!.trim().isNotEmpty &&
+        (structuredUrl == null || structuredUrl.isEmpty)) {
+      final u = n.url!.trim();
+      if (seen.add(u)) urls.add(u);
+    }
+
+    // 2) Any URLs written inside the markdown body (text notes).
+    final md = n.markdown;
+    if (md != null && md.trim().isNotEmpty) {
+      for (final match in _urlRegex.allMatches(md)) {
+        var url = match.group(0)!;
+        // Strip trailing punctuation that commonly hugs a URL in prose.
+        url = url.replaceAll(RegExp(r'[.,;:!?]+$'), '');
+        if (url == structuredUrl) continue;
+        if (seen.add(url)) urls.add(url);
+        if (urls.length >= 6) break; // keep the screen + network bounded
       }
     }
-    contentLinks.assignAll(resolved);
+
+    if (urls.isEmpty) return;
+
+    // Show cards immediately (domain + favicon, YouTube id resolved client-side)
+    // so a slow/unreachable `link-preview` edge function never leaves the note
+    // as raw text. Each preview then enriches in place as it resolves.
+    contentLinks.assignAll([for (final u in urls) _seedPreview(u)]);
+
+    await Future.wait([
+      for (var i = 0; i < urls.length; i++) _enrichLink(urls[i], i),
+    ]);
+  }
+
+  /// Immediate placeholder preview from just the URL. Detects YouTube so the
+  /// WATCH card shows right away without waiting on enrichment.
+  LinkPreview _seedPreview(String url) {
+    final videoId = _youtubeId(url);
+    return LinkPreview(canonicalUrl: url, videoId: videoId);
+  }
+
+  /// Extracts a YouTube video id from common URL shapes; null if not YouTube.
+  static String? _youtubeId(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    final host = uri.host.toLowerCase();
+    if (host.contains('youtu.be')) {
+      return uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+    }
+    if (host.contains('youtube.com')) {
+      final v = uri.queryParameters['v'];
+      if (v != null && v.isNotEmpty) return v;
+      if (uri.pathSegments.length >= 2 &&
+          (uri.pathSegments.first == 'embed' ||
+              uri.pathSegments.first == 'shorts')) {
+        return uri.pathSegments[1];
+      }
+    }
+    return null;
+  }
+
+  Future<void> _enrichLink(String url, int index) async {
+    try {
+      final preview = await _aiRepo
+          .linkPreview(url)
+          .timeout(const Duration(seconds: 6));
+      var enriched =
+          preview.canonicalUrl == null || preview.canonicalUrl!.isEmpty
+              ? preview.copyWith(canonicalUrl: url)
+              : preview;
+      // Preserve the client-detected YouTube id if enrichment omitted it.
+      if (enriched.videoId == null || enriched.videoId!.isEmpty) {
+        final vid = _youtubeId(url);
+        if (vid != null) enriched = enriched.copyWith(videoId: vid);
+      }
+      if (index < contentLinks.length) {
+        contentLinks[index] = enriched;
+      }
+    } catch (_) {
+      // Keep the bare-URL fallback already in place (offline, blocked, timeout).
+    }
   }
 
   // ── Chip cycling ──
@@ -342,11 +401,17 @@ class NodeController extends BaseController {
     String field,
     dynamic value,
     Node optimistic,
+  ) =>
+      _updateNodeFields({field: value}, optimistic);
+
+  Future<void> _updateNodeFields(
+    Map<String, dynamic> changes,
+    Node optimistic,
   ) async {
     final prev = node.value;
     node.value = optimistic;
     try {
-      final updated = await _nodeRepo.update(nodeId, {field: value});
+      final updated = await _nodeRepo.update(nodeId, changes);
       node.value = updated;
     } on RepoException catch (e, st) {
       node.value = prev;
@@ -418,7 +483,7 @@ class NodeController extends BaseController {
       updated = updated.copyWith(difficulty: eval.suggestedDifficulty!);
     }
     if (changes.isNotEmpty) {
-      _updateNodeField(changes.keys.first, changes.values.first, updated);
+      _updateNodeFields(changes, updated);
     }
   }
 
@@ -442,7 +507,14 @@ class NodeController extends BaseController {
 
     RecallHaptics.medium();
     _preRewriteMarkdown.value = before;
-    await _updateNodeField('markdown', after, n.copyWith(markdown: after));
+    // Keep the searchable corpus + embeddings in sync with the new body, else
+    // Summarise / Ask AI keep reading the stale `extracted_text`. Bumping
+    // content_hash also re-fires the embed trigger to refresh the vectors.
+    final hash = NodeRepository.computeContentHash(after);
+    await _updateNodeFields(
+      {'markdown': after, 'extracted_text': after, 'content_hash': hash},
+      n.copyWith(markdown: after, extractedText: after, contentHash: hash),
+    );
     didApplyRewrite.value = true;
     final current = node.value;
     if (current != null) _loadContentLinks(current);
@@ -455,7 +527,11 @@ class NodeController extends BaseController {
     final n = node.value;
     if (prev == null || n == null) return;
     RecallHaptics.light();
-    await _updateNodeField('markdown', prev, n.copyWith(markdown: prev));
+    final hash = NodeRepository.computeContentHash(prev);
+    await _updateNodeFields(
+      {'markdown': prev, 'extracted_text': prev, 'content_hash': hash},
+      n.copyWith(markdown: prev, extractedText: prev, contentHash: hash),
+    );
     didApplyRewrite.value = false;
     _preRewriteMarkdown.value = null;
     final current = node.value;
@@ -501,6 +577,33 @@ class NodeController extends BaseController {
     ragError.value = null;
   }
 
+  /// Opens the keep/leave sheet, then appends the chosen excerpt to the note
+  /// body (and keeps extracted_text + embeddings in sync).
+  Future<void> onUpdateNoteFromAskAi(String answer) async {
+    final ctx = Get.context;
+    final n = node.value;
+    if (ctx == null || n == null) return;
+
+    final excerpt = await NodeAskAiUpdateSheet.show(ctx, answer: answer);
+    if (excerpt == null || excerpt.trim().isEmpty) return;
+
+    final existing = n.markdown?.trim() ?? '';
+    final after =
+        existing.isEmpty ? excerpt.trim() : '$existing\n\n${excerpt.trim()}';
+    final hash = NodeRepository.computeContentHash(after);
+
+    RecallHaptics.medium();
+    await _updateNodeFields(
+      {'markdown': after, 'extracted_text': after, 'content_hash': hash},
+      n.copyWith(markdown: after, extractedText: after, contentHash: hash),
+    );
+
+    clearRagResult();
+    final current = node.value;
+    if (current != null) _loadContentLinks(current);
+    _trackEvent('ask_ai_applied_to_note', {'node_id': nodeId});
+  }
+
   // ── Navigation ──
 
   void onEditTap() {
@@ -509,6 +612,19 @@ class NodeController extends BaseController {
       'node_id': nodeId,
       'bucket_id': node.value?.bucketId,
     });
+  }
+
+  /// Soft-deletes the note and returns to the bucket, which reloads its list.
+  Future<void> onDeleteNote() async {
+    if (nodeId.isEmpty) return;
+    RecallHaptics.heavy();
+    try {
+      await _nodeRepo.softDelete(nodeId);
+      Get.back();
+    } on RepoException catch (e, st) {
+      Sentry.captureException(e, stackTrace: st,
+          withScope: (s) => s.setTag('feature', 'node_detail'));
+    }
   }
 
   void onLinkTap() => openUrl(node.value?.linkPreview?.canonicalUrl);

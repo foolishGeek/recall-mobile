@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import 'pdf_first_page_thumbnail.dart';
 
 class NodeBodyPdf extends StatelessWidget {
   final String? signedUrl;
   final String sizeLabel;
 
+  /// Asset id used to key the rendered first-page thumbnail cache.
+  final String cacheKey;
+
   const NodeBodyPdf({
     super.key,
     this.signedUrl,
     required this.sizeLabel,
+    this.cacheKey = '',
   });
 
   @override
@@ -29,26 +34,10 @@ class NodeBodyPdf extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Container(color: c.card),
-              // Simulated page lines.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: List.generate(6, (i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Container(
-                      height: i == 0 ? 5 : 3,
-                      width: i == 0 ? double.infinity * 0.8 : double.infinity,
-                      constraints: BoxConstraints(
-                        maxWidth: i == 0 ? 200 : double.infinity,
-                      ),
-                      decoration: BoxDecoration(
-                        color: i == 0 ? c.grey400 : c.grey200,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  )),
-                ),
+              // Real first-page render (skeleton while loading, glyph on error).
+              PdfFirstPageThumbnail(
+                signedUrl: signedUrl,
+                cacheKey: cacheKey.isEmpty ? (signedUrl ?? '') : cacheKey,
               ),
               Positioned(
                 left: 8,

@@ -43,48 +43,77 @@ class NodeChipRow extends StatelessWidget {
     final labelStyle = GoogleFonts.jetBrainsMono(
       fontSize: 9,
       fontWeight: FontWeight.w600,
-      color: c.grey400,
+      color: c.grey500,
       letterSpacing: 0.22,
     );
 
-    return Column(
+    // Each column keeps its label directly above its chip and the three pairs
+    // are evenly distributed across the width — no trailing dead space.
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Labels row
-        Row(
-          children: [
-            Expanded(child: Text('PRIORITY', style: labelStyle)),
-            const SizedBox(width: 10),
-            Expanded(child: Text('DIFFICULTY', style: labelStyle)),
-            const SizedBox(width: 10),
-            Expanded(child: Text('COMFORT', style: labelStyle)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // Chips row
-        Row(
-          children: [
-            _ChipPopButton(
+        Expanded(
+          child: _MetaColumn(
+            label: 'PRIORITY',
+            labelStyle: labelStyle,
+            chip: _ChipPopButton(
               chipLabel: priorityLabel,
               level: priorityLevel,
               onTap: onPriorityTap,
             ),
-            const SizedBox(width: 10),
-            _ChipPopButton(
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MetaColumn(
+            label: 'DIFFICULTY',
+            labelStyle: labelStyle,
+            chip: _ChipPopButton(
               chipLabel: difficultyLabel,
               level: difficultyLevel,
               onTap: onDifficultyTap,
             ),
-            const SizedBox(width: 10),
-            _ChipPopButton(
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MetaColumn(
+            label: 'COMFORT',
+            labelStyle: labelStyle,
+            chip: _ChipPopButton(
               chipLabel: comfortLabel,
               level: comfortLevel,
               onTap: comfortReadOnly ? null : onComfortTap,
               dimmed: comfortReadOnly,
             ),
-            const Spacer(),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+/// A single meta column: mono micro-label on top, its chip 8px below,
+/// both left-aligned so the trio reads as an aligned grid.
+class _MetaColumn extends StatelessWidget {
+  final String label;
+  final TextStyle labelStyle;
+  final Widget chip;
+
+  const _MetaColumn({
+    required this.label,
+    required this.labelStyle,
+    required this.chip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: labelStyle),
+        const SizedBox(height: 8),
+        Align(alignment: Alignment.centerLeft, child: chip),
       ],
     );
   }

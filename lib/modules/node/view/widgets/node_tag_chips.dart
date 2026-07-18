@@ -37,10 +37,12 @@ class _TagPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // NOTE: no `alignment` here on purpose. A Container with an alignment
+    // expands to fill the parent's max width (the full Wrap row), which would
+    // force every pill onto its own full-width line. Vertical padding gives the
+    // ~24px height while keeping the pill sized to its label so they flow inline.
     final pill = Container(
-      height: 24,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: colors.card,
         border: Border.all(color: colors.grey200),

@@ -24,9 +24,37 @@ class NodeBodyLinkCard extends StatelessWidget {
     return parts.join(' · ');
   }
 
+  /// Host of the link, e.g. `arxiv.org` — used as the brand line + favicon
+  /// source when the preview didn't return a site name/image.
+  static String? hostOf(String? url) {
+    if (url == null || url.isEmpty) return null;
+    final uri = Uri.tryParse(url);
+    final host = uri?.host;
+    if (host == null || host.isEmpty) return null;
+    return host.startsWith('www.') ? host.substring(4) : host;
+  }
+
+  /// Prefer the real site name; otherwise fall back to the domain so every
+  /// card reads as a rich preview, never a bare URL.
+  String? get _brandLine {
+    final s = preview.siteName;
+    if (s != null && s.trim().isNotEmpty) return s;
+    return hostOf(preview.canonicalUrl);
+  }
+
+  /// When the preview has no title, show the domain as the primary line so the
+  /// card still has a confident headline.
+  String? get _titleLine {
+    final t = preview.title;
+    if (t != null && t.trim().isNotEmpty) return t;
+    return hostOf(preview.canonicalUrl);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
+    final brand = _brandLine;
+    final title = _titleLine;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -53,10 +81,9 @@ class NodeBodyLinkCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (preview.siteName != null &&
-                      preview.siteName!.isNotEmpty)
+                  if (brand != null && brand.isNotEmpty)
                     Text(
-                      preview.siteName!.toUpperCase(),
+                      brand.toUpperCase(),
                       style: GoogleFonts.jetBrainsMono(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w500,
@@ -66,10 +93,10 @@ class NodeBodyLinkCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  if (preview.title != null && preview.title!.isNotEmpty) ...[
+                  if (title != null && title.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(
-                      preview.title!,
+                      title,
                       style: GoogleFonts.inter(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
@@ -116,26 +143,51 @@ class _Thumb extends StatelessWidget {
       child: SizedBox(
         width: 64,
         height: 64,
-        child: preview.imageUrl != null
+        child: preview.imageUrl != null && preview.imageUrl!.isNotEmpty
             ? Image.network(
                 preview.imageUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _hatch(),
+                errorBuilder: (_, __, ___) => _favicon(),
               )
-            : _hatch(),
+            : _favicon(),
       ),
     );
   }
 
-  Widget _hatch() {
+  /// Falls back to the site favicon (on a calm hatch) so a card without an
+  /// OG image still reads as a real link preview, not a blank tile.
+  Widget _favicon() {
+    final host = NodeBodyLinkCard.hostOf(preview.canonicalUrl);
+    if (host == null) return _hatch();
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _hatch(showGlyph: false),
+        Center(
+          child: Image.network(
+            'https://www.google.com/s2/favicons?domain=$host&sz=128',
+            width: 28,
+            height: 28,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) =>
+                Icon(Icons.link_rounded, size: 22, color: colors.grey500),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _hatch({bool showGlyph = true}) {
     return CustomPaint(
       painter: _HatchPainter(
         stripeA: colors.grey300,
         stripeB: colors.grey200,
       ),
-      child: Center(
-        child: Icon(Icons.link_rounded, size: 22, color: colors.grey500),
-      ),
+      child: showGlyph
+          ? Center(
+              child: Icon(Icons.link_rounded, size: 22, color: colors.grey500),
+            )
+          : null,
     );
   }
 }

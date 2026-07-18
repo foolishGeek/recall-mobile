@@ -3,18 +3,20 @@ import 'package:get/get.dart' hide Node;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/utils/note_links.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../data/models/models.dart';
 import '../controller/node_controller.dart';
 import 'widgets/node_ai_eval_panel.dart';
 import 'widgets/node_ask_ai_bar.dart';
-import 'widgets/node_body_image.dart';
+import 'widgets/node_attachment_row.dart';
+import 'widgets/node_attachment_viewer.dart';
 import 'widgets/node_body_link_card.dart';
 import 'widgets/node_body_markdown.dart';
-import 'widgets/node_body_pdf.dart';
 import 'widgets/node_body_youtube.dart';
 import 'widgets/node_chip_row.dart';
+import 'widgets/node_delete_sheet.dart';
 import 'widgets/node_eyebrow.dart';
 import 'widgets/node_heat_row.dart';
 import 'widgets/node_tag_chips.dart';
@@ -45,6 +47,7 @@ class NodeView extends GetView<NodeController> {
               error: controller.ragError.value,
               onSend: controller.onAskAiSend,
               onClear: controller.clearRagResult,
+              onUpdateNote: controller.onUpdateNoteFromAskAi,
             );
           }),
         ],
@@ -56,10 +59,10 @@ class NodeView extends GetView<NodeController> {
     final c = RecallColors.of(context);
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: _topSection(c)),
+        SliverToBoxAdapter(child: _topSection(context, c)),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverToBoxAdapter(child: _contentSection(c)),
+          sliver: SliverToBoxAdapter(child: _contentSection(context, c)),
         ),
         if (controller.showAiPanel)
           SliverPadding(
@@ -71,7 +74,7 @@ class NodeView extends GetView<NodeController> {
     );
   }
 
-  Widget _topSection(RecallColors c) {
+  Widget _topSection(BuildContext context, RecallColors c) {
     final n = controller.node.value;
     if (n == null) return const SizedBox.shrink();
     return Column(
@@ -81,7 +84,10 @@ class NodeView extends GetView<NodeController> {
               bucketName: controller.bucketName.value,
               onBack: () => Get.back(),
               onEdit: controller.onEditTap,
-              onMore: () {},
+              onDelete: () => showNodeDeleteSheet(
+                context: context,
+                onDelete: controller.onDeleteNote,
+              ),
             )),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -132,7 +138,7 @@ class NodeView extends GetView<NodeController> {
                     tags: controller.tags.toList(),
                     onAddTap: controller.onEditTap,
                   )),
-              const SizedBox(height: 24),
+              const _CenterDivider(),
             ],
           ),
         ),
@@ -140,12 +146,15 @@ class NodeView extends GetView<NodeController> {
     );
   }
 
-  Widget _contentSection(RecallColors c) {
+  Widget _contentSection(BuildContext context, RecallColors c) {
     return Obx(() {
       final n = controller.node.value;
       if (n == null) return const SizedBox.shrink();
 
-      final hasMarkdown = n.markdown != null && n.markdown!.trim().isNotEmpty;
+      // Reference links live as standalone URL lines; strip them from the prose
+      // so the body reads clean and they render as cards below the attachments.
+      final body = stripStandaloneUrls(n.markdown);
+      final hasMarkdown = body.isNotEmpty;
 
       // Combine the node's primary structured preview with any links surfaced
       // from the markdown body, splitting into web links and YouTube videos.
@@ -173,13 +182,24 @@ class NodeView extends GetView<NodeController> {
             const SizedBox(height: 14),
           ],
 
-          // Markdown body (always show if content exists)
+          // 1 · Body prose
           if (hasMarkdown) ...[
-            NodeBodyMarkdown(markdown: n.markdown!),
+            NodeBodyMarkdown(markdown: body),
             const SizedBox(height: 20),
           ],
 
-          // LINKED section (link cards — non-YouTube links)
+          // 2 · Attachments — horizontal scrollable row of PDFs/images
+          if (controller.assets.isNotEmpty) ...[
+            _sectionLabel(
+              'ATTACHMENTS · ${controller.assets.length}',
+              c,
+            ),
+            const SizedBox(height: 10),
+            _attachments(context, c),
+            const SizedBox(height: 20),
+          ],
+
+          // 3 · Links (non-YouTube)
           if (links.isNotEmpty) ...[
             _sectionLabel('LINKED', c),
             const SizedBox(height: 10),
@@ -193,7 +213,7 @@ class NodeView extends GetView<NodeController> {
             const SizedBox(height: 20),
           ],
 
-          // WATCH section (YouTube videos)
+          // 4 · YouTube videos
           if (videos.isNotEmpty) ...[
             _sectionLabel('WATCH', c),
             const SizedBox(height: 10),
@@ -202,16 +222,6 @@ class NodeView extends GetView<NodeController> {
               if (i != videos.length - 1) const SizedBox(height: 16),
             ],
             const SizedBox(height: 20),
-          ],
-
-          // ATTACHMENTS section (PDFs/images — always shown if assets exist)
-          if (controller.assets.isNotEmpty) ...[
-            _sectionLabel(
-              'ATTACHMENTS · ${controller.assets.length}',
-              c,
-            ),
-            const SizedBox(height: 10),
-            _attachmentsThumbnails(n, c),
           ],
         ],
       );
@@ -275,48 +285,23 @@ class NodeView extends GetView<NodeController> {
     );
   }
 
-  Widget _attachmentsThumbnails(Node n, RecallColors c) {
+  Widget _attachments(BuildContext context, RecallColors c) {
     return Obx(() {
-      if (controller.assets.isEmpty) return const SizedBox.shrink();
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.zero,
-        itemCount: controller.assets.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 3 / 4,
+      final all = controller.assets.toList();
+      if (all.isEmpty) return const SizedBox.shrink();
+
+      final signed = Map<String, String>.from(controller.signedUrls);
+      return NodeAttachmentRow(
+        assets: all,
+        signedUrls: signed,
+        onTapIndex: (i) => NodeAttachmentViewer.open(
+          context,
+          assets: all,
+          signedUrls: signed,
+          initialIndex: i,
         ),
-        itemBuilder: (_, i) {
-          final asset = controller.assets[i];
-          final signedUrl = controller.signedUrls[asset.id];
-          final isPdf = asset.mimeType.contains('pdf');
-          final sizeLabel = _fileSizeLabel(asset.fileSizeBytes);
-          if (isPdf) {
-            final pdfLabel = asset.pageCount != null
-                ? '$sizeLabel · ${asset.pageCount}p'
-                : sizeLabel;
-            return NodeBodyPdf(
-              signedUrl: signedUrl,
-              sizeLabel: pdfLabel,
-            );
-          }
-          return NodeBodyImage(
-            signedUrl: signedUrl,
-            sizeLabel: sizeLabel,
-          );
-        },
       );
     });
-  }
-
-  String _fileSizeLabel(int? bytes) {
-    if (bytes == null) return '';
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Widget _revertChip(RecallColors c) {
@@ -381,5 +366,25 @@ class NodeView extends GetView<NodeController> {
             : null,
       );
     });
+  }
+}
+
+/// Quiet centered hairline that closes the meta block before the body.
+class _CenterDivider extends StatelessWidget {
+  const _CenterDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: Container(
+          width: 40,
+          height: 1,
+          color: c.grey300,
+        ),
+      ),
+    );
   }
 }

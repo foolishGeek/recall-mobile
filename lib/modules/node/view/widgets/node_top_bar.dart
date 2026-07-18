@@ -7,14 +7,14 @@ class NodeTopBar extends StatelessWidget {
   final String? bucketName;
   final VoidCallback onBack;
   final VoidCallback onEdit;
-  final VoidCallback onMore;
+  final VoidCallback onDelete;
 
   const NodeTopBar({
     super.key,
     this.bucketName,
     required this.onBack,
     required this.onEdit,
-    required this.onMore,
+    required this.onDelete,
   });
 
   @override
@@ -60,11 +60,11 @@ class NodeTopBar extends StatelessWidget {
               ),
             ),
             GestureDetector(
-              onTap: onMore,
+              onTap: onDelete,
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Icon(Icons.more_horiz, size: 22, color: c.ink),
+                child: Icon(Icons.delete_outline, size: 21, color: c.ink),
               ),
             ),
           ],
