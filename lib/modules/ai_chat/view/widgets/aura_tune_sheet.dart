@@ -19,10 +19,15 @@ class AuraTuneSheet extends StatefulWidget {
   const AuraTuneSheet({super.key, required this.controller});
 
   static Future<void> show(AiChatController controller) {
-    return Get.bottomSheet(
-      AuraTuneSheet(controller: controller),
+    final ctx = Get.context;
+    if (ctx == null) return Future.value();
+    return showModalBottomSheet<void>(
+      context: ctx,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      useSafeArea: false,
+      builder: (_) => AuraTuneSheet(controller: controller),
     );
   }
 
@@ -64,81 +69,96 @@ class _AuraTuneSheetState extends State<AuraTuneSheet> {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        decoration: BoxDecoration(
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    // Cap content height so a tall "learned" list can still scroll, but never
+    // expand the sheet to fill the screen (that was pinning content to the top).
+    final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.72;
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Material(
           color: c.card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: c.grey400,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxSheetHeight),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const AuraMark(size: 20),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Tune ${AuraBrand.name}',
-                      style: GoogleFonts.fraunces(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w500,
-                        color: c.ink,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Tell ${AuraBrand.name} how you like answers — it learns just '
-                  'for you, never for anyone else.',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: c.grey600,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _learned(c),
-                const SizedBox(height: 16),
-                _composer(c),
-                if (_ack != null) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(Icons.check_circle_outline,
-                          size: 16, color: c.grey600),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _ack!,
-                          style: GoogleFonts.inter(
-                            fontSize: 12.5,
-                            color: c.grey600,
-                            height: 1.4,
-                          ),
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: c.grey400,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        const AuraMark(size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Tune ${AuraBrand.name}',
+                          style: GoogleFonts.fraunces(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w500,
+                            color: c.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tell ${AuraBrand.name} how you like answers — it learns just '
+                      'for you, never for anyone else.',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: c.grey600,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _learned(c),
+                    const SizedBox(height: 16),
+                    _composer(c),
+                    if (_ack != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              size: 16, color: c.grey600),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _ack!,
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                color: c.grey600,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
-                  ),
-                ],
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),

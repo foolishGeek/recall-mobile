@@ -385,26 +385,55 @@ class AiChatController extends BaseController {
     final directives =
         await _aiRepo.submitSuggestion(text, rating: rating, interactionId: interactionId);
     if (directives == null) return null;
-    if (directives.isNotEmpty) {
-      auraDirectives.assignAll(AuraPrefs.describe(directives));
+    // Server saved the raw note (and any mapped directives). Refresh the full
+    // learned list so free-text tunes show up too — not just keyword matches.
+    if (!await _refreshAuraPrefs()) {
+      // Offline (queued for sync): keep the list live optimistically so the
+      // empty state clears now. Mapped lines first, then the raw suggestion.
+      final lines = AuraPrefs.describe(directives);
+      final lowerLines = lines.map((e) => e.toLowerCase()).toSet();
+      final merged = <String>[
+        ...lines,
+        if (!lowerLines.contains(text.toLowerCase())) text,
+        for (final l in auraDirectives)
+          if (!lowerLines.contains(l.toLowerCase()) &&
+              l.toLowerCase() != text.toLowerCase())
+            l,
+      ];
+      auraDirectives.assignAll(merged);
     }
     return AuraPrefs.acknowledge(directives);
   }
 
   /// Load the user's learned Aura preferences for the Tune Aura sheet.
   Future<void> loadAuraPrefs() async {
-    final userId = _auth.currentUserId;
-    if (userId == null) return;
     prefsLoading.value = true;
+    try {
+      await _refreshAuraPrefs();
+    } finally {
+      prefsLoading.value = false;
+    }
+  }
+
+  /// Pull the full prefs row and render both mapped directives and raw notes.
+  /// Returns false when the fetch could not complete (offline/no user/error).
+  Future<bool> _refreshAuraPrefs() async {
+    final userId = _auth.currentUserId;
+    if (userId == null) return false;
     try {
       final prefs = await _aiRepo.fetchPreferences(userId);
       auraDirectives.assignAll(
-        prefs == null ? const [] : AuraPrefs.describe(prefs.styleDirectives),
+        prefs == null
+            ? const []
+            : AuraPrefs.learnedLines(
+                styleDirectives: prefs.styleDirectives,
+                customNotes: prefs.customNotes,
+              ),
       );
+      return true;
     } on RepoException catch (_) {
       // Transparency view is best-effort; leave the last known directives.
-    } finally {
-      prefsLoading.value = false;
+      return false;
     }
   }
 
