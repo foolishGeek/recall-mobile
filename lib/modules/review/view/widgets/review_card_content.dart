@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../data/models/models.dart' hide Stack;
+import '../../../node/view/widgets/node_body_markdown.dart';
 
 class ReviewCardContent extends StatelessWidget {
   final Node node;
@@ -72,8 +73,6 @@ class ReviewCardContent extends StatelessWidget {
   }
 
   Widget _buildMarkdown(BuildContext context, RecallColors c) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final bodyColor = dark ? const Color(0xFFcfcdc6) : const Color(0xFF3a3935);
     final text = node.markdown ?? node.extractedText ?? '';
 
     if (text.isEmpty) {
@@ -82,13 +81,9 @@ class ReviewCardContent extends StatelessWidget {
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          height: 1.6,
-          color: bodyColor,
-        ),
+      child: NodeBodyMarkdown(
+        markdown: text,
+        selectable: false,
       ),
     );
   }

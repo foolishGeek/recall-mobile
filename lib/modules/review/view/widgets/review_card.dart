@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,27 +12,33 @@ import 'review_direction_stamp.dart';
 class ReviewCard extends StatefulWidget {
   final Widget child;
   final void Function(ReviewGrade grade) onRate;
+  final ValueChanged<ReviewGrade?>? onDragGradeChanged;
+  final VoidCallback? onThrowStarted;
   final bool enabled;
 
   const ReviewCard({
     super.key,
     required this.child,
     required this.onRate,
+    this.onDragGradeChanged,
+    this.onThrowStarted,
     this.enabled = true,
   });
 
   @override
-  State<ReviewCard> createState() => _ReviewCardState();
+  State<ReviewCard> createState() => ReviewCardState();
 }
 
-class _ReviewCardState extends State<ReviewCard>
+class ReviewCardState extends State<ReviewCard>
     with SingleTickerProviderStateMixin {
   Offset _dragOffset = Offset.zero;
   bool _thresholdCrossed = false;
   bool _isThrowing = false;
-  late AnimationController _springController;
-  Animation<Offset>? _springAnimation;
-  Animation<Offset>? _throwAnimation;
+  bool _rated = false;
+  ReviewGrade? _pendingGrade;
+  late final AnimationController _animController;
+  Animation<Offset>? _offsetAnimation;
+  VoidCallback? _tickListener;
 
   static const double _threshold = 28.0;
   static const double _throwThreshold = 120.0;
@@ -42,17 +49,72 @@ class _ReviewCardState extends State<ReviewCard>
   @override
   void initState() {
     super.initState();
-    _springController = AnimationController.unbounded(vsync: this);
+    _animController = AnimationController(vsync: this);
+    _animController.addStatusListener(_onAnimStatus);
   }
 
   @override
   void dispose() {
-    _springController.dispose();
+    _clearTickListener();
+    _animController.removeStatusListener(_onAnimStatus);
+    _animController.dispose();
     super.dispose();
   }
 
+  void _onAnimStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    if (!mounted) return;
+
+    _clearTickListener();
+
+    if (_isThrowing && _pendingGrade != null) {
+      final grade = _pendingGrade!;
+      _pendingGrade = null;
+      // Keep the card at its thrown (off-screen) position; this card is about to
+      // be replaced by the next one. Advance is deferred out of this animation
+      // callback so the outgoing State can be disposed safely and the next card
+      // mounts cleanly (no shared-state carryover, no mid-frame flicker).
+      _rate(grade);
+      return;
+    }
+
+    // Spring-back finished — same card stays, reset to center.
+    setState(() {
+      _dragOffset = Offset.zero;
+      _thresholdCrossed = false;
+      _offsetAnimation = null;
+    });
+    widget.onDragGradeChanged?.call(null);
+  }
+
+  void _rate(ReviewGrade grade) {
+    if (_rated) return;
+    _rated = true;
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      widget.onDragGradeChanged?.call(null);
+      widget.onRate(grade);
+    });
+  }
+
+  void _clearTickListener() {
+    if (_tickListener != null) {
+      _animController.removeListener(_tickListener!);
+      _tickListener = null;
+    }
+  }
+
+  void _bindTick() {
+    _clearTickListener();
+    _tickListener = () {
+      if (_offsetAnimation == null || !mounted) return;
+      setState(() => _dragOffset = _offsetAnimation!.value);
+    };
+    _animController.addListener(_tickListener!);
+  }
+
   double get _rotation {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     if (screenWidth == 0) return 0;
     return (_dragOffset.dx / screenWidth) * _maxRotation * (math.pi / 180);
   }
@@ -65,9 +127,8 @@ class _ReviewCardState extends State<ReviewCard>
     final dy = _dragOffset.dy;
     if (dx.abs() > dy.abs()) {
       return dx > 0 ? ReviewGrade.good : ReviewGrade.hard;
-    } else {
-      return dy < 0 ? ReviewGrade.easy : ReviewGrade.again;
     }
+    return dy < 0 ? ReviewGrade.easy : ReviewGrade.again;
   }
 
   double get _stampOpacity {
@@ -75,151 +136,120 @@ class _ReviewCardState extends State<ReviewCard>
     return ((_dragMagnitude - 30) / (_throwThreshold - 30)).clamp(0.0, 0.78);
   }
 
-  void _onPanUpdate(DragUpdateDetails details) {
-    if (_isThrowing || !widget.enabled) return;
+  void _notifyDragGrade() {
+    widget.onDragGradeChanged?.call(_inferredGrade);
+  }
+
+  // Grading swipe is horizontal-only so it never competes with the card body's
+  // vertical scroll (long markdown). Easy/Forgot remain available via buttons,
+  // which trigger vertical throws programmatically (no gesture conflict).
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    if (_isThrowing || _rated || !widget.enabled) return;
     setState(() {
-      _dragOffset += details.delta;
+      _dragOffset += Offset(details.delta.dx, 0);
     });
 
-    if (!_thresholdCrossed && _dragMagnitude >= _threshold) {
+    if (!_thresholdCrossed && _dragOffset.dx.abs() >= _threshold) {
       _thresholdCrossed = true;
       RecallHaptics.selection();
     }
+    _notifyDragGrade();
   }
 
-  void _onPanEnd(DragEndDetails details) {
-    if (_isThrowing || !widget.enabled) return;
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    if (_isThrowing || _rated || !widget.enabled) return;
 
-    final velocity = details.velocity.pixelsPerSecond;
-    final speed = velocity.distance;
+    final speed = details.velocity.pixelsPerSecond.dx.abs();
     final grade = _inferredGrade;
 
     final shouldThrow = grade != null &&
-        (_dragMagnitude >= _throwThreshold || speed >= _velocityThreshold);
+        (_dragOffset.dx.abs() >= _throwThreshold || speed >= _velocityThreshold);
 
     if (shouldThrow) {
-      _animateThrow(grade);
+      _startThrow(grade);
     } else {
       _animateSpringBack();
     }
   }
 
-  void _animateThrow(ReviewGrade grade) {
-    setState(() => _isThrowing = true);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final factor = 1.2;
+  void _startThrow(ReviewGrade grade) {
+    if (_isThrowing || _rated) return;
 
-    Offset target;
-    switch (grade) {
-      case ReviewGrade.good:
-        target = Offset(screenWidth * factor, -40);
-        break;
-      case ReviewGrade.hard:
-        target = Offset(-screenWidth * factor, -40);
-        break;
-      case ReviewGrade.easy:
-        target = Offset(0, -screenHeight * factor);
-        break;
-      case ReviewGrade.again:
-        target = Offset(0, screenHeight * factor);
-        break;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduceMotion) {
+      widget.onThrowStarted?.call();
+      _rate(grade);
+      return;
     }
 
-    _springController.stop();
-    _throwAnimation = Tween<Offset>(
+    setState(() {
+      _isThrowing = true;
+      _pendingGrade = grade;
+    });
+    widget.onThrowStarted?.call();
+
+    final size = MediaQuery.sizeOf(context);
+    const factor = 1.2;
+
+    final Offset target = switch (grade) {
+      ReviewGrade.good => Offset(size.width * factor, -40),
+      ReviewGrade.hard => Offset(-size.width * factor, -40),
+      ReviewGrade.easy => Offset(0, -size.height * factor),
+      ReviewGrade.again => Offset(0, size.height * factor),
+    };
+
+    _animController.stop();
+    _animController.duration = _throwDuration;
+    _offsetAnimation = Tween<Offset>(
       begin: _dragOffset,
       end: target,
     ).animate(CurvedAnimation(
-      parent: _springController,
+      parent: _animController,
       curve: Curves.easeInQuad,
     ));
 
-    _springController.duration = _throwDuration;
-    _springController.reset();
-
-    _springController.addListener(_onThrowTick);
-    _springController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _springController.removeListener(_onThrowTick);
-        widget.onRate(grade);
-        _resetCard();
-      }
-    });
-
-    _springController.forward();
-  }
-
-  void _onThrowTick() {
-    if (_throwAnimation != null) {
-      setState(() {
-        _dragOffset = _throwAnimation!.value;
-      });
-    }
+    _bindTick();
+    _animController.forward(from: 0);
   }
 
   void _animateSpringBack() {
-    final startOffset = _dragOffset;
-    _springAnimation = Tween<Offset>(
-      begin: startOffset,
+    if (_dragOffset == Offset.zero) {
+      widget.onDragGradeChanged?.call(null);
+      return;
+    }
+
+    _animController.stop();
+    _animController.duration = RecallMotion.normal;
+    _offsetAnimation = Tween<Offset>(
+      begin: _dragOffset,
       end: Offset.zero,
-    ).animate(_springController);
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
 
-    _springController.stop();
-    _springController.duration = RecallMotion.normal;
-    _springController.reset();
-
-    _springController.addListener(_onSpringTick);
-    _springController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _springController.removeListener(_onSpringTick);
-        setState(() {
-          _dragOffset = Offset.zero;
-          _thresholdCrossed = false;
-        });
-      }
-    });
-
-    _springController.forward();
+    _bindTick();
+    _animController.forward(from: 0);
   }
 
-  void _onSpringTick() {
-    if (_springAnimation != null) {
-      setState(() {
-        _dragOffset = _springAnimation!.value;
-      });
-    }
-  }
-
-  void _resetCard() {
-    setState(() {
-      _dragOffset = Offset.zero;
-      _thresholdCrossed = false;
-      _isThrowing = false;
-      _throwAnimation = null;
-      _springAnimation = null;
-    });
-  }
-
+  /// Programmatic throw used by rating buttons (same path as swipe).
   void triggerThrow(ReviewGrade grade) {
-    if (_isThrowing) return;
-    Offset startDrag;
-    switch (grade) {
-      case ReviewGrade.good:
-        startDrag = const Offset(60, 0);
-        break;
-      case ReviewGrade.hard:
-        startDrag = const Offset(-60, 0);
-        break;
-      case ReviewGrade.easy:
-        startDrag = const Offset(0, -60);
-        break;
-      case ReviewGrade.again:
-        startDrag = const Offset(0, 60);
-        break;
-    }
-    setState(() => _dragOffset = startDrag);
-    _animateThrow(grade);
+    if (_isThrowing || _rated || !widget.enabled) return;
+
+    final Offset startDrag = switch (grade) {
+      ReviewGrade.good => const Offset(60, 0),
+      ReviewGrade.hard => const Offset(-60, 0),
+      ReviewGrade.easy => const Offset(0, -60),
+      ReviewGrade.again => const Offset(0, 60),
+    };
+
+    setState(() {
+      _dragOffset = startDrag;
+      _thresholdCrossed = true;
+    });
+    widget.onDragGradeChanged?.call(grade);
+    _startThrow(grade);
   }
 
   @override
@@ -234,9 +264,10 @@ class _ReviewCardState extends State<ReviewCard>
 
     final grade = _inferredGrade;
 
-    return GestureDetector(
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
+    final card = GestureDetector(
+      onHorizontalDragUpdate: _onHorizontalDragUpdate,
+      onHorizontalDragEnd: _onHorizontalDragEnd,
+      behavior: HitTestBehavior.opaque,
       child: Transform(
         transform: transform,
         alignment: Alignment.center,
@@ -278,6 +309,19 @@ class _ReviewCardState extends State<ReviewCard>
           ],
         ),
       ),
+    );
+
+    if (reduceMotion) return card;
+
+    // Subtle entry: the new front card eases up from the ghost's scale.
+    // Controller-free so it can never leave the card in a stuck state.
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.97, end: 1.0),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
+      child: card,
     );
   }
 }

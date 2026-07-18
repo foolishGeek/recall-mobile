@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/animation.dart';
+import 'package:flutter/widgets.dart' hide Stack;
 import 'package:get/get.dart' hide Node;
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/node_repository.dart';
@@ -15,10 +16,11 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/metrics_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/supabase_service.dart';
+import '../../shell/controller/shell_controller.dart';
 
 typedef IntervalPreview = Map<String, dynamic>;
 
-class ReviewController extends BaseController with GetTickerProviderStateMixin {
+class ReviewController extends BaseController {
   final _auth = Get.find<AuthService>();
   final _stackRepo = Get.find<StackRepository>();
   final _reviewRepo = Get.find<ReviewRepository>();
@@ -36,10 +38,14 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
   final RxInt currentIndex = 0.obs;
   final RxBool isCompleting = false.obs;
   final RxBool isAnimating = false.obs;
+  final Rxn<ReviewGrade> dragGrade = Rxn<ReviewGrade>();
 
   int get totalItems => items.length;
   int get doneItems => currentIndex.value;
-  bool get isLastCard => currentIndex.value == totalItems - 1;
+  bool get isLastCard =>
+      items.isNotEmpty && currentIndex.value == totalItems - 1;
+
+  bool get canRate => !isAnimating.value && !isCompleting.value;
 
   StackItem? get currentItem =>
       currentIndex.value < items.length ? items[currentIndex.value] : null;
@@ -61,55 +67,64 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
   }
 
   DateTime? _cardShownAt;
+  bool _rateLocked = false;
 
-  late final AnimationController throwController;
-  late final AnimationController nextCardController;
-  late final AnimationController checkmarkController;
+  static const Set<String> _shellRoutes = {
+    Routes.today,
+    Routes.buckets,
+    Routes.quiz,
+    Routes.insights,
+    Routes.you,
+  };
+
+  /// Leaves review by popping back to the live shell instead of wiping the
+  /// stack. `offAllNamed` destroyed the shell (blank tabs) and left a single
+  /// route (system back exited the app); popping keeps the shell alive so tabs
+  /// and back behave normally. Fall back to `offAllNamed` only when review is
+  /// the sole route (deep-link / orphan entry).
+  void _exitToShell() {
+    if (Get.isRegistered<ShellController>()) {
+      Get.find<ShellController>().onTabSelected(RecallTab.today);
+    }
+    final navigator = Get.key.currentState;
+    if (navigator != null && navigator.canPop()) {
+      Get.until((Route<dynamic> route) =>
+          _shellRoutes.contains(route.settings.name));
+    } else {
+      Get.offAllNamed(Routes.today);
+    }
+  }
 
   @override
   void onInit() {
     super.onInit();
-    _initAnimations();
     _loadSession();
-  }
-
-  void _initAnimations() {
-    throwController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 380),
-    );
-    nextCardController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    checkmarkController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 360),
-    );
   }
 
   Future<void> _loadSession() async {
     final userId = _auth.currentUserId;
     if (userId == null) {
-      Get.offAllNamed(Routes.today);
+      _exitToShell();
       return;
     }
 
     setLoading();
 
     try {
-      final activeStack = await _stackRepo.fetchActive(userId, forceRemote: true);
+      final activeStack =
+          await _stackRepo.fetchActive(userId, forceRemote: true);
       if (activeStack == null || activeStack.status != StackStatus.active) {
-        Get.offAllNamed(Routes.today);
+        _exitToShell();
         return;
       }
 
       stack.value = activeStack;
-      final stackItems = await _stackRepo.fetchItems(activeStack.id, forceRemote: true);
+      final stackItems =
+          await _stackRepo.fetchItems(activeStack.id, forceRemote: true);
       items.assignAll(stackItems);
 
       if (items.isEmpty) {
-        Get.offAllNamed(Routes.today);
+        _exitToShell();
         return;
       }
 
@@ -117,7 +132,7 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
       currentIndex.value = alreadyReviewed;
 
       if (currentIndex.value >= items.length) {
-        Get.offAllNamed(Routes.today);
+        _exitToShell();
         return;
       }
 
@@ -152,6 +167,14 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
     }
   }
 
+  /// Skip a missing node without crashing the session.
+  void skipMissingNode() {
+    if (!canRate || _rateLocked) return;
+    _rateLocked = true;
+    isAnimating.value = true;
+    _advance();
+  }
+
   void _prefetchIntervals() {
     final end = (currentIndex.value + 2).clamp(0, items.length);
     for (var i = currentIndex.value; i < end; i++) {
@@ -184,22 +207,36 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
     return '';
   }
 
+  void onThrowStarted() {
+    isAnimating.value = true;
+    dragGrade.value = null;
+  }
+
+  void onDragGradeChanged(ReviewGrade? grade) {
+    dragGrade.value = grade;
+  }
+
   Future<void> onRate(ReviewGrade grade) async {
-    if (isAnimating.value || isCompleting.value) return;
+    if (isCompleting.value || _rateLocked) return;
 
     final item = currentItem;
     final node = currentNode;
     final s = stack.value;
-    if (item == null || node == null || s == null) return;
+    if (item == null || node == null || s == null) {
+      isAnimating.value = false;
+      return;
+    }
 
+    _rateLocked = true;
+    isAnimating.value = true;
+    dragGrade.value = null;
     _fireHaptic(grade);
 
     final responseMs = _cardShownAt != null
         ? DateTime.now().difference(_cardShownAt!).inMilliseconds
         : 0;
 
-    final clientUuid =
-        '${DateTime.now().microsecondsSinceEpoch}';
+    final clientUuid = '${DateTime.now().microsecondsSinceEpoch}';
     final idempotencyKey = '${s.id}:${node.id}:$clientUuid';
 
     final review = Review(
@@ -227,6 +264,8 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
     final nextIdx = currentIndex.value + 1;
 
     if (nextIdx >= items.length) {
+      isAnimating.value = false;
+      _rateLocked = false;
       _onComplete();
       return;
     }
@@ -234,6 +273,13 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
     currentIndex.value = nextIdx;
     _cardShownAt = DateTime.now();
     _prefetchIntervals();
+    // Brief delay so the new keyed card mounts before accepting input.
+    Future<void>.delayed(const Duration(milliseconds: 40), () {
+      if (!isClosed) {
+        isAnimating.value = false;
+        _rateLocked = false;
+      }
+    });
   }
 
   void _fireHaptic(ReviewGrade grade) {
@@ -262,7 +308,8 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
         params: {'p_stack_id': stack.value!.id},
       );
 
-      final map = result is Map ? Map<String, dynamic>.from(result) : <String, dynamic>{};
+      final map =
+          result is Map ? Map<String, dynamic>.from(result) : <String, dynamic>{};
       final cooling = map['cooling_buckets'];
 
       if (cooling is List && cooling.isNotEmpty) {
@@ -280,36 +327,36 @@ class ReviewController extends BaseController with GetTickerProviderStateMixin {
       _metrics.markStackCompleted(stack.value!.id);
 
       await Future.delayed(const Duration(milliseconds: 400));
-      Get.offAllNamed(Routes.today);
+      _exitToShell();
     } on RepoException catch (_) {
       await _stackRepo.updateStatus(stack.value!.id, StackStatus.completed);
       _metrics.markStackCompleted(stack.value!.id);
-      Get.offAllNamed(Routes.today);
+      _exitToShell();
     } finally {
       isCompleting.value = false;
+      isAnimating.value = false;
     }
   }
 
   Future<void> onAbandon() async {
     final s = stack.value;
     if (s == null) {
-      Get.offAllNamed(Routes.today);
+      _exitToShell();
       return;
     }
 
     try {
-      await _stackRepo.updateStatus(s.id, StackStatus.abandoned);
+      // Prefer abandon_stack_rpc — clears stuck cooldown when due/new remain.
+      await _stackRepo.abandon(s.id);
     } catch (_) {
-      // best-effort; navigate regardless
+      // Offline / older backend: mark abandoned only. Cooldown is no longer
+      // set at generate time (00033), so Today won't go empty mid-session.
+      try {
+        await _stackRepo.updateStatus(s.id, StackStatus.abandoned);
+      } catch (_) {
+        // best-effort; navigate regardless
+      }
     }
-    Get.offAllNamed(Routes.today);
-  }
-
-  @override
-  void onClose() {
-    throwController.dispose();
-    nextCardController.dispose();
-    checkmarkController.dispose();
-    super.onClose();
+    _exitToShell();
   }
 }
