@@ -21,10 +21,12 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../core/utils/recall_time.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/notification_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/revenuecat_service.dart';
 import '../../../data/services/sync_status_service.dart';
@@ -56,6 +58,7 @@ class SettingsController extends BaseController {
     this._tier,
     this._theme,
     this._syncStatus,
+    this._notifications,
   );
 
   final ProfileRepository _profiles;
@@ -64,6 +67,7 @@ class SettingsController extends BaseController {
   final TierService _tier;
   final ThemeService _theme;
   final SyncStatusService _syncStatus;
+  final NotificationService _notifications;
 
   // ── State (server-authoritative + store) ──────────────────────────────────
   final Rxn<Profile> profile = Rxn<Profile>();
@@ -94,6 +98,8 @@ class SettingsController extends BaseController {
   bool get isOffline => _syncStatus.isOffline.value;
 
   // ── Derived pref values / labels (presentation only) ──────────────────────
+  bool get pushOptIn => profile.value?.pushOptIn ?? false;
+
   String get dropFrequency => profile.value?.dropFrequency ?? 'daily';
   String get frequencyLabel {
     for (final o in kFrequencyOptions) {
@@ -210,6 +216,25 @@ class SettingsController extends BaseController {
   Future<void> reload() async => _load();
 
   // ── Preference intents (optimistic write + revert on failure) ─────────────
+
+  /// Master push switch. Turning on requires OS permission (and a token); if the
+  /// user denies it, we leave the toggle off and nudge toward system settings.
+  /// This is the recovery path for anyone who declined push during onboarding.
+  Future<void> togglePush(bool value) async {
+    if (value == pushOptIn) return;
+    if (value) {
+      final granted = await _notifications.requestPushPermission();
+      if (!granted) {
+        _notify('Turn on notifications in system settings to get Drops.');
+        profile.refresh(); // keep the toggle visually off
+        return;
+      }
+      await _notifications.registerDeviceToken();
+    }
+    await _patch({'push_opt_in': value},
+        profile.value?.copyWith(pushOptIn: value));
+  }
+
   Future<void> setDropFrequency(String value) async {
     if (value == dropFrequency) return;
     await _patch({'drop_frequency': value},
@@ -315,8 +340,13 @@ class SettingsController extends BaseController {
     return null;
   }
 
-  String _hm(String time) =>
-      time.length >= 5 ? time.substring(0, 5) : time;
+  String _hm(String time) {
+    if (time.length < 5) return time;
+    final h = int.tryParse(time.substring(0, 2));
+    final m = int.tryParse(time.substring(3, 5));
+    if (h == null || m == null) return time.substring(0, 5);
+    return RecallTime.clock12h(DateTime(2000, 1, 1, h, m));
+  }
 
   void _notify(String message) {
     notice.value = message;

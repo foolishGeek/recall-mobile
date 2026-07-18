@@ -114,6 +114,14 @@ Widget _sections(BuildContext context, SettingsController controller) {
       // ── Recall Drop ──────────────────────────────────────────────────────
       SettingsSection(label: 'Recall Drop', children: [
         ListRow(
+          title: 'Notifications',
+          subtitle: 'Ping me when a fresh set is ready',
+          trailing: RecallToggle(
+            value: controller.pushOptIn,
+            onChanged: controller.togglePush,
+          ),
+        ),
+        ListRow(
           title: 'Frequency',
           subtitle: controller.frequencyLabel,
           onTap: () => showFrequencySheet(

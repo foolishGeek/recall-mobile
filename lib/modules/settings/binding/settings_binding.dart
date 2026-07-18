@@ -13,6 +13,7 @@ class SettingsBinding extends Bindings {
         Get.find(), // TierService
         Get.find(), // ThemeService
         Get.find(), // SyncStatusService
+        Get.find(), // NotificationService
       ),
     );
   }
