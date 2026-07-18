@@ -65,7 +65,7 @@ class AiChatTopBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 5),
-                    MonoLabel('Your $nodeCount nodes',
+                    MonoLabel('Your $nodeCount ${nodeCount == 1 ? 'note' : 'notes'}',
                         color: c.grey500, size: 9.5, tracking: 0.16),
                   ],
                 ),

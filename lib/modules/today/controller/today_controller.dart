@@ -294,7 +294,10 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       final result = await _stackRepo.generate();
 
       if (result.stack != null) {
-        Get.toNamed(Routes.review);
+        // Review pops back to this shell; refresh Today so streak/due counts
+        // update without needing a tab leave/re-enter.
+        await Get.toNamed(Routes.review);
+        await reload();
       } else if (result.reason == 'empty_pool' ||
           result.reason == 'empty_scope') {
         await reload();

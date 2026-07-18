@@ -67,7 +67,7 @@ class YouLifetimeCard extends StatelessWidget {
                   label: 'recalls logged'),
               _LifetimeStat(
                   value: RecallNumber.grouped(totalNodes),
-                  label: 'nodes captured'),
+                  label: 'notes captured'),
               _LifetimeStat(
                 value: adherencePct == null ? '—' : '${adherencePct!.round()}',
                 unit: adherencePct == null ? null : '%',

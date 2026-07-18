@@ -170,6 +170,13 @@ class StackRepository extends BaseRepository {
         if (status != StackStatus.active) await _local.evictStack(stackId);
       });
 
+  /// Abandon an active stack mid-session. Clears cooldown on scope buckets that
+  /// still have due cards so Today shows remaining work (S11 / engine §10.14).
+  Future<void> abandon(String stackId) => guard(() async {
+        await supabase.rpc('abandon_stack_rpc', params: {'p_stack_id': stackId});
+        await _local.evictStack(stackId);
+      });
+
   Future<List<StackItem>> fetchItems(String stackId,
       {bool forceRemote = false}) async {
     if (!_local.isEnabled) return _remoteItems(stackId);

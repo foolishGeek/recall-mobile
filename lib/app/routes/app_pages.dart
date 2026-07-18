@@ -76,6 +76,12 @@ class AppPages {
       name: Routes.review,
       page: () => const ReviewView(),
       binding: ReviewBinding(),
+      // Present as a modal that slides up over the shell and reverses on exit,
+      // so entering/leaving review feels like a card, not a hard cut.
+      fullscreenDialog: true,
+      transition: Transition.downToUp,
+      transitionDuration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
     ),
 
     // Buckets / nodes
