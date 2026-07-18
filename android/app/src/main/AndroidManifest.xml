@@ -47,6 +47,18 @@
                 <data android:scheme="app.recall" android:host="login-callback"/>
             </intent-filter>
         </activity>
+        <!-- Recall Drop push defaults: land on the high-importance recall_drops
+             channel with a monochrome status-bar icon and brand tint. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="recall_drops" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_recall" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/recall_notification_color" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
