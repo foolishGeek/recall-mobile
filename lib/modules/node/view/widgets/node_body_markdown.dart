@@ -9,15 +9,20 @@ import '../../../../core/theme/recall_colors.dart';
 /// Editorial Fraunces serif 17 body, Fraunces headings, JetBrains Mono code.
 class NodeBodyMarkdown extends StatelessWidget {
   final String markdown;
+  final bool selectable;
 
-  const NodeBodyMarkdown({super.key, required this.markdown});
+  const NodeBodyMarkdown({
+    super.key,
+    required this.markdown,
+    this.selectable = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     return MarkdownBody(
       data: markdown,
-      selectable: true,
+      selectable: selectable,
       shrinkWrap: true,
       onTapLink: (text, href, title) {
         if (href != null) launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);

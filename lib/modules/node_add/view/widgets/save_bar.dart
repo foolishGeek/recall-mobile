@@ -101,7 +101,7 @@ class SaveBar extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            isEditMode ? 'Save changes' : 'Save node',
+                            isEditMode ? 'Save changes' : 'Save note',
                             style: GoogleFonts.inter(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,

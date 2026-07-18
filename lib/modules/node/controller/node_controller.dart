@@ -146,7 +146,7 @@ class NodeController extends BaseController {
 
   Future<void> _loadData() async {
     if (nodeId.isEmpty) {
-      setError('No node ID provided.');
+      setError('No note ID provided.');
       return;
     }
     setLoading();
@@ -163,7 +163,7 @@ class NodeController extends BaseController {
 
       final loadedNode = results[0] as Node?;
       if (loadedNode == null) {
-        setError('Node not found.');
+        setError('Note not found.');
         return;
       }
       node.value = loadedNode;

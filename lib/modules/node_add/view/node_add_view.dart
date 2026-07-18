@@ -136,7 +136,7 @@ class NodeAddView extends GetView<NodeAddController> {
           Obx(() {
             final bucketName = controller.selectedBucket.value?.name ?? '';
             final prefix =
-                controller.isEditMode ? 'Edit' : 'New node';
+                controller.isEditMode ? 'Edit' : 'New note';
             return Text(
               bucketName.isEmpty ? prefix : '$prefix · $bucketName',
               style: GoogleFonts.jetBrainsMono(
@@ -156,7 +156,7 @@ class NodeAddView extends GetView<NodeAddController> {
 
   Widget _displayTitle(RecallColors c) {
     return Text(
-      controller.isEditMode ? 'Edit node' : 'Add a node',
+      controller.isEditMode ? 'Edit note' : 'Add a note',
       style: GoogleFonts.fraunces(
         fontSize: 34,
         fontWeight: FontWeight.w500,

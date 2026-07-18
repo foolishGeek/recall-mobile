@@ -90,7 +90,7 @@ class BucketSelectorSheet extends StatelessWidget {
             Text(
               isEmpty
                   ? 'Create your first bucket to get started.'
-                  : 'Where should this node live?',
+                  : 'Where should this note live?',
               style: GoogleFonts.inter(
                 fontSize: 13,
                 color: c.grey500,
