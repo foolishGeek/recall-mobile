@@ -5,6 +5,7 @@ import 'package:get/get.dart' hide Node;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/theme/recall_motion.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_share.dart';
 import '../../../core/widgets/recall_scaffold.dart';
@@ -125,6 +126,19 @@ class BucketView extends GetView<BucketController> {
                         return _ReadOnlyBanner();
                       }
                       return const SizedBox.shrink();
+                    }),
+                    // Add-note FAB — only when notes exist and the bucket is
+                    // editable (hidden while read-only banner / save bar are up).
+                    Obx(() {
+                      final show = controller.hasNodes &&
+                          !controller.readOnly.value &&
+                          !controller.hasPendingChanges.value;
+                      if (!show) return const SizedBox.shrink();
+                      return Positioned(
+                        right: 20,
+                        bottom: 20 + MediaQuery.of(context).padding.bottom,
+                        child: _AddNoteFab(onTap: controller.onAddNodeTap),
+                      );
                     }),
                   ],
                 ),
@@ -379,6 +393,56 @@ class BucketView extends GetView<BucketController> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Add-note FAB. Ink circle, soft primary-button shadow (never the hard chip
+/// offset), with a gentle bubbly press. Positive-press moment only.
+class _AddNoteFab extends StatefulWidget {
+  final VoidCallback onTap;
+  const _AddNoteFab({required this.onTap});
+
+  @override
+  State<_AddNoteFab> createState() => _AddNoteFabState();
+}
+
+class _AddNoteFabState extends State<_AddNoteFab> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: () {
+        RecallHaptics.light();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1.0,
+        duration: RecallMotion.fast,
+        curve: RecallMotion.bubbly,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: c.ink,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.14),
+                offset: const Offset(0, 12),
+                blurRadius: 24,
+              ),
+            ],
+          ),
+          child: Icon(Icons.add, size: 26, color: c.inkOnInk),
+        ),
       ),
     );
   }

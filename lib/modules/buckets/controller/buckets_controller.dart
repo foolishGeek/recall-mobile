@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../core/utils/recall_time.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/bucket_repository.dart';
@@ -119,9 +120,7 @@ class BucketsController extends BaseController
     final dropDay = DateTime(local.year, local.month, local.day);
     final dayDiff = dropDay.difference(today).inDays;
     if (dayDiff <= 0) {
-      final h = local.hour.toString().padLeft(2, '0');
-      final m = local.minute.toString().padLeft(2, '0');
-      return 'Today · $h:$m';
+      return 'Today · ${RecallTime.clock12h(local)}';
     }
     if (dayDiff == 1) return 'Tomorrow';
     if (dayDiff < 7) return 'In $dayDiff days';
