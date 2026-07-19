@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/config/limits_config.dart';
 import '../../core/utils/app_env.dart';
 import 'supabase_service.dart';
 
@@ -52,6 +53,10 @@ class AppSessionService extends GetxService with WidgetsBindingObserver {
       unawaited(_endSession());
     } else if (state == AppLifecycleState.resumed) {
       unawaited(_startSession());
+      // Pick up SQL flips of limits_profile without force-quit / app release.
+      if (Get.isRegistered<LimitsConfig>()) {
+        unawaited(Get.find<LimitsConfig>().refresh());
+      }
     }
   }
 

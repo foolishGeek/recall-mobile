@@ -129,7 +129,7 @@ class _TodayLoaded extends StatelessWidget {
                               : 'Start review',
                           isLoading: controller.isStarting.value,
                           onPressed: controller.isAtStackLimit
-                              ? () => Get.toNamed('/paywall')
+                              ? controller.openPaywall
                               : controller.startReview,
                         )),
                     Obx(() {

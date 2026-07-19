@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../core/utils/recall_haptics.dart';
@@ -94,6 +95,10 @@ class SettingsController extends BaseController {
   bool get isPremium => tier.value == SubscriptionTier.premium;
   bool get isDowngraded => tier.value == SubscriptionTier.downgraded;
   bool get isFree => tier.value == SubscriptionTier.free;
+
+  /// Config-driven temporary free (`limits_profile=relaxed`).
+  bool get suppressPaywall =>
+      Get.isRegistered<LimitsConfig>() && Get.find<LimitsConfig>().isRelaxed;
 
   bool get isOffline => _syncStatus.isOffline.value;
 

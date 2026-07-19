@@ -166,7 +166,7 @@ extension SettingsActions on SettingsController {
   void onUpgrade() {
     RecallHaptics.light();
     _track('upgrade_cta_tapped', {'tier': tier.value.name});
-    Get.toNamed(Routes.paywall);
+    _tier.openPaywall();
   }
 
   Future<void> onOpenPrivacy() => _launch(_kPrivacyUrl, 'privacy');

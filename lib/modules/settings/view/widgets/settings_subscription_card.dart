@@ -2,6 +2,7 @@
 // chip + renews, Manage + Restore, and the premium "Buy AI credits" row showing
 // the live balance [D-UI-1]. Free collapses to a single upgrade row; downgraded
 // shows an expired card with frozen, read-only credits (docs/12_settings.md §8).
+// While `limits_profile=relaxed`, hide upgrade/paywall chrome (config-driven).
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -21,6 +22,7 @@ class SettingsSubscriptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       if (controller.isPremium) return _premium(context);
+      if (controller.suppressPaywall) return _relaxedFree(context);
       if (controller.isDowngraded) return _downgraded(context);
       return _free(context);
     });
@@ -45,6 +47,18 @@ class SettingsSubscriptionCard extends StatelessWidget {
         subtitle: '${controller.creditBalance} credits',
         divider: false,
         onTap: () => showBuyCreditsSheet(context, controller: controller),
+      ),
+    ]);
+  }
+
+  // ── Temporary free (limits_profile=relaxed): plan only, no upgrade CTA ────
+  Widget _relaxedFree(BuildContext context) {
+    return SettingsSection(label: 'Subscription', children: [
+      ListRow(
+        title: 'Plan',
+        subtitle: 'All features open for now',
+        trailing: const _PlanChip(label: 'FREE', solid: false),
+        divider: false,
       ),
     ]);
   }

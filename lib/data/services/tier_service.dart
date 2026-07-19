@@ -1,9 +1,11 @@
 // Recall · TierService. Holds the active subscription tier and exposes a
 // TierGate for per-screen gating. Resolved from server `subscriptions` +
 // `profiles.had_premium` on boot and after entitlement refresh.
+// Paywall navigation is config-driven via LimitsConfig / TierGate.suppressPaywall.
 
 import 'package:get/get.dart';
 
+import '../../app/routes/app_routes.dart';
 import '../../core/gates/tier_gate.dart';
 import '../models/models.dart';
 import '../repositories/profile_repository.dart';
@@ -36,6 +38,12 @@ class TierService extends GetxService {
 
   void applyEntitlement({Subscription? subscription, Profile? profile}) {
     setTier(resolveSubscriptionTier(subscription, profile));
+  }
+
+  /// Opens the paywall unless `limits_profile=relaxed` (temporary free).
+  void openPaywall() {
+    if (gate.suppressPaywall) return;
+    Get.toNamed(Routes.paywall);
   }
 
   /// Re-reads server-authoritative entitlement (subscription + had_premium).

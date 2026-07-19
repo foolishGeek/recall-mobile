@@ -163,7 +163,7 @@ class AiChatController extends BaseController {
 
   /// Non-null → composer is locked with this reason; null → composer is open.
   String? get composerLockReason {
-    if (gate.isDowngraded) return 'AI unavailable — resubscribe to continue';
+    if (gate.aiDisabled) return 'AI unavailable — resubscribe to continue';
     if (gate.aiQuotaExhausted(requestsUsed: requestsUsed)) {
       return 'Monthly AI limit reached';
     }
@@ -185,7 +185,7 @@ class AiChatController extends BaseController {
     if (composerLockReason != null) {
       RecallHaptics.light();
       _metrics.downgradedGateHit('ai_chat');
-      Get.toNamed(Routes.paywall);
+      _tierService.openPaywall();
       return;
     }
     RecallHaptics.selection();
@@ -208,7 +208,7 @@ class AiChatController extends BaseController {
 
   void buyCredits() {
     if (Get.isBottomSheetOpen ?? false) Get.back();
-    Get.toNamed(Routes.paywall);
+    _tierService.openPaywall();
   }
 
   Future<void> regenerate() async {

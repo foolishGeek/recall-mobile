@@ -81,6 +81,8 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   bool get showStacksMeter =>
       isFree && (_limits?.showStacksMeter ?? true);
 
+  void openPaywall() => _tierService.openPaywall();
+
   static const _cardFanDuration = Duration(milliseconds: 1500);
   static const _cardNestDuration = Duration(milliseconds: 360);
   static const _cardIdleRest = Duration(seconds: 10);
@@ -349,7 +351,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       }
     } on RepoException catch (e) {
       if (e.code == RepoErrorCode.freeTierStackLimit) {
-        Get.toNamed(Routes.paywall);
+        _tierService.openPaywall();
       } else {
         setError(e.message);
       }

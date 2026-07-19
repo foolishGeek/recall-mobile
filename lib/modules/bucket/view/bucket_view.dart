@@ -12,6 +12,7 @@ import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
 import '../../../data/models/models.dart';
+import '../../../data/services/tier_service.dart';
 import '../controller/bucket_controller.dart';
 import 'widgets/bucket_ai_chips.dart';
 import 'widgets/bucket_config_card.dart';
@@ -558,7 +559,7 @@ class _ReadOnlyBanner extends StatelessWidget {
               ),
             ),
             GestureDetector(
-              onTap: () => Get.toNamed('/paywall'),
+              onTap: () => Get.find<TierService>().openPaywall(),
               child: Text(
                 'Upgrade',
                 style: GoogleFonts.inter(

@@ -157,7 +157,7 @@ class BucketController extends BaseController {
       if (results.length > 3) {
         final active = results[3] as List<Bucket>;
         final activeIds = active.map((b) => b.id).toSet();
-        if (_tierService.isDowngraded) {
+        if (_tierService.isDowngraded && !_tierService.gate.isRelaxed) {
           readOnly.value = !activeIds.contains(bucketId);
         }
       }

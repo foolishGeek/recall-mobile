@@ -1,5 +1,6 @@
 // Free-tier numeric limits mirrored from `app_config`. Server remains truth;
 // this drives gate UX only. Fetch-fail falls back to canon (safe).
+// Flip relaxed↔canon via SQL (`rollback_limits_to_canon`) — no app release.
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -23,7 +24,12 @@ class LimitsConfig extends GetxService {
   static const int relaxedAiOverviews = 50;
   static const int relaxedSessionSize = 12;
 
-  String profile = profileCanon;
+  /// Reactive so Obx screens pick up resume / splash refreshes.
+  final RxString profileRx = profileCanon.obs;
+
+  String get profile => profileRx.value;
+  set profile(String v) => profileRx.value = v;
+
   int stacksFreeMonthly = canonStacks;
   int bucketsFreeWritable = canonBuckets;
   int aiQuotaFreeMonthly = canonAiQuota;

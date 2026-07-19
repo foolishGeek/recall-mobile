@@ -257,7 +257,7 @@ class BucketsController extends BaseController
   void onBucketLimitTap() {
     RecallHaptics.light();
     _metrics.downgradedGateHit('buckets_fab');
-    Get.toNamed(Routes.paywall);
+    _tierService.openPaywall();
   }
 
   void onCreateNoteTap() {

@@ -15,7 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
@@ -57,7 +56,9 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
   bool get showSimulation {
     if (isPremium) return true;
     if (!Get.isRegistered<LimitsConfig>()) return false;
-    return Get.find<LimitsConfig>().isRelaxed;
+    // Touch Rx so Obx rebuilds after resume refresh.
+    return Get.find<LimitsConfig>().profileRx.value ==
+        LimitsConfig.profileRelaxed;
   }
 
   // ── Gate ──────────────────────────────────────────────────────────────
@@ -323,14 +324,14 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
     RecallHaptics.selection();
     _metrics.downgradedGateHit('insights', params: {'block': block});
     _track('insights_locked_block_tapped', {'block': block});
-    Get.toNamed(Routes.paywall);
+    _tier.openPaywall();
   }
 
   /// "Unlock the full picture" CTA → light haptic + paywall.
   void onUnlockTap() {
     RecallHaptics.light();
     _metrics.downgradedGateHit('insights', params: {'block': 'cta'});
-    Get.toNamed(Routes.paywall);
+    _tier.openPaywall();
   }
 
   /// Empty-state CTA → jump to the Today tab to start a review.

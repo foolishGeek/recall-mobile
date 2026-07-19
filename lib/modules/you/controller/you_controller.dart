@@ -67,7 +67,8 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
   bool get showSimulation {
     if (isPremium) return true;
     if (!Get.isRegistered<LimitsConfig>()) return false;
-    return Get.find<LimitsConfig>().isRelaxed;
+    return Get.find<LimitsConfig>().profileRx.value ==
+        LimitsConfig.profileRelaxed;
   }
 
   // ── State (all server-authoritative) ────────────────────────────────────
@@ -335,11 +336,11 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
     }
   }
 
-  /// Free upgrade CTA → light haptic + paywall.
+  /// Free upgrade CTA → light haptic + paywall (no-op while limits_profile=relaxed).
   void onUpgrade() {
     RecallHaptics.light();
     _track('upgrade_cta_tapped', {'tier': gate.tier.name});
-    Get.toNamed(Routes.paywall);
+    _tier.openPaywall();
   }
 
   /// Analytics stub — opt-in gated, breadcrumb-only until a provider is wired
