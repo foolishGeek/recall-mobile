@@ -12,6 +12,7 @@ import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/quiz_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
+import '../../quiz_home/view/widgets/quiz_in_progress_sheet.dart';
 import '../view/widgets/quiz_feedback_sheet.dart';
 
 /// Score at/above which the calm celebration (haptic + confetti puff) fires.
@@ -78,7 +79,7 @@ class QuizResultsController extends BaseController {
       _afterLoad(res);
     } on RepoException catch (e) {
       if (e.code == RepoErrorCode.premiumRequired) {
-        Get.offAllNamed(Routes.paywall);
+        QuizInProgressSheet.show();
         return;
       }
       setError(e.message);

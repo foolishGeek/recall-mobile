@@ -69,7 +69,7 @@ extension QuizConfigControllerFlow on QuizConfigController {
     } on RepoException catch (e) {
       if (e.code == RepoErrorCode.premiumRequired) {
         inlineMessage.value = 'Premium required.';
-        Get.toNamed(Routes.paywall);
+        QuizInProgressSheet.show();
       } else if (e.code == RepoErrorCode.emptyContext) {
         inlineMessage.value =
             'Your selected notes have no readable content yet. Add text and retry.';

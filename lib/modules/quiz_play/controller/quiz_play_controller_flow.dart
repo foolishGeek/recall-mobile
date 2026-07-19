@@ -102,7 +102,7 @@ extension QuizPlayControllerFlow on QuizPlayController {
     } on RepoException catch (e) {
       submitting.value = false;
       if (e.code == RepoErrorCode.premiumRequired) {
-        Get.offAllNamed(Routes.paywall);
+        QuizInProgressSheet.show();
         return;
       }
       // Keep local answer; let the user retry the submit.

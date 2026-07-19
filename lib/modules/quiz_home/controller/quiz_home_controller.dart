@@ -15,6 +15,7 @@ import '../../../data/services/metrics_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
 import '../../shell/controller/shell_controller.dart';
+import '../view/widgets/quiz_in_progress_sheet.dart';
 
 class QuizHomeController extends BaseController
     with GetTickerProviderStateMixin {
@@ -100,7 +101,7 @@ class QuizHomeController extends BaseController
     if (locked) {
       RecallHaptics.light();
       _metrics.downgradedGateHit('quiz_home');
-      Get.toNamed(Routes.paywall);
+      QuizInProgressSheet.show();
       return;
     }
 
