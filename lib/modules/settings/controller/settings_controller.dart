@@ -197,7 +197,10 @@ class SettingsController extends BaseController {
   /// Best-effort extras that must never block or fail the screen.
   Future<void> _loadAux() async {
     PackageInfo.fromPlatform().then((info) {
-      if (!isClosed) appVersion.value = info.version;
+      if (!isClosed) {
+        // Match pubspec `version: x.y.z+build` (name + versionCode).
+        appVersion.value = '${info.version}+${info.buildNumber}';
+      }
     }).catchError((_) {});
 
     if (!isOffline) {
