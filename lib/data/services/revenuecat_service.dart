@@ -12,11 +12,21 @@ import '../../core/utils/app_env.dart';
 
 class RevenueCatService extends GetxService {
   // Canonical SKUs + entitlement / offering [D-PAY-1].
+  // Play Billing uses `productId:basePlanId` store identifiers; App Store uses
+  // the bare product id. Match both via [matchesProductId].
   static const String monthlyProductId = 'recall_premium_monthly';
   static const String yearlyProductId = 'recall_premium_yearly';
+  /// Staging Play base plan for monthly (`recall_premium_monthly:recall-01`).
+  static const String playMonthlyStoreId = 'recall_premium_monthly:recall-01';
+  /// Staging Play base plan for yearly (`recall_premium_yearly:recall-02`).
+  static const String playYearlyStoreId = 'recall_premium_yearly:recall-02';
   static const String credits100ProductId = 'ai_credits_100';
   static const String credits500ProductId = 'ai_credits_500';
   static const String premiumEntitlement = 'premium';
+
+  /// True when [storeId] is the canonical product or a Play `product:basePlan`.
+  static bool matchesProductId(String storeId, String canonicalId) =>
+      storeId == canonicalId || storeId.startsWith('$canonicalId:');
 
   bool _configured = false;
 

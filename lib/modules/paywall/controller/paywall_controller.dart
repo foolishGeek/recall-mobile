@@ -319,14 +319,19 @@ class PaywallController extends BaseController {
   // ── Helpers ──────────────────────────────────────────────────────────────────
   Package? _packageFor(String productId, Package? fallback) {
     for (final p in offering.value?.availablePackages ?? const <Package>[]) {
-      if (p.storeProduct.identifier == productId) return p;
+      if (RevenueCatService.matchesProductId(
+        p.storeProduct.identifier,
+        productId,
+      )) {
+        return p;
+      }
     }
     return fallback;
   }
 
   StoreProduct? _creditProduct(String id) {
     for (final p in creditProducts) {
-      if (p.identifier == id) return p;
+      if (RevenueCatService.matchesProductId(p.identifier, id)) return p;
     }
     return null;
   }

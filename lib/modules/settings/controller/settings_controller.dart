@@ -335,7 +335,7 @@ class SettingsController extends BaseController {
   // ── Shared helpers (used here + in the actions part) ──────────────────────
   StoreProduct? _creditProduct(String id) {
     for (final p in creditProducts) {
-      if (p.identifier == id) return p;
+      if (RevenueCatService.matchesProductId(p.identifier, id)) return p;
     }
     return null;
   }
