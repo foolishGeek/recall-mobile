@@ -6,7 +6,9 @@ import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/config/limits_config.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
@@ -20,7 +22,6 @@ import '../../../data/services/repo_exception.dart';
 import '../../../data/services/sync_status_service.dart';
 import '../../../data/services/tier_service.dart';
 import '../../shell/controller/shell_controller.dart';
-import '../../../core/widgets/recall_scaffold.dart';
 
 class TodayController extends BaseController with GetTickerProviderStateMixin {
   final _auth = Get.find<AuthService>();
@@ -32,6 +33,9 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final _tierService = Get.find<TierService>();
   final _syncStatus = Get.find<SyncStatusService>();
   final _metrics = Get.find<MetricsService>();
+  final _limits = Get.isRegistered<LimitsConfig>()
+      ? Get.find<LimitsConfig>()
+      : null;
 
   final Rxn<Profile> profile = Rxn<Profile>();
   final RxInt dueCount = 0.obs;
@@ -71,7 +75,11 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   }
 
   bool get isFree => !_tierService.gate.isPremium;
-  bool get isAtStackLimit => isFree && stacksUsed.value >= 2;
+  int get stacksCap =>
+      _limits?.stacksFreeMonthly ?? LimitsConfig.canonStacks;
+  bool get isAtStackLimit => isFree && stacksUsed.value >= stacksCap;
+  bool get showStacksMeter =>
+      isFree && (_limits?.showStacksMeter ?? true);
 
   static const _cardFanDuration = Duration(milliseconds: 1500);
   static const _cardNestDuration = Duration(milliseconds: 360);

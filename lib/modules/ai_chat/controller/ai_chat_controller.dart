@@ -15,6 +15,7 @@ import 'package:get/get.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/brand/aura_prefs.dart';
+import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../data/local/local_store.dart';
@@ -53,6 +54,12 @@ class AiChatController extends BaseController {
   final TierService _tierService;
   final _metrics = Get.find<MetricsService>();
   final LocalStore _local = Get.find<LocalStore>();
+
+  LimitsConfig? get _limitsOrNull =>
+      Get.isRegistered<LimitsConfig>() ? Get.find<LimitsConfig>() : null;
+
+  int get _aiQuotaLimit =>
+      _limitsOrNull?.aiQuotaFreeMonthly ?? LimitsConfig.canonAiQuota;
 
   // Rating nudge tuning [feedback-nudges]. After this many answers we may show
   // a soft, frequency-capped rating sheet.
@@ -149,17 +156,21 @@ class AiChatController extends BaseController {
     return p.aiUsagePeriod == _currentPeriod() ? p.aiRequestsMonth : 0;
   }
 
-  String get quotaLabel => '$requestsUsed/50';
+  String get quotaLabel {
+    return '$requestsUsed/$_aiQuotaLimit';
+  }
   int get creditBalance => profile.value?.aiCreditBalance ?? 0;
 
   /// Non-null → composer is locked with this reason; null → composer is open.
   String? get composerLockReason {
     if (gate.isDowngraded) return 'AI unavailable — resubscribe to continue';
-    if (gate.isFree && requestsUsed >= 50) return 'Monthly AI limit reached';
+    if (gate.aiQuotaExhausted(requestsUsed: requestsUsed)) {
+      return 'Monthly AI limit reached';
+    }
     return null;
   }
 
-  bool get freeQuotaLock => gate.isFree && requestsUsed >= 50;
+  bool get freeQuotaLock => gate.aiQuotaExhausted(requestsUsed: requestsUsed);
 
   // --------------------------------------------------------------- intents --
 

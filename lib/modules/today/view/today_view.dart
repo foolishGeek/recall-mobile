@@ -133,9 +133,12 @@ class _TodayLoaded extends StatelessWidget {
                               : controller.startReview,
                         )),
                     Obx(() {
-                      if (!controller.isFree) return const SizedBox(height: 16);
+                      if (!controller.showStacksMeter) {
+                        return const SizedBox(height: 16);
+                      }
                       return TodayStacksMeter(
                         stacksUsed: controller.stacksUsed.value,
+                        maxStacks: controller.stacksCap,
                       );
                     }),
                     const SizedBox(height: 16),
