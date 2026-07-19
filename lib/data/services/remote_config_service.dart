@@ -59,7 +59,6 @@ const _kDefaultJson = '''
 
 class RemoteConfigService extends GetxService {
   FirebaseRemoteConfig? _rc;
-  bool _ready = false;
   Map<String, dynamic> _cfg = _parseDefault();
 
   static Map<String, dynamic> _parseDefault() {
@@ -82,11 +81,9 @@ class RemoteConfigService extends GetxService {
       await rc.fetchAndActivate().timeout(const Duration(seconds: 10));
       _rc = rc;
       _cfg = _readConfig();
-      _ready = true;
     } catch (e) {
       if (kDebugMode) debugPrint('[remote_config] $e');
       _cfg = _parseDefault();
-      _ready = false;
     }
   }
 
