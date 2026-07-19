@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/level_titles.dart';
 import '../../../core/utils/recall_haptics.dart';
@@ -60,6 +61,14 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
   TierGate get gate => _tier.gate;
   bool get isPremium => gate.isPremium;
   bool get isDowngraded => gate.isDowngraded;
+
+  /// Memory simulation + premium You ledger while payments settle
+  /// (`limits_profile=relaxed`) or when truly premium.
+  bool get showSimulation {
+    if (isPremium) return true;
+    if (!Get.isRegistered<LimitsConfig>()) return false;
+    return Get.find<LimitsConfig>().isRelaxed;
+  }
 
   // ── State (all server-authoritative) ────────────────────────────────────
   final Rxn<Profile> profile = Rxn<Profile>();
@@ -189,7 +198,11 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
 
     setSuccess();
     _runStagger();
-    _track('profile_viewed', {'tier': gate.tier.name, 'premium': isPremium});
+    _track('profile_viewed', {
+      'tier': gate.tier.name,
+      'premium': isPremium,
+      'simulation': showSimulation,
+    });
   }
 
   /// Loads the tier-specific cards in parallel; each is isolated via [_safe] so
@@ -202,7 +215,7 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
       }),
     ];
 
-    if (isPremium) {
+    if (showSimulation) {
       tasks.addAll([
         _safe('achievements', () => _loadAchievements(userId)),
         _safe('retention', () => _loadRetention(userId)),

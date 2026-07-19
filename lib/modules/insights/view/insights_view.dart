@@ -36,7 +36,7 @@ class InsightsView extends GetView<InsightsController> {
               onStart: controller.onStartReview,
             );
           }
-          return controller.isPremium
+          return controller.showSimulation
               ? _PremiumBody(controller: controller)
               : _FreeBody(controller: controller);
         }),
@@ -127,7 +127,7 @@ class _PremiumBody extends StatelessWidget {
     return _StaggeredColumn(
       controller: controller,
       children: [
-        const InsightsTopBar(premium: true),
+        InsightsTopBar(premium: controller.isPremium),
         const InsightsTitle(caption: 'Last 12 weeks · all buckets'),
         if (retention != null)
           InsightsRetentionCard(

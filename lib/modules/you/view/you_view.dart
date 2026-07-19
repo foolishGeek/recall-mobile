@@ -30,7 +30,7 @@ class YouView extends GetView<YouController> {
         errorMessage: controller.errorMessage,
         onRetry: controller.reload,
         child: Obx(
-          () => controller.isPremium
+          () => controller.showSimulation
               ? _PremiumBody(controller: controller)
               : _FreeBody(controller: controller),
         ),
@@ -92,7 +92,10 @@ class _PremiumBody extends StatelessWidget {
         StaggeredReveal(
           index: 0,
           controller: stagger,
-          child: _Identity(controller: controller, premium: true),
+          child: _Identity(
+            controller: controller,
+            premium: controller.isPremium,
+          ),
         ),
         const SizedBox(height: 18),
         // The hero owns its 360ms fade + 8px lift, so it is not wrapped in the
@@ -139,7 +142,7 @@ class _PremiumBody extends StatelessWidget {
           index: 5,
           controller: stagger,
           child: YouRowsCard(
-            premium: true,
+            premium: controller.isPremium,
             onSettings: controller.onSettings,
             onManageSubscription: controller.onManageSubscription,
           ),

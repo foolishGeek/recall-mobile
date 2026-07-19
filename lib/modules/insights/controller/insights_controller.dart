@@ -17,6 +17,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/insights_heatmap.dart';
 import '../../../core/utils/recall_haptics.dart';
@@ -50,6 +51,14 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
   // ── Tier ──────────────────────────────────────────────────────────────
   TierGate get gate => _tier.gate;
   bool get isPremium => gate.isPremium;
+
+  /// Full Insights ledger (incl. retention simulation) while
+  /// `limits_profile=relaxed` or when truly premium.
+  bool get showSimulation {
+    if (isPremium) return true;
+    if (!Get.isRegistered<LimitsConfig>()) return false;
+    return Get.find<LimitsConfig>().isRelaxed;
+  }
 
   // ── Gate ──────────────────────────────────────────────────────────────
   /// `< 7` distinct review days → render the InsightsEmpty portrait instead.
@@ -165,6 +174,7 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
       'tier': gate.tier.name,
       'gated': false,
       'premium': isPremium,
+      'simulation': showSimulation,
     });
   }
 
@@ -178,7 +188,7 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
       }),
     ];
 
-    if (isPremium) {
+    if (showSimulation) {
       await Future.wait([
         ...common,
         _safe('retention', () => _loadRetention(userId)),
