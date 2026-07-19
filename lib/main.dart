@@ -15,6 +15,7 @@ import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app/app.dart';
+import 'core/config/limits_config.dart';
 import 'core/firebase/firebase_bootstrap.dart';
 import 'core/utils/app_env.dart';
 import 'data/local/app_database.dart';
@@ -25,6 +26,8 @@ import 'data/services/app_session_service.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/connectivity_service.dart';
 import 'data/services/notification_service.dart';
+import 'data/services/play_update_service.dart';
+import 'data/services/remote_config_service.dart';
 import 'data/services/revenuecat_service.dart';
 import 'data/services/supabase_service.dart';
 import 'data/services/sync_service.dart';
@@ -85,6 +88,7 @@ void _wireModelParseWarnings() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppEnv.hydrateRelease();
 
   // 1. Bootstrap Supabase + core singletons before anything else.
   late final SupabaseService supabase;
@@ -93,10 +97,14 @@ Future<void> main() async {
     Get.put<SupabaseService>(supabase, permanent: true);
     Get.put<AuthService>(AuthService(supabase), permanent: true);
     Get.put<TierService>(TierService(), permanent: true);
+    Get.put<LimitsConfig>(LimitsConfig(), permanent: true);
+    Get.put<PlayUpdateService>(PlayUpdateService(), permanent: true);
+    Get.put<RemoteConfigService>(RemoteConfigService(), permanent: true);
     Get.put<AppSessionService>(AppSessionService(supabase), permanent: true);
     await bootstrapFirebase();
     if (isFirebaseReady) {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      unawaited(Get.find<RemoteConfigService>().bootstrap());
     }
     // Eager, permanent: self-wires FCM streams + token refresh (mirrors
     // AppSessionService). Onboarding resolves this same instance.

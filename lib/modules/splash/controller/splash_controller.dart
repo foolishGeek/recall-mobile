@@ -9,12 +9,15 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/gates/auth_gate.dart';
 import '../../../core/theme/recall_motion.dart';
+import '../../../core/config/limits_config.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/notification_service.dart';
+import '../../../data/services/remote_config_service.dart';
 import '../../../data/services/sync_service.dart';
 import '../../../data/services/tier_service.dart';
 import '../../../data/services/repo_exception.dart';
+import '../view/widgets/app_update_sheet.dart';
 
 class SplashController extends GetxController
     with GetTickerProviderStateMixin {
@@ -55,6 +58,7 @@ class SplashController extends GetxController
   bool _skipping = false;
   bool _reducedMotion = false;
   Future<void>? _profileHydration;
+  Future<void>? _bootExtras;
 
   bool get isSkipping => _skipping;
 
@@ -124,6 +128,7 @@ class SplashController extends GetxController
   void onReady() {
     super.onReady();
     _profileHydration = _hydrateProfile();
+    _bootExtras = _loadBootExtras();
     _reducedMotion =
         MediaQuery.maybeOf(Get.context!)?.disableAnimations ?? false;
     if (_reducedMotion) {
@@ -132,6 +137,18 @@ class SplashController extends GetxController
     } else {
       timeline.forward();
     }
+  }
+
+  Future<void> _loadBootExtras() async {
+    final futures = <Future<void>>[];
+    if (Get.isRegistered<RemoteConfigService>()) {
+      futures.add(Get.find<RemoteConfigService>().bootstrap());
+    }
+    if (Get.isRegistered<LimitsConfig>()) {
+      futures.add(Get.find<LimitsConfig>().refresh());
+    }
+    if (futures.isEmpty) return;
+    await Future.wait(futures);
   }
 
   void skip() {
@@ -174,7 +191,15 @@ class SplashController extends GetxController
   Future<void> _navigate() async {
     if (_navigated) return;
     _navigated = true;
-    await _profileHydration;
+    await Future.wait([
+      _profileHydration ?? Future<void>.value(),
+      _bootExtras ?? Future<void>.value(),
+    ]);
+
+    if (await _maybeBlockForForceUpdate()) return;
+
+    await _maybeShowSoftUpdate();
+
     // TODO(analytics): app_opened (gated by analytics_opt_in) [D-OBS-2]
     String route;
     try {
@@ -199,6 +224,24 @@ class SplashController extends GetxController
       route = Routes.signin;
     }
     Get.offAllNamed(route);
+  }
+
+  Future<bool> _maybeBlockForForceUpdate() async {
+    if (!Get.isRegistered<RemoteConfigService>()) return false;
+    final rc = Get.find<RemoteConfigService>();
+    final gate = await rc.resolveGate();
+    if (gate != AppUpdateGate.force) return false;
+    // Stay on splash forever behind a non-dismissible sheet.
+    await AppUpdateSheet.showForce(rc.forceCopy());
+    return true;
+  }
+
+  Future<void> _maybeShowSoftUpdate() async {
+    if (!Get.isRegistered<RemoteConfigService>()) return;
+    final rc = Get.find<RemoteConfigService>();
+    final gate = await rc.resolveGate();
+    if (gate != AppUpdateGate.soft) return;
+    await AppUpdateSheet.showSoft(rc.softCopy());
   }
 
   String? _pendingNotificationRoute() {

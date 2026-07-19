@@ -2,7 +2,7 @@ name: recall
 description: "Recall — spaced revision app. Forget forgetting."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.8.1
@@ -38,6 +38,8 @@ dependencies:
   screenshot: ^3.0.0
   gal: ^2.3.2
   pdfx: ^2.9.2
+  in_app_update: ^4.2.5
+  firebase_remote_config: ^5.5.0
 
 dev_dependencies:
   flutter_test:
