@@ -8,6 +8,7 @@
 //   soft.enabled  + build < soft.version_code  → soft (dismissible)
 //   Force always overrides soft when both would match.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:firebase_remote_config/firebase_remote_config.dart';
@@ -16,6 +17,7 @@ import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/firebase/firebase_bootstrap.dart';
+import '../../core/utils/app_env.dart';
 
 class AppUpdateCopy {
   final String title;
@@ -60,27 +62,51 @@ const _kDefaultJson = '''
 class RemoteConfigService extends GetxService {
   FirebaseRemoteConfig? _rc;
   Map<String, dynamic> _cfg = _parseDefault();
+  Future<void>? _boot;
 
   static Map<String, dynamic> _parseDefault() {
     return jsonDecode(_kDefaultJson) as Map<String, dynamic>;
   }
 
-  Future<void> bootstrap() async {
-    if (!isFirebaseReady) return;
+  /// Idempotent — splash and main can both call this safely.
+  Future<void> bootstrap() {
+    return _boot ??= _bootstrapOnce();
+  }
+
+  Future<void> _bootstrapOnce() async {
+    if (!isFirebaseReady) {
+      if (kDebugMode) {
+        debugPrint('[remote_config] skip — Firebase not ready');
+      }
+      return;
+    }
     try {
       final rc = FirebaseRemoteConfig.instance;
+      // Staging/debug: always fetch fresh so RC publishes are testable immediately.
+      // Prod: short throttle (not 1h) so a mid-day publish still lands within a session.
+      final fetchInterval = (!AppEnv.isProd || kDebugMode)
+          ? Duration.zero
+          : const Duration(minutes: 15);
       await rc.setConfigSettings(RemoteConfigSettings(
         fetchTimeout: const Duration(seconds: 8),
-        minimumFetchInterval: kDebugMode
-            ? Duration.zero
-            : const Duration(hours: 1),
+        minimumFetchInterval: fetchInterval,
       ));
       await rc.setDefaults(<String, dynamic>{
         kAppUpdateConfigKey: _kDefaultJson,
       });
-      await rc.fetchAndActivate().timeout(const Duration(seconds: 10));
+      final activated = await rc.fetchAndActivate().timeout(
+        const Duration(seconds: 10),
+      );
       _rc = rc;
       _cfg = _readConfig();
+      if (kDebugMode || !AppEnv.isProd) {
+        debugPrint(
+          '[remote_config] activated=$activated '
+          'raw=${rc.getString(kAppUpdateConfigKey).length}c '
+          'force=${_boolForce}/$forceUpdateVersionCode '
+          'soft=${_boolSoft}/$softUpdateVersionCode',
+        );
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('[remote_config] $e');
       _cfg = _parseDefault();
@@ -148,15 +174,26 @@ class RemoteConfigService extends GetxService {
 
   Future<AppUpdateGate> resolveGate() async {
     try {
+      // Ensure fetch finished before deciding (splash awaits this path).
+      await bootstrap();
       final info = await PackageInfo.fromPlatform();
       final build = int.tryParse(info.buildNumber) ?? 0;
 
+      AppUpdateGate gate = AppUpdateGate.none;
       if (_boolForce && build < forceUpdateVersionCode) {
-        return AppUpdateGate.force;
+        gate = AppUpdateGate.force;
+      } else if (_boolSoft && build < softUpdateVersionCode) {
+        gate = AppUpdateGate.soft;
       }
-      if (_boolSoft && build < softUpdateVersionCode) {
-        return AppUpdateGate.soft;
+
+      if (kDebugMode || !AppEnv.isProd) {
+        debugPrint(
+          '[remote_config] build=$build gate=$gate '
+          '(force $_boolForce <$forceUpdateVersionCode, '
+          'soft $_boolSoft <$softUpdateVersionCode)',
+        );
       }
+      return gate;
     } catch (e) {
       if (kDebugMode) debugPrint('[remote_config] resolveGate $e');
     }

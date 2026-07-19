@@ -37,6 +37,7 @@ class AppUpdateSheet extends StatelessWidget {
       isDismissible: true,
       enableDrag: true,
       backgroundColor: const Color(0x00000000),
+      barrierColor: Colors.black54,
     );
   }
 
