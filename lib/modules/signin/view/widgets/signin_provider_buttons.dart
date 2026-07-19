@@ -1,5 +1,9 @@
 // Recall · provider buttons. "Continue with Apple" (primary) and "Continue with
 // Google" (secondary) with leading brand icons. bubbly scale + lightImpact.
+// Apple is only shown on iOS; on Android its native flow is unsupported, so
+// Google takes the primary slot there.
+
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,20 +20,24 @@ class SigninProviderButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showApple = Platform.isIOS;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _ProviderButton(
-          label: 'Continue with Apple',
-          icon: Icons.apple,
-          isPrimary: true,
-          onPressed: controller.onContinueWithApple,
-        ),
-        const SizedBox(height: 12),
+        if (showApple) ...[
+          _ProviderButton(
+            label: 'Continue with Apple',
+            icon: Icons.apple,
+            isPrimary: true,
+            onPressed: controller.onContinueWithApple,
+          ),
+          const SizedBox(height: 12),
+        ],
         _ProviderButton(
           label: 'Continue with Google',
           icon: null,
-          isPrimary: false,
+          isPrimary: !showApple,
           onPressed: controller.onContinueWithGoogle,
           customIcon: _GoogleIcon(),
         ),
