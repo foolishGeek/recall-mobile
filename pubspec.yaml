@@ -50,7 +50,7 @@ dev_dependencies:
   drift_dev: ^2.31.0
   build_runner: ^2.15.0
 
-# Launcher icon generation (dark ring variant). Run: fvm dart run flutter_launcher_icons
+# Launcher icon generation. Run: fvm dart run flutter_launcher_icons
 flutter_launcher_icons:
   image_path: "assets/icon/app-icon-1024.png"
   android: true
