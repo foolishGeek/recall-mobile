@@ -33,8 +33,9 @@ class OnboardingPanelC extends GetView<OnboardingController> {
           ),
           const SizedBox(height: 12),
           Text(
-            "Buckets hold what you're learning. Name one to begin, and turn on "
-            'Recall Drop for a gentle daily nudge.',
+            'Buckets hold what you\'re learning. Name one to begin. A Recall '
+            'Drop can nudge you when notes are ready — calm and optional. '
+            'You can change Reminder style anytime in Settings.',
             textAlign: TextAlign.center,
             style: t.body.copyWith(color: c.grey600, height: 1.55),
           ),
@@ -59,7 +60,7 @@ class OnboardingPanelC extends GetView<OnboardingController> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Daily nudge — calm, optional',
+                          'Nudge when notes are ready',
                           style: t.monoLabelSm.copyWith(color: c.grey500),
                         ),
                       ],
