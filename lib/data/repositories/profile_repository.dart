@@ -112,6 +112,35 @@ class ProfileRepository extends BaseRepository {
     return serverDone;
   }
 
+  /// Reads the effective "memory strength" (desired retention) for a scope.
+  /// [bucketId] null → user/global default; set → that bucket's resolved value.
+  Future<SchedulingPrefs> getSchedulingPrefs({String? bucketId}) =>
+      guard(() async {
+        final res = await supabase.rpc(
+          'get_scheduling_prefs_rpc',
+          params: {'p_bucket_id': bucketId},
+        );
+        return SchedulingPrefs.fromJson(asJsonMap(res));
+      });
+
+  /// Sets (or clears) memory strength. [bucketId] null → user default; set →
+  /// per-bucket override. [targetRetention] null → clear/revert to inherited.
+  /// The backend clamps to [0.80, 0.97].
+  Future<SchedulingPrefs> setSchedulingPrefs({
+    String? bucketId,
+    double? targetRetention,
+  }) =>
+      guard(() async {
+        final res = await supabase.rpc(
+          'set_scheduling_prefs_rpc',
+          params: {
+            'p_bucket_id': bucketId,
+            'p_target_retention': targetRetention,
+          },
+        );
+        return SchedulingPrefs.fromJson(asJsonMap(res));
+      });
+
   Future<int> fetchStacksCreatedThisMonth(String userId) => guard(() async {
         final value = await supabase.rpc('current_stack_usage_rpc');
         return asInt(value);
