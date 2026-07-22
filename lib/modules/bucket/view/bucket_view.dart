@@ -8,8 +8,10 @@ import '../../../core/theme/recall_colors.dart';
 import '../../../core/theme/recall_motion.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_share.dart';
+import '../../../core/widgets/list_row.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
+import '../../../core/widgets/soft_card.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
 import '../../../data/models/models.dart';
 import '../../../data/services/tier_service.dart';
@@ -82,11 +84,19 @@ class BucketView extends GetView<BucketController> {
                             }
                             return const SizedBox(height: 12);
                           }),
+                          Obx(() => _BucketRevisionToggle(
+                                enabled: controller.bucketSrEnabled,
+                                disabled: controller.readOnly.value,
+                                onChanged: (v) =>
+                                    _onBucketSrChanged(context, v),
+                              )),
+                          const SizedBox(height: 12),
                           Obx(() => BucketConfigCard(
                                 coolingIndex: controller.coolingIndex,
                                 customDays: controller.customCoolingDays,
                                 frequencyIndex: controller.frequencyIndex,
-                                disabled: controller.readOnly.value,
+                                disabled: controller.readOnly.value ||
+                                    !controller.bucketSrEnabled,
                                 onCoolingChanged: (i) =>
                                     _onCoolingChanged(context, i),
                                 onFrequencyChanged:
@@ -231,6 +241,15 @@ class BucketView extends GetView<BucketController> {
         }),
       ],
     );
+  }
+
+  Future<void> _onBucketSrChanged(BuildContext context, bool value) async {
+    // Turning the whole bucket off affects every note — confirm first.
+    if (!value) {
+      final ok = await _showBucketSrOffConfirm(context);
+      if (ok != true) return;
+    }
+    await controller.setBucketSrEnabled(value);
   }
 
   Future<void> _onCoolingChanged(BuildContext context, int index) async {
@@ -407,6 +426,167 @@ class BucketView extends GetView<BucketController> {
       ),
     );
   }
+}
+
+/// Per-bucket "Spaced revision" switch. On = notes here are resurfaced over
+/// time; off = the whole bucket becomes quiet reference notes. Applies to
+/// existing notes and the default for new ones.
+class _BucketRevisionToggle extends StatelessWidget {
+  final bool enabled;
+  final bool disabled;
+  final ValueChanged<bool> onChanged;
+
+  const _BucketRevisionToggle({
+    required this.enabled,
+    required this.disabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Opacity(
+      opacity: disabled ? 0.45 : 1.0,
+      child: IgnorePointer(
+        ignoring: disabled,
+        child: SoftCard(
+          radius: 18,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Spaced revision',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: c.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      enabled
+                          ? 'Recall resurfaces these notes over time'
+                          : 'Quiet bucket — notes are never resurfaced',
+                      style: GoogleFonts.inter(fontSize: 12, color: c.grey500),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              RecallToggle(value: enabled, onChanged: onChanged),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Confirm sheet for turning a whole bucket's spaced revision off.
+Future<bool?> _showBucketSrOffConfirm(BuildContext context) {
+  final c = RecallColors.of(context);
+  RecallHaptics.selection();
+  return showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: c.card,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.grey400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Turn off spaced revision?',
+              style: GoogleFonts.fraunces(
+                fontSize: 22,
+                fontWeight: FontWeight.w500,
+                color: c.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Every note in this bucket becomes a quiet reference note. '
+              'You can turn it back on anytime.',
+              style: GoogleFonts.inter(
+                  fontSize: 13.5, height: 1.35, color: c.grey500),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(ctx, false),
+                    child: Container(
+                      height: 50,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: c.card,
+                        border: Border.all(color: c.grey200),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: c.grey600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      RecallHaptics.medium();
+                      Navigator.pop(ctx, true);
+                    },
+                    child: Container(
+                      height: 50,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: c.ink,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        'Turn off',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: c.inkOnInk,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// A note row that supports swipe-left-to-delete (with a confirm sheet) and a

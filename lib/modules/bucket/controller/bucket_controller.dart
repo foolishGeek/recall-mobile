@@ -383,6 +383,38 @@ class BucketController extends BaseController {
     }
   }
 
+  // ── Per-bucket spaced-revision toggle (skip whole bucket) ──
+
+  bool get bucketSrEnabled => bucket.value?.srEnabled ?? true;
+
+  /// Turns spaced revision on/off for the whole bucket: flips the bucket default
+  /// (applied to future notes) AND bulk-applies to every existing note so the
+  /// choice is consistent. Optimistic with revert on failure.
+  Future<void> setBucketSrEnabled(bool enabled) async {
+    if (readOnly.value) return;
+    final prev = bucket.value;
+    if (prev == null || prev.srEnabled == enabled) return;
+
+    RecallHaptics.medium();
+    bucket.value = prev.copyWith(srEnabled: enabled);
+    // Reflect on the in-memory notes immediately for a calm, instant UI.
+    nodes.assignAll(nodes.map((n) => n.copyWith(srEnabled: enabled)).toList());
+
+    try {
+      final updated =
+          await _bucketRepo.update(bucketId, {'sr_enabled': enabled});
+      bucket.value = updated;
+      await _nodeRepo.setBucketNodesSrEnabled(bucketId, enabled);
+      await _reloadNodes();
+      _refreshBucketsList();
+    } on RepoException catch (e, st) {
+      bucket.value = prev;
+      await _reloadNodes();
+      Sentry.captureException(e, stackTrace: st,
+          withScope: (s) => s.setTag('feature', 'bucket_detail'));
+    }
+  }
+
   // ── Swipe-to-delete a single note ──
 
   /// One-time animated swipe hint per bucket. True until the user has either
