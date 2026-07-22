@@ -26,6 +26,10 @@ class Node {
   final int? lastResponseMs;
   final String? extractedText;
   final String? contentHash;
+
+  /// When false, this note is a plain saved note: excluded from spaced revision
+  /// (stacks, Today, Drops). Authoritative per-note SR flag (backend 00045/00046).
+  final bool srEnabled;
   final DateTime? deletedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -51,6 +55,7 @@ class Node {
     this.lastResponseMs,
     this.extractedText,
     this.contentHash,
+    this.srEnabled = true,
     this.deletedAt,
     this.createdAt,
     this.updatedAt,
@@ -80,6 +85,7 @@ class Node {
       lastResponseMs: asIntOrNull(json['last_response_ms']),
       extractedText: asStringOrNull(json['extracted_text']),
       contentHash: asStringOrNull(json['content_hash']),
+      srEnabled: asBool(json['sr_enabled'], true),
       deletedAt: asDateTime(json['deleted_at']),
       createdAt: asDateTime(json['created_at']),
       updatedAt: asDateTime(json['updated_at']),
@@ -107,6 +113,7 @@ class Node {
         'last_response_ms': lastResponseMs,
         'extracted_text': extractedText,
         'content_hash': contentHash,
+        'sr_enabled': srEnabled,
         'deleted_at': dateToJson(deletedAt),
         'created_at': dateToJson(createdAt),
         'updated_at': dateToJson(updatedAt),
@@ -133,6 +140,7 @@ class Node {
     int? lastResponseMs,
     String? extractedText,
     String? contentHash,
+    bool? srEnabled,
     DateTime? deletedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -158,6 +166,7 @@ class Node {
       lastResponseMs: lastResponseMs ?? this.lastResponseMs,
       extractedText: extractedText ?? this.extractedText,
       contentHash: contentHash ?? this.contentHash,
+      srEnabled: srEnabled ?? this.srEnabled,
       deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

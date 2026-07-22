@@ -15,6 +15,11 @@ class Bucket {
   final HeatSummary heatSummary;
   final double? masteryPct;
   final int? dailyCap;
+
+  /// Default spaced-revision state applied to NEW notes created in this bucket.
+  /// The bucket toggle also drives the "skip this whole bucket" bulk action.
+  /// Note eligibility itself keys on `Node.srEnabled` (backend 00045/00046).
+  final bool srEnabled;
   final DateTime? deletedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -30,6 +35,7 @@ class Bucket {
     this.heatSummary = HeatSummary.empty,
     this.masteryPct,
     this.dailyCap,
+    this.srEnabled = true,
     this.deletedAt,
     this.createdAt,
     this.updatedAt,
@@ -48,6 +54,7 @@ class Bucket {
         heatSummary: HeatSummary.fromJson(asJsonMap(json['heat_summary'])),
         masteryPct: asDoubleOrNull(json['mastery_pct']),
         dailyCap: asIntOrNull(json['daily_cap']),
+        srEnabled: asBool(json['sr_enabled'], true),
         deletedAt: asDateTime(json['deleted_at']),
         createdAt: asDateTime(json['created_at']),
         updatedAt: asDateTime(json['updated_at']),
@@ -64,6 +71,7 @@ class Bucket {
         'heat_summary': heatSummary.toJson(),
         'mastery_pct': masteryPct,
         'daily_cap': dailyCap,
+        'sr_enabled': srEnabled,
         'deleted_at': dateToJson(deletedAt),
         'created_at': dateToJson(createdAt),
         'updated_at': dateToJson(updatedAt),
@@ -80,6 +88,7 @@ class Bucket {
     HeatSummary? heatSummary,
     double? masteryPct,
     int? dailyCap,
+    bool? srEnabled,
     DateTime? deletedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -95,6 +104,7 @@ class Bucket {
       heatSummary: heatSummary ?? this.heatSummary,
       masteryPct: masteryPct ?? this.masteryPct,
       dailyCap: dailyCap ?? this.dailyCap,
+      srEnabled: srEnabled ?? this.srEnabled,
       deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
