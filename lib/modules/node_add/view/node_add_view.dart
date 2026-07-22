@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
 import '../../../core/widgets/list_row.dart';
+import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../controller/node_add_controller.dart';
 import '../controller/picked_file.dart';
@@ -67,7 +68,18 @@ class NodeAddView extends GetView<NodeAddController> {
           _bucketRow(context, c),
           const SizedBox(height: 12),
 
-          // ── Spaced revision toggle ──
+          // ── Spaced revision toggle (+ one-time explainer) ──
+          Obx(() {
+            if (!controller.showSrCoachTip.value) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: RecallCoachTip(
+                text: 'Spaced revision resurfaces this note over time so it '
+                    'sticks. Turn it off to keep a plain reference note.',
+                onDismiss: controller.dismissSrCoachTip,
+              ),
+            );
+          }),
           _srToggleRow(c),
           const SizedBox(height: 18),
 

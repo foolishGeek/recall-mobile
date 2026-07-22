@@ -9,6 +9,7 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/neo_chip.dart';
+import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
@@ -25,6 +26,7 @@ class NodeAddController extends BaseController {
     this._aiRepo,
     this._bucketRepo,
     this.tierService,
+    this._local,
   );
 
   final AuthService _auth;
@@ -32,6 +34,7 @@ class NodeAddController extends BaseController {
   final AiRepository _aiRepo;
   final BucketRepository _bucketRepo;
   final TierService tierService;
+  final LocalStore _local;
 
   // ── Arguments ──
   bool get isEditMode => _existingNodeId != null;
@@ -60,6 +63,16 @@ class NodeAddController extends BaseController {
   /// setting for new notes; loaded from the note when editing. User-overridable.
   final RxBool srEnabled = true.obs;
   bool _srManuallySet = false;
+
+  /// One-time inline explainer for the spaced-revision toggle (first note only).
+  final RxBool showSrCoachTip = false.obs;
+  static const _srCoachKey = 'note_sr_toggle';
+
+  Future<void> dismissSrCoachTip() async {
+    if (!showSrCoachTip.value) return;
+    showSrCoachTip.value = false;
+    await _local.markCoachSeen(_srCoachKey);
+  }
 
   // ── Reference links (added via CTAs below attachments) ──
   final RxBool showLinkField = false.obs;
@@ -184,6 +197,11 @@ class NodeAddController extends BaseController {
 
       _revalidate();
       setSuccess();
+
+      // Explain spaced revision once, only on the create flow.
+      if (!isEditMode && !await _local.coachSeen(_srCoachKey)) {
+        showSrCoachTip.value = true;
+      }
     } on RepoException catch (e, st) {
       setError(e.message);
       _capture(e, st);

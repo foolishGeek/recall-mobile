@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../../../data/local/local_store.dart';
 import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/node_repository.dart';
@@ -16,6 +17,7 @@ class NodeAddBinding extends Bindings {
           Get.find<AiRepository>(),
           Get.find<BucketRepository>(),
           Get.find<TierService>(),
+          Get.find<LocalStore>(),
         ));
   }
 }
