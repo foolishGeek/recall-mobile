@@ -5,17 +5,22 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_shape.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/list_row.dart';
 
 /// Lightweight create/edit-bucket flow: a polished bottom sheet collecting a
-/// name and an optional description. On submit it hands both back to the caller.
-/// Reused for editing by prefilling values and swapping the copy + CTA.
+/// name, optional description, and (on create) whether new notes join spaced
+/// revision by default. On submit it hands values back to the caller.
 class CreateBucketSheet extends StatefulWidget {
-  final void Function(String name, String? description) onCreate;
+  final void Function(String name, String? description, {bool srEnabled})
+      onCreate;
   final String initialName;
   final String? initialDescription;
   final String title;
   final String subtitle;
   final String ctaLabel;
+  /// When false (edit mode), the SR toggle is hidden.
+  final bool showSrToggle;
+  final bool initialSrEnabled;
 
   const CreateBucketSheet({
     super.key,
@@ -25,16 +30,21 @@ class CreateBucketSheet extends StatefulWidget {
     this.title = 'New bucket',
     this.subtitle = 'Name it and add a short description.',
     this.ctaLabel = 'Create bucket',
+    this.showSrToggle = true,
+    this.initialSrEnabled = true,
   });
 
   static Future<void> show(
     BuildContext context, {
-    required void Function(String name, String? description) onCreate,
+    required void Function(String name, String? description, {bool srEnabled})
+        onCreate,
     String initialName = '',
     String? initialDescription,
     String title = 'New bucket',
     String subtitle = 'Name it and add a short description.',
     String ctaLabel = 'Create bucket',
+    bool showSrToggle = true,
+    bool initialSrEnabled = true,
   }) {
     final c = RecallColors.of(context);
     return showModalBottomSheet(
@@ -51,6 +61,8 @@ class CreateBucketSheet extends StatefulWidget {
         title: title,
         subtitle: subtitle,
         ctaLabel: ctaLabel,
+        showSrToggle: showSrToggle,
+        initialSrEnabled: initialSrEnabled,
       ),
     );
   }
@@ -63,6 +75,7 @@ class _CreateBucketSheetState extends State<CreateBucketSheet> {
   late final _nameCtrl = TextEditingController(text: widget.initialName);
   late final _descCtrl =
       TextEditingController(text: widget.initialDescription ?? '');
+  late bool _srEnabled = widget.initialSrEnabled;
 
   @override
   void dispose() {
@@ -77,7 +90,7 @@ class _CreateBucketSheetState extends State<CreateBucketSheet> {
     final desc = _descCtrl.text.trim();
     RecallHaptics.light();
     Navigator.pop(context);
-    widget.onCreate(name, desc.isEmpty ? null : desc);
+    widget.onCreate(name, desc.isEmpty ? null : desc, srEnabled: _srEnabled);
   }
 
   @override
@@ -149,6 +162,49 @@ class _CreateBucketSheetState extends State<CreateBucketSheet> {
                 maxLines: 4,
                 c: c,
               ),
+              if (widget.showSrToggle) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: c.canvas,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: c.grey200),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Add notes to spaced revision',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: c.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _srEnabled
+                                  ? 'New notes join revision by default'
+                                  : 'New notes stay as plain reference',
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, color: c.grey500),
+                            ),
+                          ],
+                        ),
+                      ),
+                      RecallToggle(
+                        value: _srEnabled,
+                        onChanged: (v) => setState(() => _srEnabled = v),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _nameCtrl,

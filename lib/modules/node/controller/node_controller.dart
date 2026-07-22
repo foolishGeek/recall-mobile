@@ -100,7 +100,10 @@ class NodeController extends BaseController {
   String get editedAgoLabel => _relativeTime(node.value?.updatedAt);
 
   String get dueAgoLabel {
-    final due = node.value?.dueAt;
+    final n = node.value;
+    if (n == null) return 'New';
+    if (!n.srEnabled) return 'Saved · not in revision';
+    final due = n.dueAt;
     if (due == null) return 'New';
     final diff = DateTime.now().difference(due);
     if (diff.isNegative) {
@@ -403,6 +406,13 @@ class NodeController extends BaseController {
       next = 20;
     }
     _updateNodeField('comfort', next, n.copyWith(comfort: next));
+  }
+
+  Future<void> setSrEnabled(bool enabled) async {
+    final n = node.value;
+    if (n == null || n.srEnabled == enabled) return;
+    RecallHaptics.selection();
+    await _updateNodeField('sr_enabled', enabled, n.copyWith(srEnabled: enabled));
   }
 
   Future<void> _updateNodeField(

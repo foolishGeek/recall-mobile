@@ -6,6 +6,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/base/base_controller.dart';
+import '../../../core/utils/coach_keys.dart';
 import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/neo_chip.dart';
@@ -66,12 +67,11 @@ class NodeAddController extends BaseController {
 
   /// One-time inline explainer for the spaced-revision toggle (first note only).
   final RxBool showSrCoachTip = false.obs;
-  static const _srCoachKey = 'note_sr_toggle';
 
   Future<void> dismissSrCoachTip() async {
     if (!showSrCoachTip.value) return;
     showSrCoachTip.value = false;
-    await _local.markCoachSeen(_srCoachKey);
+    await _local.markCoachSeen(CoachKeys.noteSrToggle);
   }
 
   // ── Reference links (added via CTAs below attachments) ──
@@ -199,7 +199,7 @@ class NodeAddController extends BaseController {
       setSuccess();
 
       // Explain spaced revision once, only on the create flow.
-      if (!isEditMode && !await _local.coachSeen(_srCoachKey)) {
+      if (!isEditMode && !await _local.coachSeen(CoachKeys.noteSrToggle)) {
         showSrCoachTip.value = true;
       }
     } on RepoException catch (e, st) {

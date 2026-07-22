@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/animation.dart';
@@ -5,9 +6,11 @@ import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/utils/coach_keys.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
 import '../../../core/widgets/recall_scaffold.dart';
+import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/services/auth_service.dart';
@@ -26,6 +29,7 @@ class BucketsController extends BaseController
   final _tierService = Get.find<TierService>();
   final _syncStatus = Get.find<SyncStatusService>();
   final _metrics = Get.find<MetricsService>();
+  final _local = Get.find<LocalStore>();
 
   final RxList<Bucket> buckets = <Bucket>[].obs;
   final RxSet<String> activeBucketIds = <String>{}.obs;
@@ -38,6 +42,9 @@ class BucketsController extends BaseController
   final RxString searchQuery = ''.obs;
   final Rx<BucketFilter> activeFilter = BucketFilter.all.obs;
   final RxBool isSearchVisible = false.obs;
+
+  /// One-time tip on buckets + skip-revision (seen via [CoachKeys.bucketsRevision]).
+  final RxBool showRevisionCoachTip = false.obs;
 
   late final AnimationController staggerController;
   Worker? _tabWorker;
@@ -174,6 +181,7 @@ class BucketsController extends BaseController
       _syncStatus.setOffline(false);
       setSuccess();
       _runStagger();
+      unawaited(_maybeShowRevisionCoachTip());
 
       _loadNextDropTimes(loadedBuckets);
     } on RepoException catch (e) {
@@ -184,6 +192,19 @@ class BucketsController extends BaseController
         setError(e.message);
       }
     }
+  }
+
+  Future<void> _maybeShowRevisionCoachTip() async {
+    if (buckets.isEmpty) return;
+    if (await _local.coachSeen(CoachKeys.bucketsRevision)) return;
+    if (isClosed) return;
+    showRevisionCoachTip.value = true;
+  }
+
+  Future<void> dismissRevisionCoachTip() async {
+    if (!showRevisionCoachTip.value) return;
+    showRevisionCoachTip.value = false;
+    await _local.markCoachSeen(CoachKeys.bucketsRevision);
   }
 
   Future<void> _loadNextDropTimes(List<Bucket> list) async {
@@ -265,7 +286,11 @@ class BucketsController extends BaseController
     Get.toNamed(Routes.nodeAdd);
   }
 
-  Future<void> createBucket(String name, String? description) async {
+  Future<void> createBucket(
+    String name,
+    String? description, {
+    bool srEnabled = true,
+  }) async {
     final userId = _auth.currentUserId;
     if (userId == null) return;
     final trimmed = name.trim();
@@ -277,6 +302,7 @@ class BucketsController extends BaseController
         userId: userId,
         name: trimmed,
         description: description,
+        srEnabled: srEnabled,
       ));
       RecallHaptics.medium();
       await reload(forceRemote: true);

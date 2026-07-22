@@ -5,6 +5,7 @@ import 'package:get/get.dart' hide Node;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/utils/how_it_works_copy.dart';
 import '../../../core/widgets/list_row.dart';
 import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_state_view.dart';
@@ -74,8 +75,9 @@ class NodeAddView extends GetView<NodeAddController> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: RecallCoachTip(
-                text: 'Spaced revision resurfaces this note over time so it '
-                    'sticks. Turn it off to keep a plain reference note.',
+                text: HowItWorksCopy.noteSrTip,
+                howItWorksTitle: HowItWorksCopy.noteSrTitle,
+                howItWorksSections: HowItWorksCopy.noteSrSections,
                 onDismiss: controller.dismissSrCoachTip,
               ),
             );
