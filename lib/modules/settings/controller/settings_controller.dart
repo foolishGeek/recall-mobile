@@ -21,6 +21,7 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/theme/theme_service.dart';
+import '../../../core/utils/memory_strength.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
 import '../../../data/local/local_store.dart';
@@ -44,11 +45,14 @@ const int kDailyLimitMin = 4;
 const int kDailyLimitMax = 30;
 const int kDailyLimitStep = 2;
 
-/// Drop-frequency wire values + their human readout.
+/// Reminder-style wire values + human readout. The wire values are unchanged
+/// (daily/3xwk/weekly) but now express *intensity* — they map to drop_intensity()
+/// on the backend (00049): weekly=Gentle, 3xwk=Standard, daily=Persistent.
+/// Ordered gentle → persistent for the picker.
 const List<(String, String, String)> kFrequencyOptions = [
-  ('daily', 'Daily', '1 drop / day'),
-  ('3xwk', '3× / week', '3 drops / week'),
-  ('weekly', 'Weekly', '1 drop / week'),
+  ('weekly', 'Gentle', 'An occasional nudge'),
+  ('3xwk', 'Standard', 'A balanced reminder rhythm'),
+  ('daily', 'Persistent', 'Keeps nudging until you review'),
 ];
 
 class SettingsController extends BaseController {
@@ -76,6 +80,7 @@ class SettingsController extends BaseController {
   final Rx<SubscriptionTier> tier = SubscriptionTier.free.obs;
   final RxList<StoreProduct> creditProducts = <StoreProduct>[].obs;
   final Rxn<ExportStatus> exportStatus = Rxn<ExportStatus>();
+  final Rxn<SchedulingPrefs> schedulingPrefs = Rxn<SchedulingPrefs>();
   final RxnString appVersion = RxnString();
 
   // Transient busy flags (per-action so rows stay independent).
@@ -106,11 +111,13 @@ class SettingsController extends BaseController {
   bool get pushOptIn => profile.value?.pushOptIn ?? false;
 
   String get dropFrequency => profile.value?.dropFrequency ?? 'daily';
+
+  /// Short name (e.g. "Persistent") for the collapsed Settings row.
   String get frequencyLabel {
     for (final o in kFrequencyOptions) {
-      if (o.$1 == dropFrequency) return o.$3;
+      if (o.$1 == dropFrequency) return o.$2;
     }
-    return '1 drop / day';
+    return 'Standard';
   }
 
   String? get quietHoursStart => profile.value?.quietHoursStart;
@@ -145,6 +152,11 @@ class SettingsController extends BaseController {
   String get themeLabel => theme.toUpperCase();
 
   int get creditBalance => profile.value?.aiCreditBalance ?? 0;
+
+  // ── Memory strength (desired retention) ───────────────────────────────────
+  /// Effective retention (0..1) used for scheduling; 0.90 until loaded.
+  double get memoryStrength => schedulingPrefs.value?.effective ?? 0.90;
+  String get memoryStrengthLabel => memoryStrengthLabelFor(memoryStrength);
 
   StoreProduct? get credits100 =>
       _creditProduct(RevenueCatService.credits100ProductId);
@@ -212,6 +224,10 @@ class SettingsController extends BaseController {
       _profiles.fetchExportStatus().then((s) {
         if (!isClosed) exportStatus.value = s;
       }).catchError((_) {});
+
+      _profiles.getSchedulingPrefs().then((p) {
+        if (!isClosed) schedulingPrefs.value = p;
+      }).catchError((_) {});
     }
 
     if (isPremium) {
@@ -241,6 +257,27 @@ class SettingsController extends BaseController {
     }
     await _patch({'push_opt_in': value},
         profile.value?.copyWith(pushOptIn: value));
+  }
+
+  /// Sets the user's default memory strength (desired retention). Optimistic;
+  /// reverts on failure. Backend clamps to the safe band.
+  Future<void> setMemoryStrength(double retention) async {
+    if ((retention - memoryStrength).abs() < 0.001) return;
+    final prev = schedulingPrefs.value;
+    schedulingPrefs.value = SchedulingPrefs(
+      appDefault: prev?.appDefault,
+      userValue: retention,
+      bucketValue: prev?.bucketValue,
+      effective: retention,
+    );
+    RecallHaptics.selection();
+    try {
+      schedulingPrefs.value =
+          await _profiles.setSchedulingPrefs(targetRetention: retention);
+    } on RepoException catch (e, st) {
+      schedulingPrefs.value = prev;
+      _onWriteFailed(e, st);
+    }
   }
 
   Future<void> setDropFrequency(String value) async {

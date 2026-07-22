@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import '../../../../core/utils/memory_strength.dart';
 import '../../../../core/utils/recall_haptics.dart';
 import '../../controller/settings_controller.dart';
 
@@ -62,6 +63,22 @@ class _SheetTitle extends StatelessWidget {
   }
 }
 
+class _SheetCaption extends StatelessWidget {
+  final String text;
+  const _SheetCaption(this.text);
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text,
+        style: GoogleFonts.inter(fontSize: 12.5, height: 1.35, color: c.grey500),
+      ),
+    );
+  }
+}
+
 class _OptionRow extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -112,12 +129,43 @@ Future<void> showFrequencySheet(
   return _sheet(
     context,
     Column(mainAxisSize: MainAxisSize.min, children: [
-      const _SheetTitle('Drop frequency'),
+      const _SheetTitle('Reminder style'),
       const SizedBox(height: 6),
       ...kFrequencyOptions.map((o) => _OptionRow(
             title: o.$2,
             subtitle: o.$3,
             selected: o.$1 == current,
+            onTap: () {
+              Navigator.pop(context);
+              onSelected(o.$1);
+            },
+          )),
+    ]),
+  );
+}
+
+/// Memory-strength picker (desired retention). [current] is the effective 0..1
+/// value; the callback returns the chosen preset retention.
+Future<void> showMemoryStrengthSheet(
+  BuildContext context, {
+  required double current,
+  required ValueChanged<double> onSelected,
+}) {
+  final selectedPreset = memoryStrengthPreset(current);
+  return _sheet(
+    context,
+    Column(mainAxisSize: MainAxisSize.min, children: [
+      const _SheetTitle('Memory strength'),
+      const SizedBox(height: 4),
+      _SheetCaption(
+        'How firmly Recall keeps things in memory. Stronger means more reviews '
+        'but sturdier recall.',
+      ),
+      const SizedBox(height: 6),
+      ...kMemoryStrengthPresets.map((o) => _OptionRow(
+            title: o.$2,
+            subtitle: o.$3,
+            selected: (o.$1 - selectedPreset).abs() < 0.001,
             onTap: () {
               Navigator.pop(context);
               onSelected(o.$1);

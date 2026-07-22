@@ -122,7 +122,7 @@ Widget _sections(BuildContext context, SettingsController controller) {
           ),
         ),
         ListRow(
-          title: 'Frequency',
+          title: 'Reminder style',
           subtitle: controller.frequencyLabel,
           onTap: () => showFrequencySheet(
             context,
@@ -152,6 +152,15 @@ Widget _sections(BuildContext context, SettingsController controller) {
 
       // ── Review ───────────────────────────────────────────────────────────
       SettingsSection(label: 'Review', children: [
+        ListRow(
+          title: 'Memory strength',
+          subtitle: controller.memoryStrengthLabel,
+          onTap: () => showMemoryStrengthSheet(
+            context,
+            current: controller.memoryStrength,
+            onSelected: controller.setMemoryStrength,
+          ),
+        ),
         ListRow(
           title: 'Default cooling period',
           subtitle: controller.coolingLabel,
