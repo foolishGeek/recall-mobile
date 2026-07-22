@@ -162,6 +162,22 @@ class NodeRepository extends BaseRepository {
         return updated;
       });
 
+  /// Bulk set spaced-revision on/off for every live note in a bucket. Used by the
+  /// "skip this whole bucket" action so existing notes follow the bucket default.
+  /// Refreshes the bucket's cached nodes so the UI reflects the change at once.
+  Future<void> setBucketNodesSrEnabled(String bucketId, bool enabled) =>
+      guard(() async {
+        await supabase
+            .from('nodes')
+            .update({'sr_enabled': enabled})
+            .eq('bucket_id', bucketId)
+            .isFilter('deleted_at', null);
+        if (_local.isEnabled) {
+          final fresh = await _remoteByBucket(bucketId);
+          await _local.replaceNodesForBucket(bucketId, fresh);
+        }
+      });
+
   Future<void> softDelete(String id) => guard(() async {
         await supabase.from('nodes').update(
           {'deleted_at': DateTime.now().toUtc().toIso8601String()},
