@@ -56,6 +56,11 @@ class NodeAddController extends BaseController {
   final RxList<Bucket> writableBuckets = <Bucket>[].obs;
   final Rxn<Bucket> selectedBucket = Rxn<Bucket>();
 
+  /// Whether this note joins spaced revision. Defaults to the selected bucket's
+  /// setting for new notes; loaded from the note when editing. User-overridable.
+  final RxBool srEnabled = true.obs;
+  bool _srManuallySet = false;
+
   // ── Reference links (added via CTAs below attachments) ──
   final RxBool showLinkField = false.obs;
   final RxBool showYoutubeField = false.obs;
@@ -159,13 +164,22 @@ class NodeAddController extends BaseController {
         }
       }
 
-      if (selectedBucket.value == null && writableBuckets.isNotEmpty) {
-        if (_initialBucketId != null) {
-          selectedBucket.value = writableBuckets.firstWhereOrNull(
-            (b) => b.id == _initialBucketId,
-          );
-        }
-        selectedBucket.value ??= writableBuckets.first;
+      // Only pre-select when the user entered from a specific bucket (individual
+      // bucket screen, or editing an existing note). From the Buckets-tab CTA,
+      // Today, onboarding or empty states no bucket_id is passed, so we leave the
+      // picker empty and make the user choose — this is what stops notes silently
+      // landing in the wrong (first) bucket.
+      if (selectedBucket.value == null &&
+          _initialBucketId != null &&
+          writableBuckets.isNotEmpty) {
+        selectedBucket.value = writableBuckets.firstWhereOrNull(
+          (b) => b.id == _initialBucketId,
+        );
+      }
+
+      // New note default: inherit the chosen bucket's spaced-revision setting.
+      if (!isEditMode && selectedBucket.value != null) {
+        srEnabled.value = selectedBucket.value!.srEnabled;
       }
 
       _revalidate();
@@ -181,6 +195,8 @@ class NodeAddController extends BaseController {
     priority.value = n.priority;
     difficulty.value = n.difficulty;
     comfort.value = n.comfort;
+    srEnabled.value = n.srEnabled;
+    _srManuallySet = true; // preserve the note's own setting on edit
 
     // Reference links/videos are stored as standalone URL lines in markdown.
     // Split them back into the dedicated fields; keep prose as the body.
@@ -378,8 +394,19 @@ class NodeAddController extends BaseController {
 
   void onBucketSelected(Bucket bucket) {
     selectedBucket.value = bucket;
+    // New note that hasn't been manually toggled follows the bucket's default.
+    if (!isEditMode && !_srManuallySet) {
+      srEnabled.value = bucket.srEnabled;
+    }
     _revalidate();
     Get.back();
+  }
+
+  /// User intent: include/exclude this note from spaced revision.
+  void toggleSrEnabled(bool value) {
+    _srManuallySet = true;
+    srEnabled.value = value;
+    RecallHaptics.selection();
   }
 
   Future<void> onCreateBucket(String name) async {
@@ -501,6 +528,7 @@ class NodeAddController extends BaseController {
       priority: priority.value,
       difficulty: difficulty.value,
       comfort: comfort.value,
+      srEnabled: srEnabled.value,
       contentHash: contentHash,
       extractedText: extractedText,
     );
@@ -526,6 +554,7 @@ class NodeAddController extends BaseController {
       'priority': priority.value,
       'difficulty': difficulty.value,
       'comfort': comfort.value,
+      'sr_enabled': srEnabled.value,
       if (contentHash != null) 'content_hash': contentHash,
       if (extractedText != null) 'extracted_text': extractedText,
     };
