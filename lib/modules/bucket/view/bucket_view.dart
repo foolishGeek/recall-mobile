@@ -211,14 +211,24 @@ class BucketView extends GetView<BucketController> {
           ],
         ),
         const SizedBox(height: 10),
-        ...controller.nodes.map((node) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: BucketNodeRow(
-                node: node,
-                dueLabel: controller.nodeDueLabel(node.dueAt),
-                onTap: () => controller.onNodeTap(node),
-              ),
-            )),
+        ...controller.nodes.asMap().entries.map((entry) {
+          final index = entry.key;
+          final node = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: _DeletableNodeRow(
+              key: ValueKey(node.id),
+              node: node,
+              dueLabel: controller.nodeDueLabel(node.dueAt),
+              readOnly: controller.readOnly.value,
+              // Demonstrate the swipe affordance once, on the first row only.
+              showHint: index == 0 && controller.showSwipeHint.value,
+              onHintShown: controller.dismissSwipeHint,
+              onTap: () => controller.onNodeTap(node),
+              onConfirmDelete: () => controller.onDeleteNodeSwiped(node),
+            ),
+          );
+        }),
       ],
     );
   }
@@ -397,6 +407,249 @@ class BucketView extends GetView<BucketController> {
       ),
     );
   }
+}
+
+/// A note row that supports swipe-left-to-delete (with a confirm sheet) and a
+/// one-time, low-cortisol animated hint that nudges the row left to reveal the
+/// delete affordance. Read-only buckets fall back to a plain tappable row.
+class _DeletableNodeRow extends StatefulWidget {
+  final Node node;
+  final String dueLabel;
+  final bool readOnly;
+  final bool showHint;
+  final VoidCallback onHintShown;
+  final VoidCallback onTap;
+  final Future<bool> Function() onConfirmDelete;
+
+  const _DeletableNodeRow({
+    super.key,
+    required this.node,
+    required this.dueLabel,
+    required this.readOnly,
+    required this.showHint,
+    required this.onHintShown,
+    required this.onTap,
+    required this.onConfirmDelete,
+  });
+
+  @override
+  State<_DeletableNodeRow> createState() => _DeletableNodeRowState();
+}
+
+class _DeletableNodeRowState extends State<_DeletableNodeRow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _hintCtrl;
+  late final Animation<double> _hintOffset;
+
+  @override
+  void initState() {
+    super.initState();
+    _hintCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    // Ease left ~40px and settle back — a calm "you can swipe me" nudge.
+    _hintOffset = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: -40.0)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 30,
+      ),
+      TweenSequenceItem(tween: ConstantTween<double>(-40), weight: 20),
+      TweenSequenceItem(
+        tween: Tween(begin: -40.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeInCubic)),
+        weight: 30,
+      ),
+      TweenSequenceItem(tween: ConstantTween<double>(0), weight: 20),
+    ]).animate(_hintCtrl);
+
+    if (widget.showHint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _runHint());
+    }
+  }
+
+  Future<void> _runHint() async {
+    if (!mounted) return;
+    try {
+      await _hintCtrl.forward();
+      if (mounted) await _hintCtrl.reverse(from: 0); // second gentle nudge
+    } catch (_) {
+      // ignore interruption on dispose
+    }
+    widget.onHintShown();
+  }
+
+  @override
+  void didUpdateWidget(_DeletableNodeRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showHint && !oldWidget.showHint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _runHint());
+    }
+  }
+
+  @override
+  void dispose() {
+    _hintCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    final row = BucketNodeRow(
+      node: widget.node,
+      dueLabel: widget.dueLabel,
+      onTap: widget.onTap,
+    );
+
+    if (widget.readOnly) return row;
+
+    return Dismissible(
+      key: ValueKey('dismiss_${widget.node.id}'),
+      direction: DismissDirection.endToStart,
+      background: _deleteBackground(c),
+      confirmDismiss: (_) async {
+        final confirmed = await _showDeleteConfirm(context, widget.node.title);
+        if (confirmed != true) return false;
+        await widget.onConfirmDelete();
+        // We remove the note from the reactive list ourselves, so the row is
+        // dropped by the Obx rebuild — never let Dismissible remove it too.
+        return false;
+      },
+      child: AnimatedBuilder(
+        animation: _hintOffset,
+        builder: (context, child) {
+          if (_hintOffset.value == 0) return child!;
+          return material.Stack(
+            children: [
+              Positioned.fill(child: _deleteBackground(c)),
+              Transform.translate(
+                offset: Offset(_hintOffset.value, 0),
+                child: child,
+              ),
+            ],
+          );
+        },
+        child: row,
+      ),
+    );
+  }
+
+  Widget _deleteBackground(RecallColors c) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: c.chipRed,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(Icons.delete_outline_rounded, size: 20, color: c.inkOnInk),
+    );
+  }
+}
+
+/// Calm confirm sheet for a single-note delete. Returns true on confirm.
+Future<bool?> _showDeleteConfirm(BuildContext context, String title) {
+  final c = RecallColors.of(context);
+  RecallHaptics.selection();
+  return showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: c.card,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.grey400,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Delete this note?',
+              style: GoogleFonts.fraunces(
+                fontSize: 22,
+                fontWeight: FontWeight.w500,
+                color: c.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title.isEmpty
+                  ? 'This note will be removed from the bucket.'
+                  : '"$title" will be removed from the bucket.',
+              style: GoogleFonts.inter(fontSize: 13.5, height: 1.35, color: c.grey500),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(ctx, false),
+                    child: Container(
+                      height: 50,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: c.card,
+                        border: Border.all(color: c.grey200),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: c.grey600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      RecallHaptics.medium();
+                      Navigator.pop(ctx, true);
+                    },
+                    child: Container(
+                      height: 50,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: c.chipRed,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        'Delete',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: c.inkOnInk,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Add-note FAB. Ink circle, soft primary-button shadow (never the hard chip
