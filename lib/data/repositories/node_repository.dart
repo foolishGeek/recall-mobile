@@ -215,16 +215,6 @@ class NodeRepository extends BaseRepository {
             .toList();
       });
 
-  /// Per-node heat percentage (0-100) from backend `node_heat_pct` RPC.
-  /// Falls back to a client-side heuristic when offline.
-  Future<double> fetchHeatPct(String nodeId) => guard(() async {
-        final result = await supabase.rpc(
-          'node_heat_pct',
-          params: {'p_node_id': nodeId},
-        );
-        return asDouble(result);
-      });
-
   /// Whether this node has at least one review row (controls comfort read-only).
   Future<bool> hasReviews(String nodeId) => guard(() async {
         final rows = await supabase

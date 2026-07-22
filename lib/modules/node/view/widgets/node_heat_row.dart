@@ -5,12 +5,10 @@ import '../../../../core/theme/recall_colors.dart';
 
 /// Due-only row for node detail (heat retired).
 class NodeHeatRow extends StatelessWidget {
-  final double heatPct;
   final String dueLabel;
 
   const NodeHeatRow({
     super.key,
-    this.heatPct = 0,
     required this.dueLabel,
   });
 
