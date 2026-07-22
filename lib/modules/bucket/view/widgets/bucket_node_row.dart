@@ -49,7 +49,9 @@ class BucketNodeRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    dueLabel,
+                    // A note opted out of spaced revision has no due schedule —
+                    // show a calm status line instead of a stale due label.
+                    node.srEnabled ? dueLabel : 'Saved · not in revision',
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 10,
                       color: c.grey500,
