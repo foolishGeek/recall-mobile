@@ -69,8 +69,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       onConflict: 'dedupe_key,type',
       ignoreDuplicates: true,
     );
-  } catch (_) {
-    // Swallow: delivered logging is best-effort and isolate-safe.
+  } catch (e, st) {
+    // Best-effort: delivered logging must never crash the isolate. Surface to
+    // Sentry if this isolate happens to have it wired; otherwise stay silent.
+    try {
+      await Sentry.captureException(
+        e,
+        stackTrace: st,
+        withScope: (scope) => scope.setTag('feature', 'notifications_bg'),
+      );
+    } catch (_) {}
   }
 }
 

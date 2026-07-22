@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import '../../../../core/utils/how_it_works_copy.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/how_it_works_sheet.dart';
+import '../../../../core/widgets/memory_strength_selector.dart';
 import '../../controller/settings_controller.dart';
 
 Future<T?> _sheet<T>(BuildContext context, Widget child) {
@@ -62,6 +65,55 @@ class _SheetTitle extends StatelessWidget {
   }
 }
 
+class _SheetCaption extends StatelessWidget {
+  final String text;
+  const _SheetCaption(this.text);
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        text,
+        style: GoogleFonts.inter(fontSize: 12.5, height: 1.35, color: c.grey500),
+      ),
+    );
+  }
+}
+
+class _HowItWorksLink extends StatelessWidget {
+  final String title;
+  final List<HowItWorksSection> sections;
+  const _HowItWorksLink({required this.title, required this.sections});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: GestureDetector(
+        onTap: () => showHowItWorksSheet(
+          context,
+          title: title,
+          sections: sections,
+        ),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Text(
+            'How it works',
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: c.ink,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _OptionRow extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -112,8 +164,17 @@ Future<void> showFrequencySheet(
   return _sheet(
     context,
     Column(mainAxisSize: MainAxisSize.min, children: [
-      const _SheetTitle('Drop frequency'),
-      const SizedBox(height: 6),
+      const _SheetTitle('Reminder style'),
+      const SizedBox(height: 4),
+      const _SheetCaption(
+        'How insistently Recall Drop nudges you when due notes wait unseen.',
+      ),
+      const SizedBox(height: 2),
+      _HowItWorksLink(
+        title: HowItWorksCopy.reminderStyleTitle,
+        sections: HowItWorksCopy.reminderStyleSections,
+      ),
+      const SizedBox(height: 4),
       ...kFrequencyOptions.map((o) => _OptionRow(
             title: o.$2,
             subtitle: o.$3,
@@ -125,6 +186,49 @@ Future<void> showFrequencySheet(
           )),
     ]),
   );
+}
+
+/// Memory-strength picker (desired retention). [current] is the effective 0..1
+/// value; the callback returns the chosen preset retention.
+Future<void> showMemoryStrengthSheet(
+  BuildContext context, {
+  required double current,
+  required ValueChanged<double> onSelected,
+}) {
+  return _sheet(
+    context,
+    _MemoryStrengthSheetBody(current: current, onSelected: onSelected),
+  );
+}
+
+class _MemoryStrengthSheetBody extends StatelessWidget {
+  final double current;
+  final ValueChanged<double> onSelected;
+  const _MemoryStrengthSheetBody({
+    required this.current,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SheetTitle('Memory strength'),
+        const SizedBox(height: 12),
+        MemoryStrengthSelector(
+          value: current,
+          usesDefault: false,
+          showHowItWorks: true,
+          onChanged: (v) {
+            Navigator.pop(context);
+            onSelected(v);
+          },
+        ),
+      ],
+    );
+  }
 }
 
 Future<void> showCoolingSheet(

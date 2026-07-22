@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
 import '../../../core/utils/note_links.dart';
+import '../../../core/widgets/list_row.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../data/models/models.dart';
@@ -114,6 +115,15 @@ class NodeView extends GetView<NodeController> {
               Obx(() => NodeHeatRow(
                     dueLabel: controller.dueAgoLabel,
                   )),
+              const SizedBox(height: 12),
+              Obx(() {
+                final n = controller.node.value;
+                if (n == null) return const SizedBox.shrink();
+                return _NodeSrToggle(
+                  enabled: n.srEnabled,
+                  onChanged: controller.setSrEnabled,
+                );
+              }),
               const SizedBox(height: 18),
               Obx(() {
                 final n = controller.node.value;
@@ -384,6 +394,54 @@ class NodeView extends GetView<NodeController> {
             : null,
       );
     });
+  }
+}
+
+class _NodeSrToggle extends StatelessWidget {
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  const _NodeSrToggle({required this.enabled, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: c.card,
+        border: Border.all(color: c.grey200, width: 1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add to spaced revision',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: c.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  enabled
+                      ? 'Recall will resurface this so you remember it'
+                      : 'Saved as a plain note — never resurfaced',
+                  style: GoogleFonts.inter(fontSize: 12, color: c.grey500),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          RecallToggle(value: enabled, onChanged: onChanged),
+        ],
+      ),
+    );
   }
 }
 

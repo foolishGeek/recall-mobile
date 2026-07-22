@@ -30,8 +30,9 @@ class OnboardingPanelB extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            "Drop a topic into Recall and let it go. We resurface each card "
-            "right before you'd forget — so it sticks with far less effort.",
+            'Drop a topic into Recall and let it go. Spaced revision brings '
+            'each note back just before you\'d forget — or turn it off for '
+            'plain reference. Memory strength controls how firmly things stick.',
             textAlign: TextAlign.center,
             style: t.body.copyWith(color: c.grey600, height: 1.55),
           ),

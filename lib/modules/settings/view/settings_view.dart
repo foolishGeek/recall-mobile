@@ -7,8 +7,10 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/utils/how_it_works_copy.dart';
 import '../../../core/widgets/list_row.dart';
 import '../../../core/widgets/mono_label.dart';
+import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../controller/settings_controller.dart';
@@ -122,13 +124,16 @@ Widget _sections(BuildContext context, SettingsController controller) {
           ),
         ),
         ListRow(
-          title: 'Frequency',
+          title: 'Reminder style',
           subtitle: controller.frequencyLabel,
-          onTap: () => showFrequencySheet(
-            context,
-            current: controller.dropFrequency,
-            onSelected: controller.setDropFrequency,
-          ),
+          onTap: () {
+            controller.dismissReviewCoachTip();
+            showFrequencySheet(
+              context,
+              current: controller.dropFrequency,
+              onSelected: controller.setDropFrequency,
+            );
+          },
         ),
         ListRow(
           title: 'Quiet hours',
@@ -150,8 +155,35 @@ Widget _sections(BuildContext context, SettingsController controller) {
         ),
       ]),
 
+      Obx(() {
+        if (!controller.showReviewCoachTip.value) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+          child: RecallCoachTip(
+            text: HowItWorksCopy.settingsTip,
+            howItWorksTitle: HowItWorksCopy.settingsTitle,
+            howItWorksSections: HowItWorksCopy.settingsSections,
+            onDismiss: controller.dismissReviewCoachTip,
+          ),
+        );
+      }),
+
       // ── Review ───────────────────────────────────────────────────────────
       SettingsSection(label: 'Review', children: [
+        ListRow(
+          title: 'Memory strength',
+          subtitle: controller.memoryStrengthLabel,
+          onTap: () {
+            controller.dismissReviewCoachTip();
+            showMemoryStrengthSheet(
+              context,
+              current: controller.memoryStrength,
+              onSelected: controller.setMemoryStrength,
+            );
+          },
+        ),
         ListRow(
           title: 'Default cooling period',
           subtitle: controller.coolingLabel,

@@ -423,6 +423,13 @@ class LocalStore extends GetxService {
     await _kvSet(_aiFeedbackKey, jsonEncode(ops));
   }
 
+  // --------------------------------------- One-time coach marks / tutorial hints
+  // Seen-once flags for inline tutorials (e.g. swipe-to-delete hint per bucket,
+  // "how it works" first-run tips). Persisted so a tip shows at most once.
+  Future<bool> coachSeen(String key) async => (await _kvGet('coach:$key')) == '1';
+
+  Future<void> markCoachSeen(String key) => _kvSet('coach:$key', '1');
+
   // --------------------------------------- Aura rating nudge frequency cap
   Future<String?> auraRatingMeta(String key) => _kvGet('aura_rating:$key');
 

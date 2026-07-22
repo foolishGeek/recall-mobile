@@ -162,6 +162,22 @@ class NodeRepository extends BaseRepository {
         return updated;
       });
 
+  /// Bulk set spaced-revision on/off for every live note in a bucket. Used by the
+  /// "skip this whole bucket" action so existing notes follow the bucket default.
+  /// Refreshes the bucket's cached nodes so the UI reflects the change at once.
+  Future<void> setBucketNodesSrEnabled(String bucketId, bool enabled) =>
+      guard(() async {
+        await supabase
+            .from('nodes')
+            .update({'sr_enabled': enabled})
+            .eq('bucket_id', bucketId)
+            .isFilter('deleted_at', null);
+        if (_local.isEnabled) {
+          final fresh = await _remoteByBucket(bucketId);
+          await _local.replaceNodesForBucket(bucketId, fresh);
+        }
+      });
+
   Future<void> softDelete(String id) => guard(() async {
         await supabase.from('nodes').update(
           {'deleted_at': DateTime.now().toUtc().toIso8601String()},
@@ -197,16 +213,6 @@ class NodeRepository extends BaseRepository {
             .where((r) => r['tags'] != null)
             .map((r) => Tag.fromJson(Map<String, dynamic>.from(r['tags'] as Map)))
             .toList();
-      });
-
-  /// Per-node heat percentage (0-100) from backend `node_heat_pct` RPC.
-  /// Falls back to a client-side heuristic when offline.
-  Future<double> fetchHeatPct(String nodeId) => guard(() async {
-        final result = await supabase.rpc(
-          'node_heat_pct',
-          params: {'p_node_id': nodeId},
-        );
-        return asDouble(result);
       });
 
   /// Whether this node has at least one review row (controls comfort read-only).

@@ -5,6 +5,9 @@ import 'package:get/get.dart' hide Node;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/utils/how_it_works_copy.dart';
+import '../../../core/widgets/list_row.dart';
+import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../controller/node_add_controller.dart';
 import '../controller/picked_file.dart';
@@ -60,6 +63,28 @@ class NodeAddView extends GetView<NodeAddController> {
           _displayTitle(c),
           const SizedBox(height: 22),
 
+          // ── Bucket (first: choose where this note lives before anything else) ──
+          _sectionLabel('Bucket', c),
+          const SizedBox(height: 8),
+          _bucketRow(context, c),
+          const SizedBox(height: 12),
+
+          // ── Spaced revision toggle (+ one-time explainer) ──
+          Obx(() {
+            if (!controller.showSrCoachTip.value) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: RecallCoachTip(
+                text: HowItWorksCopy.noteSrTip,
+                howItWorksTitle: HowItWorksCopy.noteSrTitle,
+                howItWorksSections: HowItWorksCopy.noteSrSections,
+                onDismiss: controller.dismissSrCoachTip,
+              ),
+            );
+          }),
+          _srToggleRow(c),
+          const SizedBox(height: 18),
+
           // ── Title field ──
           _sectionLabel('Title', c),
           const SizedBox(height: 8),
@@ -77,12 +102,6 @@ class NodeAddView extends GetView<NodeAddController> {
 
           // ── Reference links ──
           _linksSection(c),
-
-          // ── Bucket ──
-          _sectionLabel('Bucket', c),
-          const SizedBox(height: 8),
-          _bucketRow(context, c),
-          const SizedBox(height: 18),
 
           // ── Tags ──
           _sectionLabel('Tags', c),
@@ -427,6 +446,50 @@ class NodeAddView extends GetView<NodeAddController> {
               Icon(Icons.keyboard_arrow_down, size: 14, color: c.grey500),
             ],
           ),
+        ),
+      );
+    });
+  }
+
+  /// Plain-language spaced-revision switch. On = Recall will resurface this note
+  /// over time; off = it stays a quiet reference note you can still open anytime.
+  Widget _srToggleRow(RecallColors c) {
+    return Obx(() {
+      final on = controller.srEnabled.value;
+      return Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: c.card,
+          border: Border.all(color: c.grey200, width: 1),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Add to spaced revision',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: c.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    on
+                        ? 'Recall will resurface this so you remember it'
+                        : 'Saved as a plain note — never resurfaced',
+                    style: GoogleFonts.inter(fontSize: 12, color: c.grey500),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            RecallToggle(value: on, onChanged: controller.toggleSrEnabled),
+          ],
         ),
       );
     });

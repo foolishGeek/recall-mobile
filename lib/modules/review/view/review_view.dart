@@ -3,6 +3,8 @@ import 'package:get/get.dart' hide Node;
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/utils/how_it_works_copy.dart';
+import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../data/models/models.dart' hide Stack;
 import '../../node/view/widgets/node_attachment_viewer.dart';
@@ -101,6 +103,20 @@ class _ReviewContentState extends State<_ReviewContent> {
                 total: controller.totalItems,
                 current: controller.doneItems,
               )),
+          Obx(() {
+            if (!controller.showGradesCoachTip.value) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+              child: RecallCoachTip(
+                text: HowItWorksCopy.reviewTip,
+                howItWorksTitle: HowItWorksCopy.reviewTitle,
+                howItWorksSections: HowItWorksCopy.reviewSections,
+                onDismiss: controller.dismissGradesCoachTip,
+              ),
+            );
+          }),
           Expanded(
             child: Obx(() => _buildCardStage(c, dark)),
           ),

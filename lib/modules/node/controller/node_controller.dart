@@ -40,7 +40,6 @@ class NodeController extends BaseController {
   final RxList<NodeAsset> assets = <NodeAsset>[].obs;
   final RxList<Tag> tags = <Tag>[].obs;
   final RxnString bucketName = RxnString();
-  final RxDouble heatPct = 0.0.obs;
   final RxBool hasReviews = false.obs;
 
   // Signed URLs keyed by asset id.
@@ -100,7 +99,10 @@ class NodeController extends BaseController {
   String get editedAgoLabel => _relativeTime(node.value?.updatedAt);
 
   String get dueAgoLabel {
-    final due = node.value?.dueAt;
+    final n = node.value;
+    if (n == null) return 'New';
+    if (!n.srEnabled) return 'Saved · not in revision';
+    final due = n.dueAt;
     if (due == null) return 'New';
     final diff = DateTime.now().difference(due);
     if (diff.isNegative) {
@@ -157,13 +159,12 @@ class NodeController extends BaseController {
     setLoading();
     try {
       final results = await Future.wait([
-        _nodeRepo.fetchById(nodeId),           // 0
-        _nodeRepo.fetchAssets(nodeId),          // 1
-        _nodeRepo.fetchTagsForNode(nodeId),     // 2
-        _nodeRepo.fetchHeatPct(nodeId),         // 3
-        _nodeRepo.hasReviews(nodeId),           // 4
-        _aiRepo.fetchLatestEvaluation(nodeId),  // 5
-        _loadProfile(),                         // 6
+        _nodeRepo.fetchById(nodeId), // 0
+        _nodeRepo.fetchAssets(nodeId), // 1
+        _nodeRepo.fetchTagsForNode(nodeId), // 2
+        _nodeRepo.hasReviews(nodeId), // 3
+        _aiRepo.fetchLatestEvaluation(nodeId), // 4
+        _loadProfile(), // 5
       ]);
 
       final loadedNode = results[0] as Node?;
@@ -174,9 +175,8 @@ class NodeController extends BaseController {
       node.value = loadedNode;
       assets.assignAll(results[1] as List<NodeAsset>);
       tags.assignAll(results[2] as List<Tag>);
-      heatPct.value = results[3] as double;
-      hasReviews.value = results[4] as bool;
-      final loadedEval = results[5] as AiEvaluation?;
+      hasReviews.value = results[3] as bool;
+      final loadedEval = results[4] as AiEvaluation?;
       evaluation.value = loadedEval == null
           ? null
           : _withPreservedUrls(loadedEval, loadedNode.markdown);
@@ -403,6 +403,13 @@ class NodeController extends BaseController {
       next = 20;
     }
     _updateNodeField('comfort', next, n.copyWith(comfort: next));
+  }
+
+  Future<void> setSrEnabled(bool enabled) async {
+    final n = node.value;
+    if (n == null || n.srEnabled == enabled) return;
+    RecallHaptics.selection();
+    await _updateNodeField('sr_enabled', enabled, n.copyWith(srEnabled: enabled));
   }
 
   Future<void> _updateNodeField(

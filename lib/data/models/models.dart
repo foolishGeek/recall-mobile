@@ -36,3 +36,4 @@ export 'ai_results.dart';
 export 'ai_user_preferences.dart';
 export 'relearn_skill.dart';
 export 'due_preview_node.dart';
+export 'scheduling_prefs.dart';

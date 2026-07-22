@@ -7,7 +7,6 @@ class StackItem {
   final String stackId;
   final String nodeId;
   final int position;
-  final double? heatSnapshot;
   final bool reviewed;
 
   const StackItem({
@@ -15,7 +14,6 @@ class StackItem {
     required this.stackId,
     required this.nodeId,
     this.position = 0,
-    this.heatSnapshot,
     this.reviewed = false,
   });
 
@@ -24,7 +22,6 @@ class StackItem {
         stackId: asString(json['stack_id']),
         nodeId: asString(json['node_id']),
         position: asInt(json['position']),
-        heatSnapshot: asDoubleOrNull(json['heat_snapshot']),
         reviewed: asBool(json['reviewed']),
       );
 
@@ -33,7 +30,6 @@ class StackItem {
         'stack_id': stackId,
         'node_id': nodeId,
         'position': position,
-        'heat_snapshot': heatSnapshot,
         'reviewed': reviewed,
       };
 
@@ -42,7 +38,6 @@ class StackItem {
     String? stackId,
     String? nodeId,
     int? position,
-    double? heatSnapshot,
     bool? reviewed,
   }) {
     return StackItem(
@@ -50,7 +45,6 @@ class StackItem {
       stackId: stackId ?? this.stackId,
       nodeId: nodeId ?? this.nodeId,
       position: position ?? this.position,
-      heatSnapshot: heatSnapshot ?? this.heatSnapshot,
       reviewed: reviewed ?? this.reviewed,
     );
   }

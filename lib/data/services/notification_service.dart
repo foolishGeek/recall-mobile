@@ -38,6 +38,7 @@ class NotificationService extends GetxService {
   StreamSubscription<String>? _tokenRefreshSub;
   StreamSubscription<RemoteMessage>? _onMessageSub;
   StreamSubscription<RemoteMessage>? _onOpenedSub;
+  AppLifecycleListener? _lifecycle;
   bool _listenersReady = false;
 
   /// Deep-link target captured before the app tree is ready (cold-start tap).
@@ -60,6 +61,13 @@ class NotificationService extends GetxService {
     _sessionWorker = ever(_auth.sessionRx, (session) {
       if (session != null) unawaited(registerDeviceToken());
     });
+    // Reliability: whenever the app returns to the foreground, refresh the token
+    // if push is already permitted. Catches tokens rotated while backgrounded and
+    // permission granted from OS settings — so an opted-in device stays reachable.
+    // Never prompts on resume (only registers when already granted).
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(refreshTokenIfPermitted()),
+    );
   }
 
   /// Wires FCM streams once and handles a terminated-state tap. No-ops when
@@ -125,6 +133,18 @@ class NotificationService extends GetxService {
     }
   }
 
+  /// Refreshes the token only when push is already permitted — safe to call on
+  /// every resume without ever showing a permission dialog.
+  Future<void> refreshTokenIfPermitted() async {
+    if (!isFirebaseReady) return;
+    try {
+      final status = await Permission.notification.status;
+      if (status.isGranted) await registerDeviceToken();
+    } catch (e, st) {
+      _capture(e, st);
+    }
+  }
+
   /// Registers/refreshes the current device FCM token (device_tokens).
   Future<void> registerDeviceToken() async {
     if (!isFirebaseReady) return;
@@ -137,19 +157,36 @@ class NotificationService extends GetxService {
     }
   }
 
+  /// Upserts the token with a short bounded retry so a transient network blip
+  /// never leaves an opted-in device unreachable (the Drop pipeline can only
+  /// nudge devices with a live row). Backoff: 0.5s, 2s, 5s.
   Future<void> _registerToken(String token) async {
     final userId = _auth.currentUserId;
     if (userId == null || token.isEmpty) return;
-    try {
-      final platform =
-          Platform.isIOS ? DevicePlatform.ios : DevicePlatform.android;
-      await _notifications.registerDeviceToken(
-        userId: userId,
-        platform: platform,
-        token: token,
-      );
-    } catch (e, st) {
-      _capture(e, st);
+    final platform =
+        Platform.isIOS ? DevicePlatform.ios : DevicePlatform.android;
+    const delays = [
+      Duration(milliseconds: 500),
+      Duration(seconds: 2),
+      Duration(seconds: 5),
+    ];
+    for (var attempt = 0; attempt <= delays.length; attempt++) {
+      try {
+        await _notifications.registerDeviceToken(
+          userId: userId,
+          platform: platform,
+          token: token,
+        );
+        return;
+      } catch (e, st) {
+        if (attempt == delays.length) {
+          _capture(e, st);
+          return;
+        }
+        await Future<void>.delayed(delays[attempt]);
+        // Bail out if the session ended mid-retry.
+        if (_auth.currentUserId != userId) return;
+      }
     }
   }
 
@@ -284,6 +321,7 @@ class NotificationService extends GetxService {
     _tokenRefreshSub?.cancel();
     _onMessageSub?.cancel();
     _onOpenedSub?.cancel();
+    _lifecycle?.dispose();
     super.onClose();
   }
 }
