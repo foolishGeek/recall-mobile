@@ -5,6 +5,8 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/recall_colors.dart';
 import '../../../core/theme/recall_motion.dart';
+import '../../../core/utils/how_it_works_copy.dart';
+import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_skeleton.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../empty/view/widgets/empty_today_body.dart';
@@ -89,6 +91,20 @@ class _TodayLoaded extends StatelessWidget {
                       );
                     }),
                     const SizedBox(height: 22),
+                    Obx(() {
+                      if (!controller.showDueCoachTip.value) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: RecallCoachTip(
+                          text: HowItWorksCopy.todayTip,
+                          howItWorksTitle: HowItWorksCopy.todayTitle,
+                          howItWorksSections: HowItWorksCopy.todaySections,
+                          onDismiss: controller.dismissDueCoachTip,
+                        ),
+                      );
+                    }),
                     AnimatedBuilder(
                       animation: controller.ringController,
                       builder: (context, _) {

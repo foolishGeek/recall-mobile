@@ -7,8 +7,10 @@ import 'package:get/get.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/config/limits_config.dart';
+import '../../../core/utils/coach_keys.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
+import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
@@ -33,6 +35,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final _tierService = Get.find<TierService>();
   final _syncStatus = Get.find<SyncStatusService>();
   final _metrics = Get.find<MetricsService>();
+  final _local = Get.find<LocalStore>();
   final _limits = Get.isRegistered<LimitsConfig>()
       ? Get.find<LimitsConfig>()
       : null;
@@ -46,6 +49,9 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final RxList<DuePreviewNode> peekingNodes = <DuePreviewNode>[].obs;
   final RxInt stacksUsed = 0.obs;
   final RxBool isStarting = false.obs;
+
+  /// One-time tip explaining what "due" means (seen via [CoachKeys.todayDue]).
+  final RxBool showDueCoachTip = false.obs;
 
   // Empty / all-caught-up state (S25).
   final RxInt bucketCount = 0.obs;
@@ -170,7 +176,10 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
 
       _syncStatus.setOffline(false);
       setSuccess();
-      if (dueCount.value > 0) _runAnimations();
+      if (dueCount.value > 0) {
+        _runAnimations();
+        unawaited(_maybeShowDueCoachTip());
+      }
       _loadRelearn();
       _ensurePushPermission();
     } on RepoException catch (e) {
@@ -210,6 +219,18 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     } on RepoException catch (_) {
       // Non-critical; empty state renders without next-drop extras.
     }
+  }
+
+  Future<void> _maybeShowDueCoachTip() async {
+    if (await _local.coachSeen(CoachKeys.todayDue)) return;
+    if (isClosed) return;
+    showDueCoachTip.value = true;
+  }
+
+  Future<void> dismissDueCoachTip() async {
+    if (!showDueCoachTip.value) return;
+    showDueCoachTip.value = false;
+    await _local.markCoachSeen(CoachKeys.todayDue);
   }
 
   void _runAnimations() {
@@ -335,6 +356,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   Future<void> startReview() async {
     if (isStarting.value) return;
     isStarting.value = true;
+    unawaited(dismissDueCoachTip());
 
     try {
       RecallHaptics.light();

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/utils/how_it_works_copy.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
 import '../../empty/view/widgets/empty_buckets_body.dart';
@@ -64,6 +66,20 @@ class BucketsView extends GetView<BucketsController> {
                               bucketCount: controller.bucketCount.value,
                               nodeCount: controller.nodeCount.value,
                             )),
+                        Obx(() {
+                          if (!controller.showRevisionCoachTip.value) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 10, 6, 2),
+                            child: RecallCoachTip(
+                              text: HowItWorksCopy.bucketsTip,
+                              howItWorksTitle: HowItWorksCopy.bucketsTitle,
+                              howItWorksSections: HowItWorksCopy.bucketsSections,
+                              onDismiss: controller.dismissRevisionCoachTip,
+                            ),
+                          );
+                        }),
                         Obx(() => Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

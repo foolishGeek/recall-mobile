@@ -5,9 +5,11 @@ import 'package:get/get.dart' hide Node;
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/utils/coach_keys.dart';
 import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
+import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
@@ -31,6 +33,7 @@ class ReviewController extends BaseController {
   final _aiRepo = Get.find<AiRepository>();
   final _supabase = Get.find<SupabaseService>();
   final _metrics = Get.find<MetricsService>();
+  final _local = Get.find<LocalStore>();
 
   final Rxn<Stack> stack = Rxn<Stack>();
   final RxList<StackItem> items = <StackItem>[].obs;
@@ -51,6 +54,9 @@ class ReviewController extends BaseController {
   final RxBool isCompleting = false.obs;
   final RxBool isAnimating = false.obs;
   final Rxn<ReviewGrade> dragGrade = Rxn<ReviewGrade>();
+
+  /// One-time tip explaining review grades (seen via [CoachKeys.reviewGrades]).
+  final RxBool showGradesCoachTip = false.obs;
 
   int get totalItems => items.length;
   int get doneItems => currentIndex.value;
@@ -152,9 +158,22 @@ class ReviewController extends BaseController {
       _prefetchIntervals();
       _cardShownAt = DateTime.now();
       setSuccess();
+      unawaited(_maybeShowGradesCoachTip());
     } on RepoException catch (e) {
       setError(e.message);
     }
+  }
+
+  Future<void> _maybeShowGradesCoachTip() async {
+    if (await _local.coachSeen(CoachKeys.reviewGrades)) return;
+    if (isClosed) return;
+    showGradesCoachTip.value = true;
+  }
+
+  Future<void> dismissGradesCoachTip() async {
+    if (!showGradesCoachTip.value) return;
+    showGradesCoachTip.value = false;
+    await _local.markCoachSeen(CoachKeys.reviewGrades);
   }
 
   Future<void> _fetchNodesAndBuckets() async {
@@ -361,6 +380,7 @@ class ReviewController extends BaseController {
 
   Future<void> onRate(ReviewGrade grade) async {
     if (isCompleting.value || _rateLocked) return;
+    unawaited(dismissGradesCoachTip());
 
     final item = currentItem;
     final node = currentNode;

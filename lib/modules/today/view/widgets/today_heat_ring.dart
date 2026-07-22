@@ -49,7 +49,7 @@ class TodayHeatRing extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const MonoLabel('Cards due today', size: 10, tracking: 0.22),
+              const MonoLabel('Ready to review', size: 10, tracking: 0.22),
             ],
           ),
         ),
