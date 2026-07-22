@@ -1,13 +1,13 @@
 // Recall · "Memory strength" — the friendly face of FSRS desired retention.
-// Users pick a feel (Relaxed / Balanced / Rigorous); we translate that to a
+// Users pick a feel (Relaxed / Balanced / Thorough); we translate that to a
 // target-retention fraction the engine schedules against. Easy story on top,
-// hard math underneath. Backend clamps to [0.80, 0.97] (00047).
+// hard math underneath. Backend clamps to [0.80, 0.97].
 
 /// (retention 0..1, short label, one-line plain-English description).
 const List<(double, String, String)> kMemoryStrengthPresets = [
   (0.85, 'Relaxed', 'Fewer reviews · lighter load'),
   (0.90, 'Balanced', 'Recommended for most'),
-  (0.95, 'Rigorous', 'More reviews · strongest recall'),
+  (0.95, 'Thorough', 'More reviews · strongest recall'),
 ];
 
 /// Nearest preset label for an arbitrary retention (handles legacy/custom values).

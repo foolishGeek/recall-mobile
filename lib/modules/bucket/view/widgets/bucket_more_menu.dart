@@ -46,7 +46,9 @@ Future<void> showBucketMoreMenu({
                   title: 'Edit bucket',
                   subtitle: 'Update the name and description.',
                   ctaLabel: 'Edit bucket',
-                  onCreate: onEditBucket,
+                  showSrToggle: false,
+                  onCreate: (name, desc, {srEnabled = true}) =>
+                      onEditBucket(name, desc),
                 );
               },
             ),

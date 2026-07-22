@@ -12,6 +12,7 @@ import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
 import '../../../data/repositories/node_repository.dart';
+import '../../../data/repositories/profile_repository.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/repo_exception.dart';
 import '../../../data/services/tier_service.dart';
@@ -25,6 +26,7 @@ class BucketController extends BaseController {
     this._aiRepo,
     this._tierService,
     this._local,
+    this._profiles,
   );
 
   final AuthService _auth;
@@ -33,6 +35,7 @@ class BucketController extends BaseController {
   final AiRepository _aiRepo;
   final TierService _tierService;
   final LocalStore _local;
+  final ProfileRepository _profiles;
 
   late final String bucketId;
   final Rxn<Bucket> bucket = Rxn<Bucket>();
@@ -94,9 +97,16 @@ class BucketController extends BaseController {
   // ── Draft state for config (deferred save) ──
   final RxInt draftCoolingIndex = 2.obs; // default 14d
   final RxnInt draftCustomDays = RxnInt(); // set when cooling index == Custom
-  final RxInt draftFrequencyIndex = 2.obs; // default Daily
+  final RxInt draftFrequencyIndex = 2.obs; // default Persistent
   final RxBool hasPendingChanges = false.obs;
   final RxBool isSavingConfig = false.obs;
+
+  /// Per-bucket memory strength prefs (null until loaded).
+  final Rxn<SchedulingPrefs> schedulingPrefs = Rxn<SchedulingPrefs>();
+
+  double get memoryStrength => schedulingPrefs.value?.effective ?? 0.90;
+  bool get memoryUsesDefault =>
+      !(schedulingPrefs.value?.hasBucketOverride ?? false);
 
   TierGate get gate => _tierService.gate;
   bool get hasNodes => nodes.isNotEmpty;
@@ -104,19 +114,27 @@ class BucketController extends BaseController {
 
   int get dueCount {
     final now = DateTime.now().toUtc();
-    return nodes.where((n) => n.dueAt != null && !n.dueAt!.isAfter(now)).length;
+    return nodes
+        .where((n) =>
+            n.srEnabled && n.dueAt != null && !n.dueAt!.isAfter(now))
+        .length;
   }
 
   int get overdueCount {
     final now = DateTime.now().toUtc();
-    return nodes.where((n) => n.dueAt != null && n.dueAt!.isBefore(now.subtract(const Duration(days: 1)))).length;
+    return nodes
+        .where((n) =>
+            n.srEnabled &&
+            n.dueAt != null &&
+            n.dueAt!.isBefore(now.subtract(const Duration(days: 1))))
+        .length;
   }
 
   // Config maps — cooling_period is a Postgres interval, so we save "N days".
   static const coolingLabels = ['3d', '7d', '14d', '30d', 'Custom'];
   static const _coolingPresetDays = [3, 7, 14, 30];
   static const _customCoolingIndex = 4;
-  static const frequencyLabels = ['Weekly', '3×/wk', 'Daily'];
+  static const frequencyLabels = ['Gentle', 'Standard', 'Persistent'];
   static const _frequencyDbValues = ['weekly', '3xwk', 'daily'];
 
   int get coolingIndex => draftCoolingIndex.value;
@@ -171,8 +189,53 @@ class BucketController extends BaseController {
       hasPendingChanges.value = false;
       setSuccess();
       unawaited(_maybeShowSwipeHint());
+      unawaited(_loadSchedulingPrefs());
     } on RepoException catch (e) {
       setError(e.message);
+    }
+  }
+
+  Future<void> _loadSchedulingPrefs() async {
+    try {
+      schedulingPrefs.value =
+          await _profiles.getSchedulingPrefs(bucketId: bucketId);
+    } on RepoException catch (_) {
+      // Non-critical; selector falls back to Balanced 0.90.
+    }
+  }
+
+  /// Sets a per-bucket memory-strength override (immediate write — not deferred
+  /// with cooling/frequency, because it hits a different RPC).
+  Future<void> setBucketMemoryStrength(double retention) async {
+    if (readOnly.value) return;
+    final prev = schedulingPrefs.value;
+    try {
+      RecallHaptics.selection();
+      schedulingPrefs.value = await _profiles.setSchedulingPrefs(
+        bucketId: bucketId,
+        targetRetention: retention,
+      );
+    } on RepoException catch (e, st) {
+      schedulingPrefs.value = prev;
+      Sentry.captureException(e, stackTrace: st,
+          withScope: (s) => s.setTag('feature', 'bucket_detail'));
+    }
+  }
+
+  /// Clears the per-bucket override so the bucket inherits the user default.
+  Future<void> clearBucketMemoryStrength() async {
+    if (readOnly.value) return;
+    final prev = schedulingPrefs.value;
+    try {
+      RecallHaptics.selection();
+      schedulingPrefs.value = await _profiles.setSchedulingPrefs(
+        bucketId: bucketId,
+        targetRetention: null,
+      );
+    } on RepoException catch (e, st) {
+      schedulingPrefs.value = prev;
+      Sentry.captureException(e, stackTrace: st,
+          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
 
@@ -404,7 +467,13 @@ class BucketController extends BaseController {
       final updated =
           await _bucketRepo.update(bucketId, {'sr_enabled': enabled});
       bucket.value = updated;
-      await _nodeRepo.setBucketNodesSrEnabled(bucketId, enabled);
+      try {
+        await _nodeRepo.setBucketNodesSrEnabled(bucketId, enabled);
+      } on RepoException {
+        // Keep server consistent: undo the bucket flag if note bulk-apply fails.
+        await _bucketRepo.update(bucketId, {'sr_enabled': prev.srEnabled});
+        rethrow;
+      }
       await _reloadNodes();
       _refreshBucketsList();
     } on RepoException catch (e, st) {

@@ -4,6 +4,7 @@
 // here — writes are optimistic with revert-on-failure (scope=settings). Account
 // export/delete + subscription I/O live in settings_controller_actions.dart.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -21,6 +22,7 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/theme/theme_service.dart';
+import '../../../core/utils/coach_keys.dart';
 import '../../../core/utils/memory_strength.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
@@ -47,7 +49,7 @@ const int kDailyLimitStep = 2;
 
 /// Reminder-style wire values + human readout. The wire values are unchanged
 /// (daily/3xwk/weekly) but now express *intensity* — they map to drop_intensity()
-/// on the backend (00049): weekly=Gentle, 3xwk=Standard, daily=Persistent.
+/// on the backend (00050): weekly=Gentle, 3xwk=Standard, daily=Persistent.
 /// Ordered gentle → persistent for the picker.
 const List<(String, String, String)> kFrequencyOptions = [
   ('weekly', 'Gentle', 'An occasional nudge'),
@@ -73,6 +75,7 @@ class SettingsController extends BaseController {
   final ThemeService _theme;
   final SyncStatusService _syncStatus;
   final NotificationService _notifications;
+  final LocalStore _local = Get.find<LocalStore>();
 
   // ── State (server-authoritative + store) ──────────────────────────────────
   final Rxn<Profile> profile = Rxn<Profile>();
@@ -94,6 +97,9 @@ class SettingsController extends BaseController {
 
   /// Quiet, transient line for pref/IO errors (auto-clears).
   final RxnString notice = RxnString();
+
+  /// One-time tip for Memory strength + Reminder style.
+  final RxBool showReviewCoachTip = false.obs;
 
   // ── Tier ──────────────────────────────────────────────────────────────────
   TierGate get gate => TierGate(tier.value);
@@ -208,7 +214,20 @@ class SettingsController extends BaseController {
 
     setSuccess();
     _loadAux(); // version + export status + credit products (best-effort)
+    unawaited(_maybeShowReviewCoachTip());
     _track('settings_viewed', {'tier': tier.value.name});
+  }
+
+  Future<void> _maybeShowReviewCoachTip() async {
+    if (await _local.coachSeen(CoachKeys.settingsReview)) return;
+    if (isClosed) return;
+    showReviewCoachTip.value = true;
+  }
+
+  Future<void> dismissReviewCoachTip() async {
+    if (!showReviewCoachTip.value) return;
+    showReviewCoachTip.value = false;
+    await _local.markCoachSeen(CoachKeys.settingsReview);
   }
 
   /// Best-effort extras that must never block or fail the screen.

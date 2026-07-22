@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/memory_strength_selector.dart';
 import '../../../../core/widgets/soft_card.dart';
-
 
 class BucketConfigCard extends StatelessWidget {
   final int coolingIndex;
@@ -14,6 +14,12 @@ class BucketConfigCard extends StatelessWidget {
   final ValueChanged<int> onCoolingChanged;
   final ValueChanged<int> onFrequencyChanged;
 
+  /// Effective memory strength (0..1) for display/selection.
+  final double memoryStrength;
+  final bool memoryUsesDefault;
+  final ValueChanged<double> onMemoryStrengthChanged;
+  final VoidCallback? onMemoryStrengthClear;
+
   const BucketConfigCard({
     super.key,
     required this.coolingIndex,
@@ -22,10 +28,15 @@ class BucketConfigCard extends StatelessWidget {
     required this.disabled,
     required this.onCoolingChanged,
     required this.onFrequencyChanged,
+    required this.memoryStrength,
+    required this.memoryUsesDefault,
+    required this.onMemoryStrengthChanged,
+    this.onMemoryStrengthClear,
   });
 
   static const coolingLabels = ['3d', '7d', '14d', '30d', 'Custom'];
-  static const frequencyLabels = ['Weekly', '3×/wk', 'Daily'];
+  /// Reminder-style labels (wire values still weekly/3xwk/daily).
+  static const frequencyLabels = ['Gentle', 'Standard', 'Persistent'];
 
   String get _coolingReadout {
     if (coolingIndex < 0 || coolingIndex >= coolingLabels.length) return '';
@@ -56,12 +67,19 @@ class BucketConfigCard extends StatelessWidget {
                 onTap: onCoolingChanged,
               ),
               const SizedBox(height: 18),
-              _HeaderRow(label: 'Frequency', readout: _freqReadout),
+              _HeaderRow(label: 'Reminder style', readout: _freqReadout),
               const SizedBox(height: 8),
               _Segmented(
                 labels: frequencyLabels,
                 active: frequencyIndex,
                 onTap: onFrequencyChanged,
+              ),
+              const SizedBox(height: 18),
+              MemoryStrengthSelector(
+                value: memoryStrength,
+                usesDefault: memoryUsesDefault,
+                onChanged: onMemoryStrengthChanged,
+                onClear: onMemoryStrengthClear,
               ),
             ],
           ),
@@ -169,4 +187,3 @@ class _Segmented extends StatelessWidget {
     );
   }
 }
-

@@ -9,6 +9,7 @@ import '../../../core/theme/recall_motion.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_share.dart';
 import '../../../core/widgets/list_row.dart';
+import '../../../core/widgets/mono_label.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/soft_card.dart';
@@ -101,6 +102,12 @@ class BucketView extends GetView<BucketController> {
                                     _onCoolingChanged(context, i),
                                 onFrequencyChanged:
                                     controller.onFrequencyChanged,
+                                memoryStrength: controller.memoryStrength,
+                                memoryUsesDefault: controller.memoryUsesDefault,
+                                onMemoryStrengthChanged:
+                                    controller.setBucketMemoryStrength,
+                                onMemoryStrengthClear:
+                                    controller.clearBucketMemoryStrength,
                               )),
                           const SizedBox(height: 12),
                           Obx(() {
@@ -620,6 +627,7 @@ class _DeletableNodeRowState extends State<_DeletableNodeRow>
     with SingleTickerProviderStateMixin {
   late final AnimationController _hintCtrl;
   late final Animation<double> _hintOffset;
+  bool _showSwipeCaption = false;
 
   @override
   void initState() {
@@ -651,12 +659,22 @@ class _DeletableNodeRowState extends State<_DeletableNodeRow>
 
   Future<void> _runHint() async {
     if (!mounted) return;
+    setState(() => _showSwipeCaption = true);
+    final reduce =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reduce) {
+      // Reduced motion: static caption only, then mark seen.
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
+      if (mounted) setState(() => _showSwipeCaption = false);
+      widget.onHintShown();
+      return;
+    }
     try {
       await _hintCtrl.forward();
-      if (mounted) await _hintCtrl.reverse(from: 0); // second gentle nudge
     } catch (_) {
       // ignore interruption on dispose
     }
+    if (mounted) setState(() => _showSwipeCaption = false);
     widget.onHintShown();
   }
 
@@ -685,7 +703,7 @@ class _DeletableNodeRowState extends State<_DeletableNodeRow>
 
     if (widget.readOnly) return row;
 
-    return Dismissible(
+    final dismissible = Dismissible(
       key: ValueKey('dismiss_${widget.node.id}'),
       direction: DismissDirection.endToStart,
       background: _deleteBackground(c),
@@ -713,6 +731,19 @@ class _DeletableNodeRowState extends State<_DeletableNodeRow>
         },
         child: row,
       ),
+    );
+
+    if (!_showSwipeCaption) return dismissible;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        dismissible,
+        const Padding(
+          padding: EdgeInsets.only(top: 4, right: 4, bottom: 2),
+          child: MonoLabel('Swipe to delete', size: 10, tracking: 0.12),
+        ),
+      ],
     );
   }
 

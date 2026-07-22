@@ -18,6 +18,7 @@ class BucketBinding extends Bindings {
           Get.find<AiRepository>(),
           Get.find<TierService>(),
           Get.find<LocalStore>(),
+          Get.find(), // ProfileRepository
         ));
   }
 }
