@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart' hide Node;
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -5,6 +7,7 @@ import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
 import '../../../data/repositories/bucket_repository.dart';
@@ -21,6 +24,7 @@ class BucketController extends BaseController {
     this._nodeRepo,
     this._aiRepo,
     this._tierService,
+    this._local,
   );
 
   final AuthService _auth;
@@ -28,6 +32,7 @@ class BucketController extends BaseController {
   final NodeRepository _nodeRepo;
   final AiRepository _aiRepo;
   final TierService _tierService;
+  final LocalStore _local;
 
   late final String bucketId;
   final Rxn<Bucket> bucket = Rxn<Bucket>();
@@ -165,6 +170,7 @@ class BucketController extends BaseController {
       _syncDraftFromBucket(loadedBucket);
       hasPendingChanges.value = false;
       setSuccess();
+      unawaited(_maybeShowSwipeHint());
     } on RepoException catch (e) {
       setError(e.message);
     }
@@ -374,6 +380,50 @@ class BucketController extends BaseController {
       bucket.value = prev;
       Sentry.captureException(e, stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
+    }
+  }
+
+  // ── Swipe-to-delete a single note ──
+
+  /// One-time animated swipe hint per bucket. True until the user has either
+  /// seen the hint or performed a swipe-delete in this bucket.
+  final RxBool showSwipeHint = false.obs;
+
+  /// Decides whether to show the swipe hint (only when notes exist and it hasn't
+  /// been seen for this bucket). Called after nodes load.
+  Future<void> _maybeShowSwipeHint() async {
+    if (readOnly.value || !hasNodes) return;
+    if (await _local.coachSeen(_swipeHintKey)) return;
+    showSwipeHint.value = true;
+  }
+
+  String get _swipeHintKey => 'swipe_delete:$bucketId';
+
+  /// Dismisses the hint and remembers it so it never shows again for this bucket.
+  Future<void> dismissSwipeHint() async {
+    if (!showSwipeHint.value) return;
+    showSwipeHint.value = false;
+    await _local.markCoachSeen(_swipeHintKey);
+  }
+
+  /// Soft-deletes one note (swipe → confirm). Optimistically removes it from the
+  /// list; restores it if the server call fails. Also retires the swipe hint.
+  Future<bool> onDeleteNodeSwiped(Node node) async {
+    RecallHaptics.medium();
+    final index = nodes.indexWhere((n) => n.id == node.id);
+    if (index < 0) return false;
+    final removed = nodes[index];
+    nodes.removeAt(index);
+    await dismissSwipeHint();
+    try {
+      await _nodeRepo.softDelete(node.id);
+      return true;
+    } on RepoException catch (e, st) {
+      // Restore on failure so the note never silently vanishes.
+      nodes.insert(index.clamp(0, nodes.length), removed);
+      Sentry.captureException(e, stackTrace: st,
+          withScope: (s) => s.setTag('feature', 'bucket_detail'));
+      return false;
     }
   }
 
