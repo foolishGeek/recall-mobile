@@ -101,6 +101,11 @@ class SettingsController extends BaseController {
   /// One-time tip for Memory strength + Reminder style.
   final RxBool showReviewCoachTip = false.obs;
 
+  // ── Reminders diagnostic (drop_debug_rpc) ────────────────────────────────
+  final Rxn<DropDebug> dropDebug = Rxn<DropDebug>();
+  final RxBool dropDebugLoading = false.obs;
+  final RxBool repairingReminders = false.obs;
+
   // ── Tier ──────────────────────────────────────────────────────────────────
   TierGate get gate => TierGate(tier.value);
   bool get isPremium => tier.value == SubscriptionTier.premium;
@@ -276,6 +281,39 @@ class SettingsController extends BaseController {
     }
     await _patch({'push_opt_in': value},
         profile.value?.copyWith(pushOptIn: value));
+  }
+
+  /// Loads the honest Drop eligibility breakdown for the Reminders diagnostic.
+  /// Best-effort — a failure leaves the prior value and the sheet offers retry.
+  Future<void> loadDropDebug() async {
+    dropDebugLoading.value = true;
+    try {
+      dropDebug.value = await _notifications.fetchDropDebug();
+    } on RepoException catch (_) {
+      // leave null; the sheet shows a gentle retry
+    } finally {
+      dropDebugLoading.value = false;
+    }
+  }
+
+  /// Repair action from the diagnostic: request permission, register a token,
+  /// and flip the master switch on — together. Refreshes the breakdown after.
+  Future<bool> repairReminders() async {
+    if (repairingReminders.value) return false;
+    repairingReminders.value = true;
+    RecallHaptics.selection();
+    try {
+      final ok = await _notifications.enableDrops();
+      if (ok) {
+        profile.value = profile.value?.copyWith(pushOptIn: true);
+        await loadDropDebug();
+      } else {
+        _notify('Turn on notifications in system settings to get Drops.');
+      }
+      return ok;
+    } finally {
+      repairingReminders.value = false;
+    }
   }
 
   /// Sets the user's default memory strength (desired retention). Optimistic;

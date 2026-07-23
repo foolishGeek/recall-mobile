@@ -124,6 +124,11 @@ Widget _sections(BuildContext context, SettingsController controller) {
           ),
         ),
         ListRow(
+          title: 'Check reminders',
+          subtitle: 'See why Drops are (or aren’t) arriving',
+          onTap: () => showRemindersDiagnosticSheet(context, controller),
+        ),
+        ListRow(
           title: 'Reminder style',
           subtitle: controller.frequencyLabel,
           onTap: () {

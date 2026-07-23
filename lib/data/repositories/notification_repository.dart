@@ -43,6 +43,26 @@ class NotificationRepository extends BaseRepository {
         return mapList(rows, NotificationEvent.fromJson);
       });
 
+  /// Honest, per-user Drop eligibility breakdown (drop_debug_rpc, backend
+  /// 00055). Drives the calm "Reminders" diagnostic in Settings.
+  Future<DropDebug> fetchDropDebug() => guard(() async {
+        final res = await supabase.rpc('drop_debug_rpc');
+        return DropDebug.fromJson(asJsonMap(res));
+      });
+
+  /// Sets the account-wide reminders master switch (`profiles.push_opt_in`).
+  /// Client-writable preference column; used to reconcile the flag after a
+  /// fresh OS grant so the engine and the device never silently disagree.
+  Future<void> setPushOptIn({
+    required String userId,
+    required bool value,
+  }) =>
+      guard(() async {
+        await supabase
+            .from('profiles')
+            .update({'push_opt_in': value}).eq('id', userId);
+      });
+
   /// Registers/refreshes an FCM device token (unique per user_id+token).
   Future<void> registerDeviceToken({
     required String userId,

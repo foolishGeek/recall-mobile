@@ -3,11 +3,13 @@
 // Each returns the new value via a callback; the controller owns the write.
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/how_it_works_copy.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/utils/recall_time.dart';
 import '../../../../core/widgets/how_it_works_sheet.dart';
 import '../../../../core/widgets/memory_strength_selector.dart';
 import '../../controller/settings_controller.dart';
@@ -418,6 +420,180 @@ Future<void> showQuietHoursSheet(
       ),
     ]),
   );
+}
+
+/// Calm "Reminders" diagnostic. Reads drop_debug_rpc so the user can see, in
+/// plain words, whether a Drop can reach them and why it's quiet — and repair
+/// it in one tap when reminders are off / the device isn't registered.
+Future<void> showRemindersDiagnosticSheet(
+  BuildContext context,
+  SettingsController controller,
+) {
+  // Kick off the check as the sheet opens; the body reacts to the result.
+  controller.loadDropDebug();
+  return _sheet<void>(
+    context,
+    Obx(() {
+      final c = RecallColors.of(context);
+      final d = controller.dropDebug.value;
+      final loading = controller.dropDebugLoading.value;
+
+      if (d == null) {
+        return Column(mainAxisSize: MainAxisSize.min, children: [
+          const _SheetTitle('Reminders'),
+          const SizedBox(height: 18),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else ...[
+            const _SheetCaption("Couldn't check just now."),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: controller.loadDropDebug,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text('Try again',
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: c.ink)),
+              ),
+            ),
+          ],
+        ]);
+      }
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _SheetTitle('Reminders'),
+          const SizedBox(height: 4),
+          _SheetCaption(d.headline),
+          const SizedBox(height: 14),
+          _DiagRow(label: 'Reminders', value: d.pushOptIn ? 'On' : 'Off'),
+          _DiagRow(
+            label: 'This device',
+            value: d.deviceTokenCount > 0 ? 'Registered' : 'Not registered',
+          ),
+          _DiagRow(label: 'Style', value: d.reminderStyle),
+          _DiagRow(label: 'Next drop', value: _nextDropText(d.nextDropAt)),
+          if (d.reasons.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "WHY IT'S QUIET",
+                style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9.5, color: c.grey500, letterSpacing: 1.4),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...d.reasons.map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, right: 8),
+                        child: Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                              color: c.grey400, shape: BoxShape.circle),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(r,
+                            style: GoogleFonts.inter(
+                                fontSize: 13.5, height: 1.35, color: c.grey600)),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+          if (!d.canDeliver) ...[
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: controller.repairingReminders.value
+                    ? null
+                    : () async {
+                        final ok = await controller.repairReminders();
+                        if (ok && context.mounted) Navigator.pop(context);
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: c.ink,
+                  foregroundColor: c.inkOnInk,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: controller.repairingReminders.value
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text('Turn on reminders',
+                        style: GoogleFonts.inter(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ],
+      );
+    }),
+  );
+}
+
+/// Compact, honest next-drop readout for the diagnostic (or an em-dash).
+String _nextDropText(DateTime? at) {
+  if (at == null) return '—';
+  final local = at.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(local.year, local.month, local.day);
+  final diff = day.difference(today).inDays;
+  final clock = RecallTime.clock12h(local);
+  if (diff <= 0) return 'Today · $clock';
+  if (diff == 1) return 'Tomorrow · $clock';
+  if (diff < 7) return 'In $diff days · $clock';
+  return clock;
+}
+
+class _DiagRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DiagRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
+          Text(value,
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.w600, color: c.ink)),
+        ],
+      ),
+    );
+  }
 }
 
 TimeOfDay? _parseTod(String? wire) {
