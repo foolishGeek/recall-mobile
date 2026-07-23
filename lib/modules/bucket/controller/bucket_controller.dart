@@ -6,7 +6,9 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/gates/tier_gate.dart';
+import '../../../core/utils/memory_strength.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../core/widgets/cooling_period_selector.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
@@ -46,8 +48,10 @@ class BucketController extends BaseController {
   final Rxn<SummarizeResult> summaryResult = Rxn<SummarizeResult>();
   final RxnString summaryError = RxnString();
 
-  // AI model labels from app_config
-  final RxString aiModelLabel = ''.obs;
+  /// Account-wide Reminder style (profiles.drop_frequency). Reminder is one
+  /// setting for the whole app, so bucket config shows it as read-only + a
+  /// deep-link to Settings rather than a per-bucket lever.
+  final RxString accountDropFrequency = 'daily'.obs;
 
   // Sorting
   final RxInt sortModeIndex = 0.obs;
@@ -95,9 +99,10 @@ class BucketController extends BaseController {
   }
 
   // ── Draft state for config (deferred save) ──
+  // Only Cooling period is a per-bucket deferred lever now. Reminder style is
+  // account-wide; Memory strength writes immediately (different RPC).
   final RxInt draftCoolingIndex = 2.obs; // default 14d
   final RxnInt draftCustomDays = RxnInt(); // set when cooling index == Custom
-  final RxInt draftFrequencyIndex = 2.obs; // default Persistent
   final RxBool hasPendingChanges = false.obs;
   final RxBool isSavingConfig = false.obs;
 
@@ -107,6 +112,39 @@ class BucketController extends BaseController {
   double get memoryStrength => schedulingPrefs.value?.effective ?? 0.90;
   bool get memoryUsesDefault =>
       !(schedulingPrefs.value?.hasBucketOverride ?? false);
+
+  /// Reminder style as a plain word ("gentle" / "standard" / "persistent").
+  String get _reminderWord {
+    switch (accountDropFrequency.value) {
+      case 'weekly':
+        return 'gentle';
+      case '3xwk':
+        return 'standard';
+      default:
+        return 'persistent';
+    }
+  }
+
+  /// A legible, plain-English recipe of the current setup for the entry card,
+  /// e.g. "Balanced · gentle reminders · rests 14 days".
+  String get configRecipe {
+    final mem = memoryStrengthLabelFor(memoryStrength);
+    final cool = CoolingPeriodSelector.readoutFor(
+            draftCoolingIndex.value, draftCustomDays.value)
+        .toLowerCase();
+    return '$mem · $_reminderWord reminders · $cool';
+  }
+
+  int get accountReminderIndex {
+    switch (accountDropFrequency.value) {
+      case 'weekly':
+        return 0;
+      case '3xwk':
+        return 1;
+      default:
+        return 2;
+    }
+  }
 
   TierGate get gate => _tierService.gate;
   bool get hasNodes => nodes.isNotEmpty;
@@ -134,12 +172,9 @@ class BucketController extends BaseController {
   static const coolingLabels = ['3d', '7d', '14d', '30d', 'Custom'];
   static const _coolingPresetDays = [3, 7, 14, 30];
   static const _customCoolingIndex = 4;
-  static const frequencyLabels = ['Gentle', 'Standard', 'Persistent'];
-  static const _frequencyDbValues = ['weekly', '3xwk', 'daily'];
 
   int get coolingIndex => draftCoolingIndex.value;
   int? get customCoolingDays => draftCustomDays.value;
-  int get frequencyIndex => draftFrequencyIndex.value;
 
   @override
   void onInit() {
@@ -148,7 +183,6 @@ class BucketController extends BaseController {
     bucketId = args['bucket_id'] as String? ?? '';
     readOnly.value = args['read_only'] as bool? ?? false;
     _loadData();
-    _loadModelLabel();
   }
 
   Future<void> _loadData() async {
@@ -190,8 +224,20 @@ class BucketController extends BaseController {
       setSuccess();
       unawaited(_maybeShowSwipeHint());
       unawaited(_loadSchedulingPrefs());
+      if (userId != null) unawaited(_loadAccountReminder(userId));
     } on RepoException catch (e) {
       setError(e.message);
+    }
+  }
+
+  /// Loads the account-wide Reminder style so the setup recipe + config screen
+  /// can show it honestly (it is not a per-bucket lever).
+  Future<void> _loadAccountReminder(String userId) async {
+    try {
+      final profile = await _profiles.fetchProfile(userId);
+      if (profile != null) accountDropFrequency.value = profile.dropFrequency;
+    } on RepoException catch (_) {
+      // Non-critical; recipe falls back to the default word.
     }
   }
 
@@ -254,7 +300,6 @@ class BucketController extends BaseController {
       draftCoolingIndex.value = 2; // default 14d
       draftCustomDays.value = null;
     }
-    draftFrequencyIndex.value = _frequencyIndexFromString(b.frequency);
   }
 
   /// Maps the current cooling draft to a Postgres interval string ("N days").
@@ -265,32 +310,6 @@ class BucketController extends BaseController {
     }
     final idx = draftCoolingIndex.value.clamp(0, _coolingPresetDays.length - 1);
     return '${_coolingPresetDays[idx]} days';
-  }
-
-  int _frequencyIndexFromString(String f) {
-    switch (f) {
-      case 'weekly':
-        return 0;
-      case '3xwk':
-        return 1;
-      case 'daily':
-        return 2;
-      default:
-        return 2; // default Daily
-    }
-  }
-
-  Future<void> _loadModelLabel() async {
-    try {
-      final map = await _bucketRepo.fetchAiModelLabels();
-      if (gate.isPremium) {
-        aiModelLabel.value = map['ai_model_premium'] ?? 'claude-sonnet';
-      } else {
-        aiModelLabel.value = map['ai_model_free'] ?? 'gemini-1.5-flash';
-      }
-    } catch (_) {
-      aiModelLabel.value = gate.isPremium ? 'claude-sonnet' : 'gemini-1.5-flash';
-    }
   }
 
   Future<void> reload() async {
@@ -319,13 +338,6 @@ class BucketController extends BaseController {
     hasPendingChanges.value = true;
   }
 
-  void onFrequencyChanged(int index) {
-    if (readOnly.value) return;
-    RecallHaptics.selection();
-    draftFrequencyIndex.value = index.clamp(0, frequencyLabels.length - 1);
-    hasPendingChanges.value = true;
-  }
-
   void onDiscardConfig() {
     RecallHaptics.selection();
     if (bucket.value != null) _syncDraftFromBucket(bucket.value!);
@@ -340,12 +352,10 @@ class BucketController extends BaseController {
     isSavingConfig.value = true;
 
     final coolingVal = _coolingDbValue();
-    final freqVal = _frequencyDbValues[draftFrequencyIndex.value.clamp(0, _frequencyDbValues.length - 1)];
 
     try {
       final updated = await _bucketRepo.update(bucketId, {
         'cooling_period': coolingVal,
-        'frequency': freqVal,
       });
       bucket.value = updated;
       _syncDraftFromBucket(updated);
@@ -553,6 +563,12 @@ class BucketController extends BaseController {
     RecallHaptics.light();
     await Get.toNamed(Routes.nodeAdd, arguments: {'bucket_id': bucketId});
     await _reloadNodes();
+  }
+
+  /// Opens the dedicated Bucket config surface (reuses this live controller).
+  Future<void> openBucketConfig() async {
+    RecallHaptics.selection();
+    await Get.toNamed(Routes.bucketConfig, arguments: {'bucket_id': bucketId});
   }
 
   /// Silently refreshes the node list + mastery after returning from add/edit

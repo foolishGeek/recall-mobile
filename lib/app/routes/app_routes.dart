@@ -21,6 +21,7 @@ abstract class Routes {
 
   // Buckets / nodes
   static const bucket = '/bucket';
+  static const bucketConfig = '/bucket/config';
   static const node = '/node';
   static const nodeAdd = '/node/add';
 

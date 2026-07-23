@@ -8,23 +8,20 @@ import '../../../core/theme/recall_colors.dart';
 import '../../../core/theme/recall_motion.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_share.dart';
-import '../../../core/widgets/list_row.dart';
 import '../../../core/widgets/mono_label.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
-import '../../../core/widgets/soft_card.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
 import '../../../data/models/models.dart';
 import '../../../data/services/tier_service.dart';
 import '../controller/bucket_controller.dart';
 import 'widgets/bucket_ai_chips.dart';
-import 'widgets/bucket_config_card.dart';
-import 'widgets/bucket_custom_cooling_dialog.dart';
 import 'widgets/bucket_header.dart';
 import 'widgets/bucket_mastery_card.dart';
 import 'widgets/bucket_more_menu.dart';
 import 'widgets/bucket_node_row.dart';
 import 'widgets/bucket_top_bar.dart';
+import 'widgets/recall_setup_entry.dart';
 import 'widgets/summary_share_card.dart';
 import 'widgets/summary_sheet_actions.dart';
 
@@ -33,7 +30,6 @@ class BucketView extends GetView<BucketController> {
 
   @override
   Widget build(BuildContext context) {
-    final c = RecallColors.of(context);
     return RecallScaffold.bare(
       body: Obx(() {
         return RecallStateView(
@@ -85,29 +81,13 @@ class BucketView extends GetView<BucketController> {
                             }
                             return const SizedBox(height: 12);
                           }),
-                          Obx(() => _BucketRevisionToggle(
-                                enabled: controller.bucketSrEnabled,
+                          Obx(() => RecallSetupEntry(
+                                srEnabled: controller.bucketSrEnabled,
                                 disabled: controller.readOnly.value,
-                                onChanged: (v) =>
+                                recipe: controller.configRecipe,
+                                onToggle: (v) =>
                                     _onBucketSrChanged(context, v),
-                              )),
-                          const SizedBox(height: 12),
-                          Obx(() => BucketConfigCard(
-                                coolingIndex: controller.coolingIndex,
-                                customDays: controller.customCoolingDays,
-                                frequencyIndex: controller.frequencyIndex,
-                                disabled: controller.readOnly.value ||
-                                    !controller.bucketSrEnabled,
-                                onCoolingChanged: (i) =>
-                                    _onCoolingChanged(context, i),
-                                onFrequencyChanged:
-                                    controller.onFrequencyChanged,
-                                memoryStrength: controller.memoryStrength,
-                                memoryUsesDefault: controller.memoryUsesDefault,
-                                onMemoryStrengthChanged:
-                                    controller.setBucketMemoryStrength,
-                                onMemoryStrengthClear:
-                                    controller.clearBucketMemoryStrength,
+                                onOpenConfig: controller.openBucketConfig,
                               )),
                           const SizedBox(height: 12),
                           Obx(() {
@@ -118,7 +98,6 @@ class BucketView extends GetView<BucketController> {
                             return Column(
                               children: [
                                 BucketAiChips(
-                                  modelLabel: controller.aiModelLabel.value,
                                   isSummarizing:
                                       controller.isSummarizing.value,
                                   disabled: !controller.hasNodes,
@@ -149,8 +128,7 @@ class BucketView extends GetView<BucketController> {
                     // editable (hidden while read-only banner / save bar are up).
                     Obx(() {
                       final show = controller.hasNodes &&
-                          !controller.readOnly.value &&
-                          !controller.hasPendingChanges.value;
+                          !controller.readOnly.value;
                       if (!show) return const SizedBox.shrink();
                       return Positioned(
                         right: 20,
@@ -161,18 +139,6 @@ class BucketView extends GetView<BucketController> {
                   ],
                 ),
               ),
-              // Bottom-pinned Save bar (visible only when config has changes)
-              Obx(() {
-                if (!controller.hasPendingChanges.value) {
-                  return const SizedBox.shrink();
-                }
-                return _ConfigSaveBar(
-                  isSaving: controller.isSavingConfig.value,
-                  onSave: controller.onSaveConfig,
-                  onDiscard: controller.onDiscardConfig,
-                  colors: c,
-                );
-              }),
             ],
           ),
         );
@@ -257,21 +223,6 @@ class BucketView extends GetView<BucketController> {
       if (ok != true) return;
     }
     await controller.setBucketSrEnabled(value);
-  }
-
-  Future<void> _onCoolingChanged(BuildContext context, int index) async {
-    // Custom slot (last index) prompts for a day count; presets apply directly.
-    if (index == BucketConfigCard.coolingLabels.length - 1) {
-      final days = await showCustomCoolingDialog(
-        context: context,
-        initialDays: controller.customCoolingDays ?? 14,
-      );
-      if (days != null) {
-        controller.onCustomCoolingChanged(days);
-      }
-      return;
-    }
-    controller.onCoolingChanged(index);
   }
 
   void _onMore(BuildContext context) {
@@ -430,64 +381,6 @@ class BucketView extends GetView<BucketController> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// Per-bucket "Spaced revision" switch. On = notes here are resurfaced over
-/// time; off = the whole bucket becomes quiet reference notes. Applies to
-/// existing notes and the default for new ones.
-class _BucketRevisionToggle extends StatelessWidget {
-  final bool enabled;
-  final bool disabled;
-  final ValueChanged<bool> onChanged;
-
-  const _BucketRevisionToggle({
-    required this.enabled,
-    required this.disabled,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = RecallColors.of(context);
-    return Opacity(
-      opacity: disabled ? 0.45 : 1.0,
-      child: IgnorePointer(
-        ignoring: disabled,
-        child: SoftCard(
-          radius: 18,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Spaced revision',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: c.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      enabled
-                          ? 'Recall resurfaces these notes over time'
-                          : 'Quiet bucket — notes are never resurfaced',
-                      style: GoogleFonts.inter(fontSize: 12, color: c.grey500),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              RecallToggle(value: enabled, onChanged: onChanged),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -1040,137 +933,3 @@ class _ReadOnlyBanner extends StatelessWidget {
   }
 }
 
-class _ConfigSaveBar extends StatelessWidget {
-  final bool isSaving;
-  final VoidCallback onSave;
-  final VoidCallback onDiscard;
-  final RecallColors colors;
-
-  const _ConfigSaveBar({
-    required this.isSaving,
-    required this.onSave,
-    required this.onDiscard,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        14,
-        20,
-        MediaQuery.of(context).padding.bottom + 14,
-      ),
-      decoration: BoxDecoration(
-        color: colors.canvas,
-        border: Border(top: BorderSide(color: colors.grey200, width: 1)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Quiet status: line-art glyph + mono label, no pulsing/blinking.
-          Row(
-            children: [
-              Icon(Icons.edit_outlined, size: 14, color: colors.grey500),
-              const SizedBox(width: 8),
-              Text(
-                'UNSAVED CHANGES',
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w500,
-                  color: colors.grey500,
-                  letterSpacing: 0.16 * 9.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              // Discard button
-              Expanded(
-                child: GestureDetector(
-                  onTap: isSaving ? null : onDiscard,
-                  child: Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: colors.card,
-                      border: Border.all(color: colors.grey200),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.undo_rounded, size: 16, color: colors.grey600),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Discard',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: colors.grey600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Save button
-              Expanded(
-                flex: 2,
-                child: GestureDetector(
-                  onTap: isSaving ? null : onSave,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: isSaving ? colors.grey400 : colors.ink,
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.14),
-                          offset: const Offset(0, 8),
-                          blurRadius: 20,
-                        ),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: isSaving
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colors.inkOnInk,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.check_rounded, size: 18, color: colors.inkOnInk),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Save changes',
-                                style: GoogleFonts.inter(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: colors.inkOnInk,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
