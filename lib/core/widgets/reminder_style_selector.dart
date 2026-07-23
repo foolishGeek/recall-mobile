@@ -1,6 +1,6 @@
 // Recall · ReminderStyleSelector. Account-wide Drop nudge-intensity dial
 // (profiles.drop_frequency → drop_intensity). Pattern first; batch size is one
-// supporting detail of Gentle / Standard / Persistent.
+// supporting detail of Gentle / Standard / Persistent / ASAO.
 
 import 'package:flutter/material.dart';
 
@@ -9,9 +9,9 @@ import '../utils/how_it_works_copy.dart';
 import 'config_dial.dart';
 
 class ReminderStyleSelector extends StatelessWidget {
-  /// Wire values in reminder order (Gentle → Standard → Persistent).
-  static const dbValues = ['weekly', '3xwk', 'daily'];
-  static const labels = ['Gentle', 'Standard', 'Persistent'];
+  /// Wire values in reminder order (Gentle → Standard → Persistent → ASAO).
+  static const dbValues = ['weekly', '3xwk', 'daily', 'asap'];
+  static const labels = ['Gentle', 'Standard', 'Persistent', 'ASAO'];
 
   final int activeIndex;
   final ValueChanged<int> onTap;

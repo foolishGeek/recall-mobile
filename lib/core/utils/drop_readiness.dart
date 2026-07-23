@@ -6,6 +6,9 @@
 /// Product default Reminder style — Standard (`3xwk`).
 const String kDefaultDropFrequency = '3xwk';
 
+/// Wire value for ASAO — Drop as soon as one note is ready.
+const String kAsapDropFrequency = 'asap';
+
 /// Wire value → cards-before-a-fresh-Drop (one of four intensity knobs).
 int dropThresholdFor(String dropFrequency) {
   switch (dropFrequency) {
@@ -15,6 +18,8 @@ int dropThresholdFor(String dropFrequency) {
       return 5;
     case 'daily':
       return 3;
+    case 'asap':
+      return 1;
     default:
       return 5;
   }
@@ -28,6 +33,8 @@ String dropStyleName(String dropFrequency) {
       return 'Standard';
     case 'daily':
       return 'Persistent';
+    case 'asap':
+      return 'ASAO';
     default:
       return 'Standard';
   }
@@ -48,6 +55,8 @@ String dropStyleIntensityLine(String dropFrequency) {
       return 'Balanced nudge · re-nudges every ~2h if unseen';
     case 'daily':
       return 'Keeps nudging · smaller batches · re-nudges every ~2h';
+    case 'asap':
+      return 'As soon as one note is ready';
     default:
       return 'Balanced nudge · re-nudges every ~2h if unseen';
   }

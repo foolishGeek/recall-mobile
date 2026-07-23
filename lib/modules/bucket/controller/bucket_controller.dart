@@ -9,6 +9,7 @@ import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/memory_strength.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/cooling_period_selector.dart';
+import '../../../core/widgets/reminder_style_selector.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai_repository.dart';
@@ -120,6 +121,8 @@ class BucketController extends BaseController {
         return 'gentle';
       case '3xwk':
         return 'standard';
+      case 'asap':
+        return 'ASAO';
       default:
         return 'persistent';
     }
@@ -135,16 +138,8 @@ class BucketController extends BaseController {
     return '$mem · $_reminderWord nudges · $cool';
   }
 
-  int get accountReminderIndex {
-    switch (accountDropFrequency.value) {
-      case 'weekly':
-        return 0;
-      case '3xwk':
-        return 1;
-      default:
-        return 2;
-    }
-  }
+  int get accountReminderIndex =>
+      ReminderStyleSelector.indexForDbValue(accountDropFrequency.value);
 
   TierGate get gate => _tierService.gate;
   bool get hasNodes => nodes.isNotEmpty;

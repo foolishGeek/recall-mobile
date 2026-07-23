@@ -67,6 +67,11 @@ const List<(String, String, String)> kFrequencyOptions = [
     'Persistent',
     'Keeps nudging · smaller batches · re-nudges every ~2h'
   ),
+  (
+    'asap',
+    'ASAO',
+    'As soon as one · Drop when even a single note is ready'
+  ),
 ];
 
 class SettingsController extends BaseController {
@@ -168,10 +173,17 @@ class SettingsController extends BaseController {
 
   int? get sessionSizeOverride => profile.value?.sessionSizeOverride;
 
-  /// Default (8) / Default (12) when unset; bare number when manually set.
+  /// Tier default when override is unset (free 8 / premium 12).
+  int get cardsPerSessionDefault => gate.cardsPerStack;
+
+  /// Effective session size (override or tier default).
+  int get cardsPerSessionEffective =>
+      sessionSizeOverride ?? cardsPerSessionDefault;
+
+  /// `Default(8)` / `Default(12)` when unset; bare number when manually set.
   String get dailyLimitLabel {
     final n = sessionSizeOverride;
-    if (n == null) return 'Default (${gate.cardsPerStack})';
+    if (n == null) return 'Default($cardsPerSessionDefault)';
     return '$n';
   }
 
@@ -381,10 +393,16 @@ class SettingsController extends BaseController {
         profile.value?.copyWith(defaultCoolingPeriod: interval));
   }
 
-  Future<void> setDailyLimit(int value) async {
+  /// `null` clears the override and restores the tier Default(N).
+  Future<void> setDailyLimit(int? value) async {
     if (value == sessionSizeOverride) return;
-    await _patch({'session_size_override': value},
-        profile.value?.copyWith(sessionSizeOverride: value));
+    final prev = profile.value;
+    // Optimistic: only apply when setting a concrete override. Clearing null
+    // cannot go through copyWith; server `select()` after patch is truth.
+    await _patch(
+      {'session_size_override': value},
+      value == null ? prev : prev?.copyWith(sessionSizeOverride: value),
+    );
   }
 
   Future<void> toggleHaptics(bool value) async {

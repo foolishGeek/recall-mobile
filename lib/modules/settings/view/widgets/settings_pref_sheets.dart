@@ -1,5 +1,5 @@
 // Recall · Settings preference editors. Calm slide-up sheets for the Recall Drop
-// + Review rows (frequency, quiet hours, default cooling, daily review limit).
+// + Review rows (Reminder style, quiet hours, default cooling, Cards per session).
 // Each returns the new value via a callback; the controller owns the write.
 
 import 'package:flutter/material.dart';
@@ -165,6 +165,127 @@ class _OptionRow extends StatelessWidget {
   }
 }
 
+/// Today empty: explain why the clock ≠ Drop, then expand Reminder style picks.
+Future<void> showDropTimingExplainSheet(
+  BuildContext context, {
+  required String current,
+  required ValueChanged<String> onSelected,
+}) {
+  return _sheet(
+    context,
+    _DropTimingExplainBody(current: current, onSelected: onSelected),
+  );
+}
+
+class _DropTimingExplainBody extends StatefulWidget {
+  final String current;
+  final ValueChanged<String> onSelected;
+
+  const _DropTimingExplainBody({
+    required this.current,
+    required this.onSelected,
+  });
+
+  @override
+  State<_DropTimingExplainBody> createState() => _DropTimingExplainBodyState();
+}
+
+class _DropTimingExplainBodyState extends State<_DropTimingExplainBody> {
+  late String _current = widget.current;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    final style = dropStyleName(_current);
+    final threshold = dropThresholdFor(_current);
+    final isDefault = _current == kDefaultDropFrequency;
+    final styleBit = isDefault ? '$style · Default' : style;
+    final waitLine = threshold == 1
+        ? 'ASAO sends a Drop when even one note is ready.'
+        : 'Your style waits for about $threshold notes before a fresh Drop.';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SheetTitle('Why no Drop yet?'),
+        const SizedBox(height: 8),
+        Text(
+          'The time on Today is when the next notes warm up — not when a Drop '
+          'is guaranteed. $waitLine Quiet hours and re-nudge rules can also delay it.',
+          style: GoogleFonts.inter(
+            fontSize: 13.5,
+            height: 1.45,
+            color: c.grey600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Current · $styleBit',
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 10.5,
+            color: c.grey500,
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 18),
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            RecallHaptics.selection();
+            setState(() => _expanded = !_expanded);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: c.grey200),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Change Reminder style',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: c.ink,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 22,
+                  color: c.ink,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 8),
+          ...kFrequencyOptions.map((o) {
+            final isOptDefault = o.$1 == kDefaultDropFrequency;
+            return _OptionRow(
+              title: isOptDefault ? '${o.$2} · Default' : o.$2,
+              subtitle: o.$3,
+              selected: o.$1 == _current,
+              onTap: () {
+                setState(() => _current = o.$1);
+                Navigator.pop(context);
+                widget.onSelected(o.$1);
+              },
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}
+
 Future<void> showFrequencySheet(
   BuildContext context, {
   required String current,
@@ -176,9 +297,8 @@ Future<void> showFrequencySheet(
       const _SheetTitle('Reminder style'),
       const SizedBox(height: 4),
       const _SheetCaption(
-        'How insistently Recall Drop nudges you — batch size, how often it may '
-        're-nudge, and how many Drops per day. The time on Today is when the next '
-        'notes warm up; your style decides when a Drop is actually sent.',
+        'How insistently Recall Drop nudges you. Pick ASAO if even one note '
+        'should trigger a Drop.',
       ),
       const SizedBox(height: 2),
       _HowItWorksLink(
@@ -271,13 +391,15 @@ Future<void> showCoolingSheet(
 Future<void> showDailyLimitSheet(
   BuildContext context, {
   required int? current,
+  required int tierDefault,
   required bool isPremium,
-  required ValueChanged<int> onSelected,
+  required ValueChanged<int?> onSelected,
 }) {
   return _sheet(
     context,
     _DailyLimitEditor(
-      current: current ?? kDailyLimitMin,
+      current: current,
+      tierDefault: tierDefault,
       isPremium: isPremium,
       onSelected: onSelected,
     ),
@@ -285,11 +407,13 @@ Future<void> showDailyLimitSheet(
 }
 
 class _DailyLimitEditor extends StatefulWidget {
-  final int current;
+  final int? current;
+  final int tierDefault;
   final bool isPremium;
-  final ValueChanged<int> onSelected;
+  final ValueChanged<int?> onSelected;
   const _DailyLimitEditor({
     required this.current,
+    required this.tierDefault,
     required this.isPremium,
     required this.onSelected,
   });
@@ -299,18 +423,32 @@ class _DailyLimitEditor extends StatefulWidget {
 }
 
 class _DailyLimitEditorState extends State<_DailyLimitEditor> {
-  late int _value = widget.current.clamp(kDailyLimitMin, kDailyLimitMax);
+  late int _value =
+      (widget.current ?? widget.tierDefault).clamp(kDailyLimitMin, kDailyLimitMax);
+  late bool _usingDefault = widget.current == null;
 
   void _step(int delta) {
     final next = (_value + delta).clamp(kDailyLimitMin, kDailyLimitMax);
-    if (next == _value) return;
+    if (next == _value && !_usingDefault) return;
     RecallHaptics.selection();
-    setState(() => _value = next);
+    setState(() {
+      _value = next;
+      _usingDefault = false;
+    });
+  }
+
+  void _useDefault() {
+    RecallHaptics.selection();
+    setState(() {
+      _value = widget.tierDefault.clamp(kDailyLimitMin, kDailyLimitMax);
+      _usingDefault = true;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
+    final defaultLabel = 'Default(${widget.tierDefault})';
     return Column(mainAxisSize: MainAxisSize.min, children: [
       const _SheetTitle('Cards per session'),
       const SizedBox(height: 4),
@@ -322,20 +460,46 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         _StepButton(icon: Icons.remove, onTap: () => _step(-kDailyLimitStep)),
         Column(children: [
-          Text('$_value',
-              style: GoogleFonts.fraunces(
-                  fontSize: 40, fontWeight: FontWeight.w500, color: c.ink)),
-          Text('CARDS',
-              style: GoogleFonts.jetBrainsMono(
-                  fontSize: 10, color: c.grey500, letterSpacing: 1.6)),
+          Text(
+            _usingDefault ? defaultLabel : '$_value',
+            style: GoogleFonts.fraunces(
+              fontSize: _usingDefault ? 28 : 40,
+              fontWeight: FontWeight.w500,
+              color: c.ink,
+            ),
+          ),
+          Text(
+            'CARDS',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10,
+              color: c.grey500,
+              letterSpacing: 1.6,
+            ),
+          ),
         ]),
         _StepButton(icon: Icons.add, onTap: () => _step(kDailyLimitStep)),
       ]),
-      const SizedBox(height: 16),
-      if (!widget.isPremium)
-        Text('Free plan reviews up to 8 cards per session.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600)),
+      const SizedBox(height: 12),
+      if (!_usingDefault)
+        TextButton(
+          onPressed: _useDefault,
+          child: Text(
+            'Use $defaultLabel',
+            style: GoogleFonts.inter(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: c.ink,
+            ),
+          ),
+        ),
+      if (!widget.isPremium) ...[
+        const SizedBox(height: 4),
+        Text(
+          'Free plan reviews up to 8 cards per session.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600),
+        ),
+      ],
       const SizedBox(height: 18),
       SizedBox(
         width: double.infinity,
@@ -344,7 +508,7 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
           onPressed: () {
             RecallHaptics.selection();
             Navigator.pop(context);
-            widget.onSelected(_value);
+            widget.onSelected(_usingDefault ? null : _value);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: c.ink,
@@ -353,9 +517,11 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          child: Text('Save',
-              style:
-                  GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
+          child: Text(
+            'Save',
+            style:
+                GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
         ),
       ),
     ]);

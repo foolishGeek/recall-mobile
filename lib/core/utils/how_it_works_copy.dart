@@ -100,7 +100,7 @@ abstract final class HowItWorksCopy {
     HowItWorksSection(
       heading: 'Reminder style',
       body:
-          'Gentle / Standard / Persistent — how insistently a Drop nudges: batch size, re-nudge, and daily cap. Standard is the Default.',
+          'Gentle / Standard / Persistent / ASAO — how insistently a Drop nudges. Standard is the Default. ASAO means as soon as one note is ready.',
     ),
     HowItWorksSection(
       heading: 'Quiet hours',
@@ -128,9 +128,9 @@ abstract final class HowItWorksCopy {
           'How insistently Recall Drop nudges you when notes are due and still unseen — a nudge pattern, not a single number.',
     ),
     HowItWorksSection(
-      heading: 'Gentle · Standard · Persistent',
+      heading: 'Gentle · Standard · Persistent · ASAO',
       body:
-          'Gentle waits for a larger batch and never re-nudges. Standard (Default) is balanced and re-nudges about every two hours. Persistent uses smaller batches and keeps knocking.',
+          'Gentle waits for a larger batch and never re-nudges. Standard (Default) is balanced and re-nudges about every two hours. Persistent uses smaller batches and keeps knocking. ASAO drops as soon as even one note is ready.',
     ),
     HowItWorksSection(
       heading: 'One setting for the whole app',
