@@ -1,6 +1,6 @@
 // Recall · formats backend `next_drop_time_rpc` for the all-caught-up mono line
-// and synced body copy. The time is when the *next cards warm up* — a Drop only
-// sends once enough cards are ready for the user's "Cards before a Drop" setting.
+// and synced body copy. The time is when the *next cards warm up* — Reminder
+// style (nudge intensity) decides when a Drop is actually sent.
 
 import 'package:flutter/material.dart';
 
@@ -76,7 +76,7 @@ String formatCaughtUpBody({
   DateTime? dropAt,
   required bool hasNotes,
   bool pushEnabled = true,
-  int dropThreshold = 5,
+  String dropFrequency = kDefaultDropFrequency,
 }) {
   const lead = 'No cards due today. ';
   switch (_dropState(dropAt: dropAt, hasNotes: hasNotes, pushEnabled: pushEnabled)) {
@@ -101,8 +101,12 @@ String formatCaughtUpBody({
       } else {
         when = 'at ${rel.time}';
       }
-      return '${lead}The next notes warm up $when. A Drop sends once '
-          '$dropThreshold are ready — not necessarily at that exact minute.';
+      final style = dropStyleName(dropFrequency);
+      final isDefault = dropFrequency == kDefaultDropFrequency;
+      final styleBit = isDefault ? '$style (Default)' : style;
+      return '${lead}The next notes warm up $when. Your Reminder style '
+          '($styleBit) decides when a Drop is actually sent — not necessarily '
+          'at that exact minute.';
   }
 }
 

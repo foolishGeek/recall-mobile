@@ -46,14 +46,12 @@ class EmptyTodayBody extends StatelessWidget {
     this.onDropFrequencyChanged,
   });
 
-  int get _threshold => dropThresholdFor(dropFrequency);
-
   bool get _showWarmupHint {
     if (!hasNotes || !pushEnabled || nextDropAt == null) return false;
     return true;
   }
 
-  void _openDropReadiness(BuildContext context) {
+  void _openReminderStyle(BuildContext context) {
     RecallHaptics.selection();
     showFrequencySheet(
       context,
@@ -107,7 +105,7 @@ class EmptyTodayBody extends StatelessWidget {
                           dropAt: nextDropAt,
                           hasNotes: hasNotes,
                           pushEnabled: pushEnabled,
-                          dropThreshold: _threshold,
+                          dropFrequency: dropFrequency,
                         ),
                         textAlign: TextAlign.center,
                         style: t.body.copyWith(color: c.grey600),
@@ -124,8 +122,8 @@ class EmptyTodayBody extends StatelessWidget {
                     if (_showWarmupHint) ...[
                       const SizedBox(height: 14),
                       _DropWarmupNote(
-                        threshold: _threshold,
-                        onAdjust: () => _openDropReadiness(context),
+                        dropFrequency: dropFrequency,
+                        onAdjust: () => _openReminderStyle(context),
                       ),
                     ],
                   ],
@@ -144,22 +142,22 @@ class EmptyTodayBody extends StatelessWidget {
   }
 }
 
-/// Calm note: the clock ≠ Drop send time. CTA opens Cards-before-a-Drop sheet.
+/// Calm note: the clock ≠ Drop send time. CTA opens Reminder style sheet.
 class _DropWarmupNote extends StatelessWidget {
-  final int threshold;
+  final String dropFrequency;
   final VoidCallback onAdjust;
 
   const _DropWarmupNote({
-    required this.threshold,
+    required this.dropFrequency,
     required this.onAdjust,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final label = threshold == dropThresholdFor(kDefaultDropFrequency)
-        ? 'Default ($threshold)'
-        : '$threshold';
+    final style = dropStyleName(dropFrequency);
+    final isDefault = dropFrequency == kDefaultDropFrequency;
+    final label = isDefault ? '$style (Default)' : style;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onAdjust,
@@ -182,7 +180,8 @@ class _DropWarmupNote extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'If you don’t see a Drop at that time — that’s normal. '
-                    'A Drop waits until $label notes are ready, then nudges you.',
+                    'Reminder style ($label) is your nudge pattern: it waits for '
+                    'the right batch, may re-nudge later, and respects quiet hours.',
                     style: GoogleFonts.inter(
                       fontSize: 12.5,
                       height: 1.4,
@@ -194,7 +193,7 @@ class _DropWarmupNote extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Change cards before a Drop',
+              'Change Reminder style',
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

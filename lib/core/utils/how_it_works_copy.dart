@@ -90,7 +90,7 @@ abstract final class HowItWorksCopy {
 
   static const settingsTitle = 'Review preferences';
   static const settingsTip =
-      'Memory strength and Cards before a Drop shape how notes return — and when a Drop is ready to send.';
+      'Memory strength and Reminder style shape how notes return — and how insistently Drop nudges.';
   static const settingsSections = <HowItWorksSection>[
     HowItWorksSection(
       heading: 'Memory strength',
@@ -98,9 +98,9 @@ abstract final class HowItWorksCopy {
           'How sure you want to be when it matters. Relaxed spaces reviews out; Thorough brings them sooner.',
     ),
     HowItWorksSection(
-      heading: 'Cards before a Drop',
+      heading: 'Reminder style',
       body:
-          'Gentle / Standard / Persistent — how many ready notes before a Drop knocks. Standard waits for 5.',
+          'Gentle / Standard / Persistent — how insistently a Drop nudges: batch size, re-nudge, and daily cap. Standard is the Default.',
     ),
     HowItWorksSection(
       heading: 'Quiet hours',
@@ -121,21 +121,21 @@ abstract final class HowItWorksCopy {
     ),
   ];
 
-  static const reminderStyleTitle = 'Cards before a Drop';
+  static const reminderStyleTitle = 'Reminder style';
   static const reminderStyleSections = <HowItWorksSection>[
     HowItWorksSection(
       body:
-          'A Drop waits until enough notes are ready — so you get a real batch, not a ping for one card. The clock on Today is when the next notes warm up; the Drop itself sends once this count is met.',
+          'How insistently Recall Drop nudges you when notes are due and still unseen — a nudge pattern, not a single number.',
     ),
     HowItWorksSection(
       heading: 'Gentle · Standard · Persistent',
       body:
-          'Gentle waits for 8. Standard (Default) waits for 5. Persistent waits for 3 and re-nudges more often.',
+          'Gentle waits for a larger batch and never re-nudges. Standard (Default) is balanced and re-nudges about every two hours. Persistent uses smaller batches and keeps knocking.',
     ),
     HowItWorksSection(
       heading: 'One setting for the whole app',
       body:
-          'This is account-wide — it applies to every bucket. Change it once in Settings.',
+          'Reminder style is account-wide — it applies to every bucket. Change it once in Settings.',
     ),
   ];
 
@@ -174,9 +174,9 @@ abstract final class HowItWorksCopy {
           'How sure you want to be when it matters. Stronger means reviews come back sooner. Per bucket.',
     ),
     HowItWorksSection(
-      heading: 'Cards before a Drop',
+      heading: 'Reminder style',
       body:
-          'How many ready notes before a Drop is sent. Account-wide — set once in Settings.',
+          'How insistently Drops nudge you (batch size, re-nudge, daily cap). Account-wide — set once in Settings.',
     ),
   ];
 }

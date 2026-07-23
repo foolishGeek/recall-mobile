@@ -1,6 +1,6 @@
-// Recall · ReminderStyleSelector. Account-wide "Cards before a Drop" dial, built
-// on ConfigDial. Maps to profiles.drop_frequency. Words-first readout keeps the
-// threshold (3 / 5 / 8) visible so users never confuse this with cards-per-session.
+// Recall · ReminderStyleSelector. Account-wide Drop nudge-intensity dial
+// (profiles.drop_frequency → drop_intensity). Pattern first; batch size is one
+// supporting detail of Gentle / Standard / Persistent.
 
 import 'package:flutter/material.dart';
 
@@ -33,21 +33,20 @@ class ReminderStyleSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final i = activeIndex.clamp(0, labels.length - 1);
     final wire = dbValues[i];
-    final n = dropThresholdFor(wire);
     final readout = wire == kDefaultDropFrequency
-        ? 'Default ($n) — waits for $n ready notes'
-        : 'Waits for $n ready notes';
+        ? 'Default · ${dropStyleIntensityLine(wire)}'
+        : dropStyleIntensityLine(wire);
     return ConfigDial(
-      label: 'Cards before a Drop',
+      label: 'Reminder style',
       readout: readout,
-      description: 'How many notes must be ready before a Drop is sent.',
+      description: 'How insistently Drops nudge you when notes wait unseen.',
       segments: labels,
       activeIndex: i,
       onTap: onTap,
       disabled: disabled,
       howTitle: HowItWorksCopy.reminderStyleTitle,
       howSections: HowItWorksCopy.reminderStyleSections,
-      auraPrompt: 'Explain how many cards before a Drop in plain words.',
+      auraPrompt: 'Explain Reminder style in plain words.',
     );
   }
 }

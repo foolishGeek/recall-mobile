@@ -70,7 +70,7 @@ class BucketConfigView extends GetView<BucketController> {
                     ),
                     const SizedBox(height: 12),
                     _AccountReminderRow(
-                      readout: dropReadinessShortLabel(
+                      readout: dropStyleShortLabel(
                           controller.accountDropFrequency.value),
                     ),
                     const SizedBox(height: 18),
@@ -206,7 +206,7 @@ class _AccountReminderRow extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        'CARDS BEFORE A DROP',
+                        'REMINDER STYLE',
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 10,
                           fontWeight: FontWeight.w500,

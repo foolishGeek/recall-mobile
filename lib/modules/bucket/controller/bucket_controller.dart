@@ -113,26 +113,26 @@ class BucketController extends BaseController {
   bool get memoryUsesDefault =>
       !(schedulingPrefs.value?.hasBucketOverride ?? false);
 
-  /// Reminder style as a plain word ("gentle" / "standard" / "persistent").
+  /// Reminder style as a plain word for the setup recipe.
   String get _reminderWord {
     switch (accountDropFrequency.value) {
       case 'weekly':
-        return '8-card';
+        return 'gentle';
       case '3xwk':
-        return '5-card';
+        return 'standard';
       default:
-        return '3-card';
+        return 'persistent';
     }
   }
 
   /// A legible, plain-English recipe of the current setup for the entry card,
-  /// e.g. "Balanced · 5-card drops · rests 14 days".
+  /// e.g. "Balanced · standard nudges · rests 14 days".
   String get configRecipe {
     final mem = memoryStrengthLabelFor(memoryStrength);
     final cool = CoolingPeriodSelector.readoutFor(
             draftCoolingIndex.value, draftCustomDays.value)
         .toLowerCase();
-    return '$mem · $_reminderWord drops · $cool';
+    return '$mem · $_reminderWord nudges · $cool';
   }
 
   int get accountReminderIndex {

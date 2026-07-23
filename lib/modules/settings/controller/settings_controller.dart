@@ -49,13 +49,24 @@ const int kDailyLimitMax = 30;
 const int kDailyLimitStep = 2;
 
 /// Reminder-style wire values + human readout. Wire values map to
-/// drop_intensity() (00050): weekly=Gentle(8), 3xwk=Standard(5), daily=Persistent(3).
-/// Title is the feel; subtitle is the real lever — cards before a Drop fires.
-/// Ordered gentle → persistent for the picker.
+/// drop_intensity() (D-ENG-9): an intensity / nudge pattern — batch size to
+/// fire, min gap, daily cap, and whether to re-nudge. Ordered gentle → persistent.
 const List<(String, String, String)> kFrequencyOptions = [
-  ('weekly', 'Gentle', 'Waits for 8 cards before a Drop'),
-  ('3xwk', 'Standard', 'Waits for 5 cards · Default'),
-  ('daily', 'Persistent', 'Waits for 3 cards · more frequent Drops'),
+  (
+    'weekly',
+    'Gentle',
+    'Occasional nudge · waits for a larger batch · no re-nudge'
+  ),
+  (
+    '3xwk',
+    'Standard',
+    'Balanced nudge · Default · re-nudges every ~2h if still unseen'
+  ),
+  (
+    'daily',
+    'Persistent',
+    'Keeps nudging · smaller batches · re-nudges every ~2h'
+  ),
 ];
 
 class SettingsController extends BaseController {
@@ -125,10 +136,10 @@ class SettingsController extends BaseController {
   String get dropFrequency =>
       profile.value?.dropFrequency ?? kDefaultDropFrequency;
 
-  /// Collapsed Settings row: Default (5) for Standard; bare number otherwise.
-  String get frequencyLabel => dropReadinessShortLabel(dropFrequency);
+  /// Collapsed Settings row: Default for Standard; style name otherwise.
+  String get frequencyLabel => dropStyleShortLabel(dropFrequency);
 
-  /// Cards required before a Drop for the current Reminder style.
+  /// Batch size before a fresh Drop for the current Reminder style (supporting detail).
   int get dropThreshold => dropThresholdFor(dropFrequency);
 
   String? get quietHoursStart => profile.value?.quietHoursStart;

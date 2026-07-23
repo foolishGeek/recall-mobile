@@ -1,13 +1,12 @@
-// Recall · Drop readiness helpers. Maps Reminder style (profiles.drop_frequency)
-// to the backend drop_intensity() thresholds so Settings + Today can speak in
-// plain numbers ("waits for 5 cards") instead of opaque wire values.
+// Recall · Reminder style helpers. profiles.drop_frequency maps via
+// drop_intensity() to an *intensity / nudge pattern* (D-ENG-9): batch threshold,
+// min interval, max per day, and re-nudge hours — not a single "card count" dial.
+// Card threshold is one supporting detail of that pattern, shown in explainers.
 
-/// Product default Reminder style — Standard. Backend `drop_intensity('3xwk')`
-/// uses threshold 5. Shown as "Default (5)" in Settings; other styles show the
-/// bare number only.
+/// Product default Reminder style — Standard (`3xwk`).
 const String kDefaultDropFrequency = '3xwk';
 
-/// Wire value → cards-before-a-Drop (must match `drop_intensity` in SQL).
+/// Wire value → cards-before-a-fresh-Drop (one of four intensity knobs).
 int dropThresholdFor(String dropFrequency) {
   switch (dropFrequency) {
     case 'weekly':
@@ -21,15 +20,7 @@ int dropThresholdFor(String dropFrequency) {
   }
 }
 
-/// Collapsed Settings / Today readout.
-/// Default style → "Default (5)"; anything else → just the number ("3", "8").
-String dropReadinessShortLabel(String dropFrequency) {
-  final n = dropThresholdFor(dropFrequency);
-  if (dropFrequency == kDefaultDropFrequency) return 'Default ($n)';
-  return '$n';
-}
-
-String dropReadinessStyleName(String dropFrequency) {
+String dropStyleName(String dropFrequency) {
   switch (dropFrequency) {
     case 'weekly':
       return 'Gentle';
@@ -39,5 +30,25 @@ String dropReadinessStyleName(String dropFrequency) {
       return 'Persistent';
     default:
       return 'Standard';
+  }
+}
+
+/// Collapsed Settings row: Default for Standard; style name only otherwise.
+String dropStyleShortLabel(String dropFrequency) {
+  if (dropFrequency == kDefaultDropFrequency) return 'Default';
+  return dropStyleName(dropFrequency);
+}
+
+/// One-line intensity summary for sheets / Today (nudge pattern first).
+String dropStyleIntensityLine(String dropFrequency) {
+  switch (dropFrequency) {
+    case 'weekly':
+      return 'Occasional nudge · larger batches · no re-nudge';
+    case '3xwk':
+      return 'Balanced nudge · re-nudges every ~2h if unseen';
+    case 'daily':
+      return 'Keeps nudging · smaller batches · re-nudges every ~2h';
+    default:
+      return 'Balanced nudge · re-nudges every ~2h if unseen';
   }
 }

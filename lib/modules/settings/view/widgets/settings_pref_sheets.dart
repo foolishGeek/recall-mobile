@@ -173,25 +173,24 @@ Future<void> showFrequencySheet(
   return _sheet(
     context,
     Column(mainAxisSize: MainAxisSize.min, children: [
-      const _SheetTitle('Cards before a Drop'),
+      const _SheetTitle('Reminder style'),
       const SizedBox(height: 4),
       const _SheetCaption(
-        'A Drop waits until this many notes are ready — so you get a real batch, '
-        'not a ping for one card. The time on Today is when the next cards warm up; '
-        'the Drop itself sends once this count is met.',
+        'How insistently Recall Drop nudges you — batch size, how often it may '
+        're-nudge, and how many Drops per day. The time on Today is when the next '
+        'notes warm up; your style decides when a Drop is actually sent.',
       ),
       const SizedBox(height: 2),
       _HowItWorksLink(
         title: HowItWorksCopy.reminderStyleTitle,
         sections: HowItWorksCopy.reminderStyleSections,
-        auraPrompt: 'Explain how many cards before a Drop in plain words.',
+        auraPrompt: 'Explain Reminder style in plain words.',
       ),
       const SizedBox(height: 4),
       ...kFrequencyOptions.map((o) {
-        final n = dropThresholdFor(o.$1);
         final isDefault = o.$1 == kDefaultDropFrequency;
         return _OptionRow(
-          title: isDefault ? '${o.$2} · Default ($n)' : '${o.$2} · $n',
+          title: isDefault ? '${o.$2} · Default' : o.$2,
           subtitle: o.$3,
           selected: o.$1 == current,
           onTap: () {
@@ -317,7 +316,7 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
       const SizedBox(height: 4),
       const _SheetCaption(
         'How many notes appear in one review session — not when Drops fire. '
-        'Drops use “Cards before a Drop” above.',
+        'Drops use Reminder style above.',
       ),
       const SizedBox(height: 18),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

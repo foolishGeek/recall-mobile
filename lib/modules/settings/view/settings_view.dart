@@ -129,7 +129,7 @@ Widget _sections(BuildContext context, SettingsController controller) {
           onTap: () => showRemindersDiagnosticSheet(context, controller),
         ),
         ListRow(
-          title: 'Cards before a Drop',
+          title: 'Reminder style',
           subtitle: controller.frequencyLabel,
           onTap: () {
             controller.dismissReviewCoachTip();
