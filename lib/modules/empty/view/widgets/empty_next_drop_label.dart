@@ -106,9 +106,6 @@ String formatCaughtUpBody({
   }
 }
 
-/// Quiet explainer under the next-drop line when a warmup time is shown —
-/// implemented inline in EmptyTodayBody as [_DropWarmupNote].
-
 class EmptyNextDropLabel extends StatelessWidget {
   final DateTime? dropAt;
   final bool hasNotes;
