@@ -205,6 +205,7 @@ Widget _sections(BuildContext context, SettingsController controller) {
           onTap: () => showDailyLimitSheet(
             context,
             current: controller.sessionSizeOverride,
+            tierDefault: controller.cardsPerSessionDefault,
             isPremium: controller.isPremium,
             onSelected: controller.setDailyLimit,
           ),
@@ -249,6 +250,11 @@ Widget _sections(BuildContext context, SettingsController controller) {
           title: 'Terms of service',
           trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
           onTap: controller.onOpenTerms,
+        ),
+        ListRow(
+          title: 'Help',
+          trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
+          onTap: controller.onOpenHelp,
         ),
         ListRow(
           title: 'Analytics',

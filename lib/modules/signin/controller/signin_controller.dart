@@ -143,13 +143,13 @@ class SigninController extends GetxController {
   }
 
   Future<void> onOpenTerms() async {
-    const url = 'https://recall.app/terms';
+    const url = 'https://ripplelabs.in/recall/tos';
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   Future<void> onOpenPrivacy() async {
-    const url = 'https://recall.app/privacy';
+    const url = 'https://ripplelabs.in/recall/privacy';
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
