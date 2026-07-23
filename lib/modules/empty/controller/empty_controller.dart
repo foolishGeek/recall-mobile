@@ -29,6 +29,7 @@ class EmptyController extends BaseController {
   final RxString formattedDate = ''.obs;
   final Rxn<DateTime> nextDropAt = Rxn<DateTime>();
   final RxBool hasNotes = true.obs;
+  final RxBool pushEnabled = false.obs;
   final RxInt daysWithReviews = 0.obs;
   final Rxn<DoneFastBanner> doneFastBanner = Rxn<DoneFastBanner>();
 
@@ -87,6 +88,7 @@ class EmptyController extends BaseController {
     try {
       final profile = await _profileRepo.fetchProfile(userId);
       streak.value = profile?.currentStreak ?? 0;
+      pushEnabled.value = profile?.pushOptIn ?? false;
 
       switch (variant) {
         case EmptyVariant.buckets:

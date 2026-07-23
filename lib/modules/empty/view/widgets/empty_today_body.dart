@@ -21,6 +21,7 @@ class EmptyTodayBody extends StatelessWidget {
   final String formattedDate;
   final DateTime? nextDropAt;
   final bool hasNotes;
+  final bool pushEnabled;
   final DoneFastBanner? doneFastBanner;
   final VoidCallback onOpenQuiz;
   final VoidCallback onAddNote;
@@ -33,6 +34,7 @@ class EmptyTodayBody extends StatelessWidget {
     required this.hasNotes,
     required this.onOpenQuiz,
     required this.onAddNote,
+    this.pushEnabled = true,
     this.doneFastBanner,
   });
 
@@ -71,6 +73,7 @@ class EmptyTodayBody extends StatelessWidget {
                         formatCaughtUpBody(
                           dropAt: nextDropAt,
                           hasNotes: hasNotes,
+                          pushEnabled: pushEnabled,
                         ),
                         textAlign: TextAlign.center,
                         style: t.body.copyWith(color: c.grey600),
@@ -82,6 +85,7 @@ class EmptyTodayBody extends StatelessWidget {
                     EmptyNextDropLabel(
                       dropAt: nextDropAt,
                       hasNotes: hasNotes,
+                      pushEnabled: pushEnabled,
                     ),
                   ],
                 ),

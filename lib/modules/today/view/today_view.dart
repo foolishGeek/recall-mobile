@@ -55,6 +55,7 @@ class _TodayContent extends StatelessWidget {
           formattedDate: controller.formattedDate,
           nextDropAt: controller.nextDropAt.value,
           hasNotes: controller.hasNotes,
+          pushEnabled: controller.pushEnabled,
           doneFastBanner: controller.doneFastBanner.value,
           onOpenQuiz: controller.openQuiz,
           onAddNote: controller.onAddNote,

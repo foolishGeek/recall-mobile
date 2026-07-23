@@ -70,6 +70,10 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
 
   int get currentStreak => profile.value?.currentStreak ?? 0;
 
+  /// Whether a Drop can actually reach this user. Mirrors the backend gate so
+  /// the caught-up screen explains an absent next-drop time honestly.
+  bool get pushEnabled => profile.value?.pushOptIn ?? false;
+
   bool get isAllCaughtUp => dueCount.value == 0 && bucketCount.value > 0;
   bool get isNoBuckets => bucketCount.value == 0;
   bool get hasNotes => nodeCount.value > 0;
