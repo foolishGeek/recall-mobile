@@ -46,14 +46,14 @@ class EmptyTodayBody extends StatelessWidget {
     this.onDropFrequencyChanged,
   });
 
-  bool get _showWarmupHint {
+  bool get _showStyleLine {
     if (!hasNotes || !pushEnabled || nextDropAt == null) return false;
     return true;
   }
 
-  void _openReminderStyle(BuildContext context) {
+  void _openDropTimingExplain(BuildContext context) {
     RecallHaptics.selection();
-    showFrequencySheet(
+    showDropTimingExplainSheet(
       context,
       current: dropFrequency,
       onSelected: (v) {
@@ -61,7 +61,6 @@ class EmptyTodayBody extends StatelessWidget {
           onDropFrequencyChanged!(v);
           return;
         }
-        // Fallback when opened from a route that already has Settings wired.
         if (Get.isRegistered<SettingsController>()) {
           Get.find<SettingsController>().setDropFrequency(v);
         }
@@ -105,13 +104,12 @@ class EmptyTodayBody extends StatelessWidget {
                           dropAt: nextDropAt,
                           hasNotes: hasNotes,
                           pushEnabled: pushEnabled,
-                          dropFrequency: dropFrequency,
                         ),
                         textAlign: TextAlign.center,
                         style: t.body.copyWith(color: c.grey600),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     const _CenterHairline(),
                     const SizedBox(height: 16),
                     EmptyNextDropLabel(
@@ -119,11 +117,10 @@ class EmptyTodayBody extends StatelessWidget {
                       hasNotes: hasNotes,
                       pushEnabled: pushEnabled,
                     ),
-                    if (_showWarmupHint) ...[
+                    if (_showStyleLine) ...[
                       const SizedBox(height: 14),
-                      _DropWarmupNote(
-                        dropFrequency: dropFrequency,
-                        onAdjust: () => _openReminderStyle(context),
+                      _DropTimingHintLine(
+                        onTap: () => _openDropTimingExplain(context),
                       ),
                     ],
                   ],
@@ -142,64 +139,45 @@ class EmptyTodayBody extends StatelessWidget {
   }
 }
 
-/// Calm note: the clock ≠ Drop send time. CTA opens Reminder style sheet.
-class _DropWarmupNote extends StatelessWidget {
-  final String dropFrequency;
-  final VoidCallback onAdjust;
+/// Single home line → explain sheet (style picker expands inside the sheet).
+class _DropTimingHintLine extends StatelessWidget {
+  final VoidCallback onTap;
 
-  const _DropWarmupNote({
-    required this.dropFrequency,
-    required this.onAdjust,
-  });
+  const _DropTimingHintLine({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final style = dropStyleName(dropFrequency);
-    final isDefault = dropFrequency == kDefaultDropFrequency;
-    final label = isDefault ? '$style (Default)' : style;
+    // Match EmptyNextDropLabel / MonoLabel: JetBrains Mono · grey500 · tracked —
+    // but keep sentence case (no all-caps).
+    final style = GoogleFonts.jetBrainsMono(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: c.grey500,
+      letterSpacing: 10 * 0.04,
+      height: 1.3,
+    );
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onAdjust,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        decoration: BoxDecoration(
-          color: c.canvas,
-          border: Border.all(color: c.grey200),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: c.grey500),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'If you don’t see a Drop at that time — that’s normal. '
-                    'Reminder style ($label) is your nudge pattern: it waits for '
-                    'the right batch, may re-nudge later, and respects quiet hours.',
-                    style: GoogleFonts.inter(
-                      fontSize: 12.5,
-                      height: 1.4,
-                      color: c.grey600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Change Reminder style',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: c.ink,
+            Icon(Icons.info_outline_rounded, size: 12, color: c.grey500),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'No Drop at that time? Learn why',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
               ),
             ),
+            Icon(Icons.chevron_right_rounded, size: 14, color: c.grey500),
           ],
         ),
       ),

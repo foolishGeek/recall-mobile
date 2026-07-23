@@ -315,7 +315,8 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     await _loadData();
   }
 
-  /// Updates Cards-before-a-Drop from the Today caught-up explainer CTA.
+  /// Updates Reminder style from the Today caught-up explainer, then refreshes
+  /// the next-cards ETA so the clock matches the new intensity.
   Future<void> setDropFrequency(String value) async {
     if (value == dropFrequency) return;
     final prev = profile.value;
@@ -327,6 +328,9 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
         prev.id,
         {'drop_frequency': value},
       );
+      if (dueCount.value == 0 && bucketCount.value > 0) {
+        await _loadCaughtUpExtras();
+      }
     } on RepoException {
       profile.value = prev;
     }

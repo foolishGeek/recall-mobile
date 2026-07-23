@@ -1,10 +1,8 @@
 // Recall · formats backend `next_drop_time_rpc` for the all-caught-up mono line
-// and synced body copy. The time is when the *next cards warm up* — Reminder
-// style (nudge intensity) decides when a Drop is actually sent.
+// and synced body copy. Keep body short; Reminder style lives on a one-liner CTA.
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/utils/drop_readiness.dart';
 import '../../../../core/utils/recall_time.dart';
 import '../../../../core/widgets/mono_label.dart';
 
@@ -70,25 +68,20 @@ String formatNextDropLine({
   }
 }
 
-/// Body copy for the all-caught-up state — shares the same clock + states as
-/// [formatNextDropLine].
+/// Body copy for the all-caught-up state — includes the warmup clock when known.
 String formatCaughtUpBody({
   DateTime? dropAt,
   required bool hasNotes,
   bool pushEnabled = true,
-  String dropFrequency = kDefaultDropFrequency,
 }) {
-  const lead = 'No cards due today. ';
   switch (_dropState(dropAt: dropAt, hasNotes: hasNotes, pushEnabled: pushEnabled)) {
     case NextDropState.noNotes:
-      return '${lead}Add a few notes and Recall will schedule your next drop '
-          '— quietly, like always.';
+      return 'Add a few notes and Recall will schedule your next drop — '
+          'quietly, like always.';
     case NextDropState.remindersOff:
-      return "${lead}Turn on reminders and we'll nudge you the moment your "
-          'next batch is ready — quietly, like always.';
+      return "Turn on reminders and we'll nudge you when notes are ready.";
     case NextDropState.warming:
-      return "${lead}Recall is lining up your next drop — we'll nudge you "
-          "quietly the moment it's ready.";
+      return "Recall is lining up your next drop — we'll nudge you quietly.";
     case NextDropState.scheduled:
       final rel = _relativeDrop(dropAt!)!;
       final String when;
@@ -101,12 +94,7 @@ String formatCaughtUpBody({
       } else {
         when = 'at ${rel.time}';
       }
-      final style = dropStyleName(dropFrequency);
-      final isDefault = dropFrequency == kDefaultDropFrequency;
-      final styleBit = isDefault ? '$style (Default)' : style;
-      return '${lead}The next notes warm up $when. Your Reminder style '
-          '($styleBit) decides when a Drop is actually sent — not necessarily '
-          'at that exact minute.';
+      return 'No cards due today. Next notes warm up $when.';
   }
 }
 

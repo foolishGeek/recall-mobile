@@ -159,7 +159,7 @@ class EmptyController extends BaseController {
     }
   }
 
-  /// Updates Cards-before-a-Drop from the Today caught-up explainer CTA.
+  /// Updates Reminder style from the caught-up explainer, then refreshes ETA.
   Future<void> setDropFrequency(String value) async {
     if (value == dropFrequency.value) return;
     final userId = _auth.currentUserId;
@@ -169,6 +169,7 @@ class EmptyController extends BaseController {
     dropFrequency.value = value;
     try {
       await _profileRepo.updatePreferences(userId, {'drop_frequency': value});
+      await _loadTodayExtras(userId);
     } on RepoException {
       dropFrequency.value = prev;
     }
