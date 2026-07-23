@@ -86,7 +86,12 @@ class _SheetCaption extends StatelessWidget {
 class _HowItWorksLink extends StatelessWidget {
   final String title;
   final List<HowItWorksSection> sections;
-  const _HowItWorksLink({required this.title, required this.sections});
+  final String? auraPrompt;
+  const _HowItWorksLink({
+    required this.title,
+    required this.sections,
+    this.auraPrompt,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +103,7 @@ class _HowItWorksLink extends StatelessWidget {
           context,
           title: title,
           sections: sections,
+          auraPrompt: auraPrompt,
         ),
         behavior: HitTestBehavior.opaque,
         child: Padding(
@@ -175,6 +181,7 @@ Future<void> showFrequencySheet(
       _HowItWorksLink(
         title: HowItWorksCopy.reminderStyleTitle,
         sections: HowItWorksCopy.reminderStyleSections,
+        auraPrompt: 'Explain the reminder styles in plain words.',
       ),
       const SizedBox(height: 4),
       ...kFrequencyOptions.map((o) => _OptionRow(
