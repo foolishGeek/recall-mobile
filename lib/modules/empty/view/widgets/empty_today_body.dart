@@ -2,14 +2,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_shape.dart';
 import '../../../../core/theme/recall_typography.dart';
+import '../../../../core/utils/drop_readiness.dart';
 import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/recall_button.dart';
 import '../../../../data/services/metrics_service.dart';
+import '../../../settings/controller/settings_controller.dart';
+import '../../../settings/view/widgets/settings_pref_sheets.dart';
 import '../../../today/view/widgets/today_top_bar.dart';
 import 'empty_column_reveal.dart';
 import 'empty_done_fast_banner.dart';
@@ -22,9 +26,11 @@ class EmptyTodayBody extends StatelessWidget {
   final DateTime? nextDropAt;
   final bool hasNotes;
   final bool pushEnabled;
+  final String dropFrequency;
   final DoneFastBanner? doneFastBanner;
   final VoidCallback onOpenQuiz;
   final VoidCallback onAddNote;
+  final ValueChanged<String>? onDropFrequencyChanged;
 
   const EmptyTodayBody({
     super.key,
@@ -35,8 +41,35 @@ class EmptyTodayBody extends StatelessWidget {
     required this.onOpenQuiz,
     required this.onAddNote,
     this.pushEnabled = true,
+    this.dropFrequency = kDefaultDropFrequency,
     this.doneFastBanner,
+    this.onDropFrequencyChanged,
   });
+
+  int get _threshold => dropThresholdFor(dropFrequency);
+
+  bool get _showWarmupHint {
+    if (!hasNotes || !pushEnabled || nextDropAt == null) return false;
+    return true;
+  }
+
+  void _openDropReadiness(BuildContext context) {
+    RecallHaptics.selection();
+    showFrequencySheet(
+      context,
+      current: dropFrequency,
+      onSelected: (v) {
+        if (onDropFrequencyChanged != null) {
+          onDropFrequencyChanged!(v);
+          return;
+        }
+        // Fallback when opened from a route that already has Settings wired.
+        if (Get.isRegistered<SettingsController>()) {
+          Get.find<SettingsController>().setDropFrequency(v);
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +107,7 @@ class EmptyTodayBody extends StatelessWidget {
                           dropAt: nextDropAt,
                           hasNotes: hasNotes,
                           pushEnabled: pushEnabled,
+                          dropThreshold: _threshold,
                         ),
                         textAlign: TextAlign.center,
                         style: t.body.copyWith(color: c.grey600),
@@ -87,6 +121,13 @@ class EmptyTodayBody extends StatelessWidget {
                       hasNotes: hasNotes,
                       pushEnabled: pushEnabled,
                     ),
+                    if (_showWarmupHint) ...[
+                      const SizedBox(height: 14),
+                      _DropWarmupNote(
+                        threshold: _threshold,
+                        onAdjust: () => _openDropReadiness(context),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -98,6 +139,70 @@ class EmptyTodayBody extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
+      ),
+    );
+  }
+}
+
+/// Calm note: the clock ≠ Drop send time. CTA opens Cards-before-a-Drop sheet.
+class _DropWarmupNote extends StatelessWidget {
+  final int threshold;
+  final VoidCallback onAdjust;
+
+  const _DropWarmupNote({
+    required this.threshold,
+    required this.onAdjust,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    final label = threshold == dropThresholdFor(kDefaultDropFrequency)
+        ? 'Default ($threshold)'
+        : '$threshold';
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onAdjust,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: c.canvas,
+          border: Border.all(color: c.grey200),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: c.grey500),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'If you don’t see a Drop at that time — that’s normal. '
+                    'A Drop waits until $label notes are ready, then nudges you.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: c.grey600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Change cards before a Drop',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: c.ink,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

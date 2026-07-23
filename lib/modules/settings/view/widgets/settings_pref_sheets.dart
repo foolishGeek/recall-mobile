@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import '../../../../core/utils/drop_readiness.dart';
 import '../../../../core/utils/how_it_works_copy.dart';
 import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/utils/recall_time.dart';
@@ -172,27 +173,33 @@ Future<void> showFrequencySheet(
   return _sheet(
     context,
     Column(mainAxisSize: MainAxisSize.min, children: [
-      const _SheetTitle('Reminder style'),
+      const _SheetTitle('Cards before a Drop'),
       const SizedBox(height: 4),
       const _SheetCaption(
-        'How insistently Recall Drop nudges you when due notes wait unseen.',
+        'A Drop waits until this many notes are ready — so you get a real batch, '
+        'not a ping for one card. The time on Today is when the next cards warm up; '
+        'the Drop itself sends once this count is met.',
       ),
       const SizedBox(height: 2),
       _HowItWorksLink(
         title: HowItWorksCopy.reminderStyleTitle,
         sections: HowItWorksCopy.reminderStyleSections,
-        auraPrompt: 'Explain the reminder styles in plain words.',
+        auraPrompt: 'Explain how many cards before a Drop in plain words.',
       ),
       const SizedBox(height: 4),
-      ...kFrequencyOptions.map((o) => _OptionRow(
-            title: o.$2,
-            subtitle: o.$3,
-            selected: o.$1 == current,
-            onTap: () {
-              Navigator.pop(context);
-              onSelected(o.$1);
-            },
-          )),
+      ...kFrequencyOptions.map((o) {
+        final n = dropThresholdFor(o.$1);
+        final isDefault = o.$1 == kDefaultDropFrequency;
+        return _OptionRow(
+          title: isDefault ? '${o.$2} · Default ($n)' : '${o.$2} · $n',
+          subtitle: o.$3,
+          selected: o.$1 == current,
+          onTap: () {
+            Navigator.pop(context);
+            onSelected(o.$1);
+          },
+        );
+      }),
     ]),
   );
 }
@@ -306,7 +313,12 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      const _SheetTitle('Daily review limit'),
+      const _SheetTitle('Cards per session'),
+      const SizedBox(height: 4),
+      const _SheetCaption(
+        'How many notes appear in one review session — not when Drops fire. '
+        'Drops use “Cards before a Drop” above.',
+      ),
       const SizedBox(height: 18),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         _StepButton(icon: Icons.remove, onTap: () => _step(-kDailyLimitStep)),

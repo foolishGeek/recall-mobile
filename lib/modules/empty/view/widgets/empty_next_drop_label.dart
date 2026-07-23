@@ -1,8 +1,10 @@
 // Recall · formats backend `next_drop_time_rpc` for the all-caught-up mono line
-// and synced body copy.
+// and synced body copy. The time is when the *next cards warm up* — a Drop only
+// sends once enough cards are ready for the user's "Cards before a Drop" setting.
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/drop_readiness.dart';
 import '../../../../core/utils/recall_time.dart';
 import '../../../../core/widgets/mono_label.dart';
 
@@ -40,8 +42,7 @@ NextDropState _dropState({
 }
 
 /// Mono micro-line under the caught-up illustration. Honest per state; only the
-/// `scheduled` state shows a real time (which the backend guarantees is
-/// deliverable).
+/// `scheduled` state shows a real time (when the next cards warm up).
 String formatNextDropLine({
   DateTime? dropAt,
   required bool hasNotes,
@@ -56,12 +57,16 @@ String formatNextDropLine({
       return 'Preparing your next drop';
     case NextDropState.scheduled:
       final rel = _relativeDrop(dropAt!)!;
-      if (rel.dayDiff <= 0) return 'Next drop · today ${rel.time}';
-      if (rel.dayDiff == 1) return 'Next drop · tomorrow ${rel.time}';
-      if (rel.dayDiff < 7) {
-        return 'Next drop · in ${rel.dayDiff} days · ${rel.time}';
+      if (rel.dayDiff <= 0) {
+        return 'Next cards ready · today ${rel.time}';
       }
-      return 'Next drop · ${rel.time}';
+      if (rel.dayDiff == 1) {
+        return 'Next cards ready · tomorrow ${rel.time}';
+      }
+      if (rel.dayDiff < 7) {
+        return 'Next cards ready · in ${rel.dayDiff} days · ${rel.time}';
+      }
+      return 'Next cards ready · ${rel.time}';
   }
 }
 
@@ -71,6 +76,7 @@ String formatCaughtUpBody({
   DateTime? dropAt,
   required bool hasNotes,
   bool pushEnabled = true,
+  int dropThreshold = 5,
 }) {
   const lead = 'No cards due today. ';
   switch (_dropState(dropAt: dropAt, hasNotes: hasNotes, pushEnabled: pushEnabled)) {
@@ -95,9 +101,13 @@ String formatCaughtUpBody({
       } else {
         when = 'at ${rel.time}';
       }
-      return "${lead}We'll surface your next batch $when — quietly, like always.";
+      return '${lead}The next notes warm up $when. A Drop sends once '
+          '$dropThreshold are ready — not necessarily at that exact minute.';
   }
 }
+
+/// Quiet explainer under the next-drop line when a warmup time is shown —
+/// implemented inline in EmptyTodayBody as [_DropWarmupNote].
 
 class EmptyNextDropLabel extends StatelessWidget {
   final DateTime? dropAt;

@@ -129,7 +129,7 @@ Widget _sections(BuildContext context, SettingsController controller) {
           onTap: () => showRemindersDiagnosticSheet(context, controller),
         ),
         ListRow(
-          title: 'Reminder style',
+          title: 'Cards before a Drop',
           subtitle: controller.frequencyLabel,
           onTap: () {
             controller.dismissReviewCoachTip();
@@ -199,7 +199,7 @@ Widget _sections(BuildContext context, SettingsController controller) {
           ),
         ),
         ListRow(
-          title: 'Daily review limit',
+          title: 'Cards per session',
           subtitle: controller.dailyLimitLabel,
           divider: false,
           onTap: () => showDailyLimitSheet(

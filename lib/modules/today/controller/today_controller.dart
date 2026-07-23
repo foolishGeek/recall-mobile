@@ -8,6 +8,7 @@ import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/config/limits_config.dart';
 import '../../../core/utils/coach_keys.dart';
+import '../../../core/utils/drop_readiness.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/local/local_store.dart';
@@ -73,6 +74,10 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   /// Whether a Drop can actually reach this user. Mirrors the backend gate so
   /// the caught-up screen explains an absent next-drop time honestly.
   bool get pushEnabled => profile.value?.pushOptIn ?? false;
+
+  /// Account-wide Cards-before-a-Drop setting (profiles.drop_frequency).
+  String get dropFrequency =>
+      profile.value?.dropFrequency ?? kDefaultDropFrequency;
 
   bool get isAllCaughtUp => dueCount.value == 0 && bucketCount.value > 0;
   bool get isNoBuckets => bucketCount.value == 0;
@@ -308,6 +313,23 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     cardController.duration = _cardFanDuration;
     cardController.reset();
     await _loadData();
+  }
+
+  /// Updates Cards-before-a-Drop from the Today caught-up explainer CTA.
+  Future<void> setDropFrequency(String value) async {
+    if (value == dropFrequency) return;
+    final prev = profile.value;
+    if (prev == null) return;
+    RecallHaptics.selection();
+    profile.value = prev.copyWith(dropFrequency: value);
+    try {
+      profile.value = await _profileRepo.updatePreferences(
+        prev.id,
+        {'drop_frequency': value},
+      );
+    } on RepoException {
+      profile.value = prev;
+    }
   }
 
   bool _pushEnsured = false;

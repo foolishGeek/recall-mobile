@@ -4,13 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/theme/recall_colors.dart';
+import '../../../core/utils/drop_readiness.dart';
 import '../../../core/utils/how_it_works_copy.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/cooling_period_selector.dart';
 import '../../../core/widgets/how_it_works_sheet.dart';
 import '../../../core/widgets/memory_strength_selector.dart';
 import '../../../core/widgets/recall_scaffold.dart';
-import '../../../core/widgets/reminder_style_selector.dart';
 import '../../../core/widgets/soft_card.dart';
 import '../../bucket/controller/bucket_controller.dart';
 import '../../bucket/view/widgets/bucket_custom_cooling_dialog.dart';
@@ -70,8 +70,8 @@ class BucketConfigView extends GetView<BucketController> {
                     ),
                     const SizedBox(height: 12),
                     _AccountReminderRow(
-                      readout: ReminderStyleSelector
-                          .labels[controller.accountReminderIndex],
+                      readout: dropReadinessShortLabel(
+                          controller.accountDropFrequency.value),
                     ),
                     const SizedBox(height: 18),
                     Center(
@@ -206,7 +206,7 @@ class _AccountReminderRow extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        'REMINDER STYLE',
+                        'CARDS BEFORE A DROP',
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 10,
                           fontWeight: FontWeight.w500,

@@ -56,9 +56,11 @@ class _TodayContent extends StatelessWidget {
           nextDropAt: controller.nextDropAt.value,
           hasNotes: controller.hasNotes,
           pushEnabled: controller.pushEnabled,
+          dropFrequency: controller.dropFrequency,
           doneFastBanner: controller.doneFastBanner.value,
           onOpenQuiz: controller.openQuiz,
           onAddNote: controller.onAddNote,
+          onDropFrequencyChanged: controller.setDropFrequency,
         );
       }
       return _TodayLoaded(controller: controller);

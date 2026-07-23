@@ -23,6 +23,7 @@ import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../core/utils/coach_keys.dart';
+import '../../../core/utils/drop_readiness.dart';
 import '../../../core/utils/memory_strength.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
@@ -41,20 +42,20 @@ part 'settings_controller_actions.dart';
 /// Selectable cooling-period durations (days) for the Review default [S24].
 const List<int> kCoolingDayOptions = [1, 3, 7, 14, 30];
 
-/// Daily review-limit range (writes session_size_override). Free clamps to 8 in
+/// Cards-per-session range (writes session_size_override). Free clamps to 8 in
 /// the engine [D-ENG-3]; the editor still lets premium pick up to 30.
 const int kDailyLimitMin = 4;
 const int kDailyLimitMax = 30;
 const int kDailyLimitStep = 2;
 
-/// Reminder-style wire values + human readout. The wire values are unchanged
-/// (daily/3xwk/weekly) but now express *intensity* — they map to drop_intensity()
-/// on the backend (00050): weekly=Gentle, 3xwk=Standard, daily=Persistent.
+/// Reminder-style wire values + human readout. Wire values map to
+/// drop_intensity() (00050): weekly=Gentle(8), 3xwk=Standard(5), daily=Persistent(3).
+/// Title is the feel; subtitle is the real lever — cards before a Drop fires.
 /// Ordered gentle → persistent for the picker.
 const List<(String, String, String)> kFrequencyOptions = [
-  ('weekly', 'Gentle', 'An occasional nudge'),
-  ('3xwk', 'Standard', 'A balanced reminder rhythm'),
-  ('daily', 'Persistent', 'Keeps nudging until you review'),
+  ('weekly', 'Gentle', 'Waits for 8 cards before a Drop'),
+  ('3xwk', 'Standard', 'Waits for 5 cards · Default'),
+  ('daily', 'Persistent', 'Waits for 3 cards · more frequent Drops'),
 ];
 
 class SettingsController extends BaseController {
@@ -121,15 +122,14 @@ class SettingsController extends BaseController {
   // ── Derived pref values / labels (presentation only) ──────────────────────
   bool get pushOptIn => profile.value?.pushOptIn ?? false;
 
-  String get dropFrequency => profile.value?.dropFrequency ?? 'daily';
+  String get dropFrequency =>
+      profile.value?.dropFrequency ?? kDefaultDropFrequency;
 
-  /// Short name (e.g. "Persistent") for the collapsed Settings row.
-  String get frequencyLabel {
-    for (final o in kFrequencyOptions) {
-      if (o.$1 == dropFrequency) return o.$2;
-    }
-    return 'Standard';
-  }
+  /// Collapsed Settings row: Default (5) for Standard; bare number otherwise.
+  String get frequencyLabel => dropReadinessShortLabel(dropFrequency);
+
+  /// Cards required before a Drop for the current Reminder style.
+  int get dropThreshold => dropThresholdFor(dropFrequency);
 
   String? get quietHoursStart => profile.value?.quietHoursStart;
   String? get quietHoursEnd => profile.value?.quietHoursEnd;
@@ -156,8 +156,13 @@ class SettingsController extends BaseController {
       coolingDays == 1 ? '1 day' : '$coolingDays days';
 
   int? get sessionSizeOverride => profile.value?.sessionSizeOverride;
-  String get dailyLimitLabel =>
-      sessionSizeOverride == null ? 'Default' : '$sessionSizeOverride cards';
+
+  /// Default (8) / Default (12) when unset; bare number when manually set.
+  String get dailyLimitLabel {
+    final n = sessionSizeOverride;
+    if (n == null) return 'Default (${gate.cardsPerStack})';
+    return '$n';
+  }
 
   String get theme => _theme.current;
   String get themeLabel => theme.toUpperCase();

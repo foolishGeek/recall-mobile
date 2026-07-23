@@ -117,22 +117,22 @@ class BucketController extends BaseController {
   String get _reminderWord {
     switch (accountDropFrequency.value) {
       case 'weekly':
-        return 'gentle';
+        return '8-card';
       case '3xwk':
-        return 'standard';
+        return '5-card';
       default:
-        return 'persistent';
+        return '3-card';
     }
   }
 
   /// A legible, plain-English recipe of the current setup for the entry card,
-  /// e.g. "Balanced · gentle reminders · rests 14 days".
+  /// e.g. "Balanced · 5-card drops · rests 14 days".
   String get configRecipe {
     final mem = memoryStrengthLabelFor(memoryStrength);
     final cool = CoolingPeriodSelector.readoutFor(
             draftCoolingIndex.value, draftCustomDays.value)
         .toLowerCase();
-    return '$mem · $_reminderWord reminders · $cool';
+    return '$mem · $_reminderWord drops · $cool';
   }
 
   int get accountReminderIndex {

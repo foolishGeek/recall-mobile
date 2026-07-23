@@ -90,7 +90,7 @@ abstract final class HowItWorksCopy {
 
   static const settingsTitle = 'Review preferences';
   static const settingsTip =
-      'Memory strength and Reminder style shape how often notes return — and how insistently Drop nudges.';
+      'Memory strength and Cards before a Drop shape how notes return — and when a Drop is ready to send.';
   static const settingsSections = <HowItWorksSection>[
     HowItWorksSection(
       heading: 'Memory strength',
@@ -98,9 +98,9 @@ abstract final class HowItWorksCopy {
           'How sure you want to be when it matters. Relaxed spaces reviews out; Thorough brings them sooner.',
     ),
     HowItWorksSection(
-      heading: 'Reminder style',
+      heading: 'Cards before a Drop',
       body:
-          'Gentle / Standard / Persistent — how often Recall Drop knocks when due notes wait unseen.',
+          'Gentle / Standard / Persistent — how many ready notes before a Drop knocks. Standard waits for 5.',
     ),
     HowItWorksSection(
       heading: 'Quiet hours',
@@ -121,21 +121,21 @@ abstract final class HowItWorksCopy {
     ),
   ];
 
-  static const reminderStyleTitle = 'Reminder style';
+  static const reminderStyleTitle = 'Cards before a Drop';
   static const reminderStyleSections = <HowItWorksSection>[
     HowItWorksSection(
       body:
-          'Controls how insistently a Recall Drop nudges you when notes are due and still unseen.',
+          'A Drop waits until enough notes are ready — so you get a real batch, not a ping for one card. The clock on Today is when the next notes warm up; the Drop itself sends once this count is met.',
     ),
     HowItWorksSection(
       heading: 'Gentle · Standard · Persistent',
       body:
-          'Gentle waits for a larger set. Standard is balanced. Persistent re-nudges about every two hours until you look.',
+          'Gentle waits for 8. Standard (Default) waits for 5. Persistent waits for 3 and re-nudges more often.',
     ),
     HowItWorksSection(
       heading: 'One setting for the whole app',
       body:
-          'Reminder style is account-wide — it applies to every bucket. Change it once in Settings.',
+          'This is account-wide — it applies to every bucket. Change it once in Settings.',
     ),
   ];
 
@@ -174,9 +174,9 @@ abstract final class HowItWorksCopy {
           'How sure you want to be when it matters. Stronger means reviews come back sooner. Per bucket.',
     ),
     HowItWorksSection(
-      heading: 'Reminder style',
+      heading: 'Cards before a Drop',
       body:
-          'How insistently Drops nudge you. This one is account-wide — set once in Settings.',
+          'How many ready notes before a Drop is sent. Account-wide — set once in Settings.',
     ),
   ];
 }
