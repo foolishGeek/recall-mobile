@@ -111,6 +111,15 @@ class AiChatController extends BaseController {
         ..addAll((args['bucket_ids'] as List).map((e) => e.toString()));
     }
     composer.addListener(() => hasText.value = composer.text.trim().isNotEmpty);
+    // Pre-seed the composer when opened from a "What is it? → Ask Aura" footer,
+    // so the user only has to send. They can still edit or clear first.
+    if (args is Map && args['seed_prompt'] is String) {
+      final seed = (args['seed_prompt'] as String).trim();
+      if (seed.isNotEmpty) {
+        composer.text = seed;
+        hasText.value = true;
+      }
+    }
     _hydrate();
   }
 

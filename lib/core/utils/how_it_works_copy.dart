@@ -132,5 +132,51 @@ abstract final class HowItWorksCopy {
       body:
           'Gentle waits for a larger set. Standard is balanced. Persistent re-nudges about every two hours until you look.',
     ),
+    HowItWorksSection(
+      heading: 'One setting for the whole app',
+      body:
+          'Reminder style is account-wide — it applies to every bucket. Change it once in Settings.',
+    ),
+  ];
+
+  static const coolingPeriodTitle = 'Cooling period';
+  static const coolingPeriodSections = <HowItWorksSection>[
+    HowItWorksSection(
+      body:
+          'After you finish this bucket\'s cards, Recall rests the whole topic for a set time before bringing it back — so you\'re not drilling the same set every day.',
+    ),
+    HowItWorksSection(
+      heading: 'A quick example',
+      body:
+          'Rest 14 days = once you\'ve worked through the bucket, the topic returns roughly every couple of weeks instead of tomorrow.',
+    ),
+    HowItWorksSection(
+      heading: 'It\'s per bucket',
+      body:
+          'Fast-moving topics can rest less; slow-burn ones can rest more. Each bucket keeps its own pace.',
+    ),
+  ];
+
+  static const bucketConfigTitle = 'What is Bucket config?';
+  static const bucketConfigSections = <HowItWorksSection>[
+    HowItWorksSection(
+      body:
+          'Three small dials that shape how this bucket comes back to you. You can read the effect of each in plain words — no need to guess.',
+    ),
+    HowItWorksSection(
+      heading: 'Cooling period',
+      body:
+          'How long the topic rests after a session before it returns. Per bucket.',
+    ),
+    HowItWorksSection(
+      heading: 'Memory strength',
+      body:
+          'How sure you want to be when it matters. Stronger means reviews come back sooner. Per bucket.',
+    ),
+    HowItWorksSection(
+      heading: 'Reminder style',
+      body:
+          'How insistently Drops nudge you. This one is account-wide — set once in Settings.',
+    ),
   ];
 }
