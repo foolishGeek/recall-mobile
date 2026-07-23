@@ -124,6 +124,11 @@ Widget _sections(BuildContext context, SettingsController controller) {
           ),
         ),
         ListRow(
+          title: 'Check reminders',
+          subtitle: 'See why Drops are (or aren’t) arriving',
+          onTap: () => showRemindersDiagnosticSheet(context, controller),
+        ),
+        ListRow(
           title: 'Reminder style',
           subtitle: controller.frequencyLabel,
           onTap: () {
@@ -194,12 +199,13 @@ Widget _sections(BuildContext context, SettingsController controller) {
           ),
         ),
         ListRow(
-          title: 'Daily review limit',
+          title: 'Cards per session',
           subtitle: controller.dailyLimitLabel,
           divider: false,
           onTap: () => showDailyLimitSheet(
             context,
             current: controller.sessionSizeOverride,
+            tierDefault: controller.cardsPerSessionDefault,
             isPremium: controller.isPremium,
             onSelected: controller.setDailyLimit,
           ),
@@ -244,6 +250,11 @@ Widget _sections(BuildContext context, SettingsController controller) {
           title: 'Terms of service',
           trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
           onTap: controller.onOpenTerms,
+        ),
+        ListRow(
+          title: 'Help',
+          trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
+          onTap: controller.onOpenHelp,
         ),
         ListRow(
           title: 'Analytics',

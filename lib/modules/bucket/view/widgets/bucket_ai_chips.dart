@@ -9,7 +9,6 @@ import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/aura_mark.dart';
 
 class BucketAiChips extends StatelessWidget {
-  final String modelLabel;
   final bool isSummarizing;
   final bool disabled;
   final VoidCallback onSummarize;
@@ -17,7 +16,6 @@ class BucketAiChips extends StatelessWidget {
 
   const BucketAiChips({
     super.key,
-    required this.modelLabel,
     required this.isSummarizing,
     this.disabled = false,
     required this.onSummarize,

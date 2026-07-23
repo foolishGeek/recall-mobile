@@ -3,6 +3,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/utils/drop_readiness.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/repositories/bucket_repository.dart';
@@ -29,6 +30,8 @@ class EmptyController extends BaseController {
   final RxString formattedDate = ''.obs;
   final Rxn<DateTime> nextDropAt = Rxn<DateTime>();
   final RxBool hasNotes = true.obs;
+  final RxBool pushEnabled = false.obs;
+  final RxString dropFrequency = kDefaultDropFrequency.obs;
   final RxInt daysWithReviews = 0.obs;
   final Rxn<DoneFastBanner> doneFastBanner = Rxn<DoneFastBanner>();
 
@@ -87,6 +90,9 @@ class EmptyController extends BaseController {
     try {
       final profile = await _profileRepo.fetchProfile(userId);
       streak.value = profile?.currentStreak ?? 0;
+      pushEnabled.value = profile?.pushOptIn ?? false;
+      dropFrequency.value =
+          profile?.dropFrequency ?? kDefaultDropFrequency;
 
       switch (variant) {
         case EmptyVariant.buckets:
@@ -150,6 +156,22 @@ class EmptyController extends BaseController {
     shell.onTabSelected(RecallTab.quiz);
     if (Get.currentRoute.startsWith('/empty')) {
       Get.offAllNamed(Routes.quiz);
+    }
+  }
+
+  /// Updates Reminder style from the caught-up explainer, then refreshes ETA.
+  Future<void> setDropFrequency(String value) async {
+    if (value == dropFrequency.value) return;
+    final userId = _auth.currentUserId;
+    if (userId == null) return;
+    final prev = dropFrequency.value;
+    RecallHaptics.selection();
+    dropFrequency.value = value;
+    try {
+      await _profileRepo.updatePreferences(userId, {'drop_frequency': value});
+      await _loadTodayExtras(userId);
+    } on RepoException {
+      dropFrequency.value = prev;
     }
   }
 

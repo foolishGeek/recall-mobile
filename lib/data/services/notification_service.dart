@@ -127,7 +127,39 @@ class NotificationService extends GetxService {
       }
       if (status.isPermanentlyDenied) return;
       final granted = await requestPushPermission();
-      if (granted) await registerDeviceToken();
+      if (granted) {
+        await registerDeviceToken();
+        // A fresh grant means the user wants Drops — reconcile the master
+        // switch so the engine (compute_due_candidates) can actually reach them.
+        await _setOptIn(true);
+      }
+    } catch (e, st) {
+      _capture(e, st);
+    }
+  }
+
+  /// User-driven "turn on reminders" primitive (Settings toggle + the Reminders
+  /// diagnostic repair). Requests OS permission, writes a live device token, and
+  /// sets the account-wide `push_opt_in` flag together — so the flag and the
+  /// token can never silently disagree. Returns true when fully enabled.
+  Future<bool> enableDrops() async {
+    final granted = await requestPushPermission();
+    if (!granted) return false;
+    await registerDeviceToken();
+    await _setOptIn(true);
+    return true;
+  }
+
+  /// Honest per-user Drop eligibility breakdown for the Settings diagnostic.
+  Future<DropDebug> fetchDropDebug() => _notifications.fetchDropDebug();
+
+  /// Best-effort write of the account-wide reminders switch. Never throws — a
+  /// failed reconcile just leaves the prior value.
+  Future<void> _setOptIn(bool value) async {
+    final userId = _auth.currentUserId;
+    if (userId == null) return;
+    try {
+      await _notifications.setPushOptIn(userId: userId, value: value);
     } catch (e, st) {
       _capture(e, st);
     }

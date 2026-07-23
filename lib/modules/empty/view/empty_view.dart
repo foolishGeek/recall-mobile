@@ -42,9 +42,12 @@ class EmptyView extends GetView<EmptyController> {
             formattedDate: controller.formattedDate.value,
             nextDropAt: controller.nextDropAt.value,
             hasNotes: controller.hasNotes.value,
+            pushEnabled: controller.pushEnabled.value,
+            dropFrequency: controller.dropFrequency.value,
             doneFastBanner: controller.doneFastBanner.value,
             onOpenQuiz: controller.openQuiz,
             onAddNote: controller.onAddNote,
+            onDropFrequencyChanged: controller.setDropFrequency,
           ),
         );
       case EmptyVariant.insights:

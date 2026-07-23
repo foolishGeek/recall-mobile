@@ -2,14 +2,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_shape.dart';
 import '../../../../core/theme/recall_typography.dart';
+import '../../../../core/utils/drop_readiness.dart';
 import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/recall_button.dart';
 import '../../../../data/services/metrics_service.dart';
+import '../../../settings/controller/settings_controller.dart';
+import '../../../settings/view/widgets/settings_pref_sheets.dart';
 import '../../../today/view/widgets/today_top_bar.dart';
 import 'empty_column_reveal.dart';
 import 'empty_done_fast_banner.dart';
@@ -21,9 +25,12 @@ class EmptyTodayBody extends StatelessWidget {
   final String formattedDate;
   final DateTime? nextDropAt;
   final bool hasNotes;
+  final bool pushEnabled;
+  final String dropFrequency;
   final DoneFastBanner? doneFastBanner;
   final VoidCallback onOpenQuiz;
   final VoidCallback onAddNote;
+  final ValueChanged<String>? onDropFrequencyChanged;
 
   const EmptyTodayBody({
     super.key,
@@ -33,8 +40,33 @@ class EmptyTodayBody extends StatelessWidget {
     required this.hasNotes,
     required this.onOpenQuiz,
     required this.onAddNote,
+    this.pushEnabled = true,
+    this.dropFrequency = kDefaultDropFrequency,
     this.doneFastBanner,
+    this.onDropFrequencyChanged,
   });
+
+  bool get _showStyleLine {
+    if (!hasNotes || !pushEnabled || nextDropAt == null) return false;
+    return true;
+  }
+
+  void _openDropTimingExplain(BuildContext context) {
+    RecallHaptics.selection();
+    showDropTimingExplainSheet(
+      context,
+      current: dropFrequency,
+      onSelected: (v) {
+        if (onDropFrequencyChanged != null) {
+          onDropFrequencyChanged!(v);
+          return;
+        }
+        if (Get.isRegistered<SettingsController>()) {
+          Get.find<SettingsController>().setDropFrequency(v);
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,18 +103,26 @@ class EmptyTodayBody extends StatelessWidget {
                         formatCaughtUpBody(
                           dropAt: nextDropAt,
                           hasNotes: hasNotes,
+                          pushEnabled: pushEnabled,
                         ),
                         textAlign: TextAlign.center,
                         style: t.body.copyWith(color: c.grey600),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     const _CenterHairline(),
                     const SizedBox(height: 16),
                     EmptyNextDropLabel(
                       dropAt: nextDropAt,
                       hasNotes: hasNotes,
+                      pushEnabled: pushEnabled,
                     ),
+                    if (_showStyleLine) ...[
+                      const SizedBox(height: 14),
+                      _DropTimingHintLine(
+                        onTap: () => _openDropTimingExplain(context),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -94,6 +134,52 @@ class EmptyTodayBody extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
+      ),
+    );
+  }
+}
+
+/// Single home line → explain sheet (style picker expands inside the sheet).
+class _DropTimingHintLine extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _DropTimingHintLine({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    // Match EmptyNextDropLabel / MonoLabel: JetBrains Mono · grey500 · tracked —
+    // but keep sentence case (no all-caps).
+    final style = GoogleFonts.jetBrainsMono(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      color: c.grey500,
+      letterSpacing: 10 * 0.04,
+      height: 1.3,
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.info_outline_rounded, size: 12, color: c.grey500),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'No Drop at that time? Learn why',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: style,
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 14, color: c.grey500),
+          ],
+        ),
       ),
     );
   }

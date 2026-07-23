@@ -32,6 +32,9 @@ class MemoryStrengthSelector extends StatelessWidget {
   final bool disabled;
   final bool showHowItWorks;
 
+  /// Optional bucket scope so the "Ask Aura" explainer footer stays contextual.
+  final List<String>? auraBucketIds;
+
   const MemoryStrengthSelector({
     super.key,
     required this.value,
@@ -40,6 +43,7 @@ class MemoryStrengthSelector extends StatelessWidget {
     this.onClear,
     this.disabled = false,
     this.showHowItWorks = true,
+    this.auraBucketIds,
   });
 
   @override
@@ -94,12 +98,14 @@ class MemoryStrengthSelector extends StatelessWidget {
                   context,
                   title: HowItWorksCopy.memoryStrengthTitle,
                   sections: HowItWorksCopy.memoryStrengthSections,
+                  auraPrompt: 'Explain memory strength in plain words.',
+                  auraBucketIds: auraBucketIds,
                 ),
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Text(
-                    'How it works',
+                    'What is it?',
                     style: GoogleFonts.inter(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w500,

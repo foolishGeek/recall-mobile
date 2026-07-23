@@ -2,7 +2,7 @@ name: recall
 description: "Recall — spaced revision app. Forget forgetting."
 publish_to: 'none'
 
-version: 1.2.1+9
+version: 1.3.1+10
 
 environment:
   sdk: ^3.8.1

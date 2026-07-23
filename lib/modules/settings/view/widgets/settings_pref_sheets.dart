@@ -1,13 +1,16 @@
 // Recall · Settings preference editors. Calm slide-up sheets for the Recall Drop
-// + Review rows (frequency, quiet hours, default cooling, daily review limit).
+// + Review rows (Reminder style, quiet hours, default cooling, Cards per session).
 // Each returns the new value via a callback; the controller owns the write.
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import '../../../../core/utils/drop_readiness.dart';
 import '../../../../core/utils/how_it_works_copy.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/utils/recall_time.dart';
 import '../../../../core/widgets/how_it_works_sheet.dart';
 import '../../../../core/widgets/memory_strength_selector.dart';
 import '../../controller/settings_controller.dart';
@@ -84,7 +87,12 @@ class _SheetCaption extends StatelessWidget {
 class _HowItWorksLink extends StatelessWidget {
   final String title;
   final List<HowItWorksSection> sections;
-  const _HowItWorksLink({required this.title, required this.sections});
+  final String? auraPrompt;
+  const _HowItWorksLink({
+    required this.title,
+    required this.sections,
+    this.auraPrompt,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +104,7 @@ class _HowItWorksLink extends StatelessWidget {
           context,
           title: title,
           sections: sections,
+          auraPrompt: auraPrompt,
         ),
         behavior: HitTestBehavior.opaque,
         child: Padding(
@@ -156,6 +165,127 @@ class _OptionRow extends StatelessWidget {
   }
 }
 
+/// Today empty: explain why the clock ≠ Drop, then expand Reminder style picks.
+Future<void> showDropTimingExplainSheet(
+  BuildContext context, {
+  required String current,
+  required ValueChanged<String> onSelected,
+}) {
+  return _sheet(
+    context,
+    _DropTimingExplainBody(current: current, onSelected: onSelected),
+  );
+}
+
+class _DropTimingExplainBody extends StatefulWidget {
+  final String current;
+  final ValueChanged<String> onSelected;
+
+  const _DropTimingExplainBody({
+    required this.current,
+    required this.onSelected,
+  });
+
+  @override
+  State<_DropTimingExplainBody> createState() => _DropTimingExplainBodyState();
+}
+
+class _DropTimingExplainBodyState extends State<_DropTimingExplainBody> {
+  late String _current = widget.current;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    final style = dropStyleName(_current);
+    final threshold = dropThresholdFor(_current);
+    final isDefault = _current == kDefaultDropFrequency;
+    final styleBit = isDefault ? '$style · Default' : style;
+    final waitLine = threshold == 1
+        ? 'ASAO sends a Drop when even one note is ready.'
+        : 'Your style waits for about $threshold notes before a fresh Drop.';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SheetTitle('Why no Drop yet?'),
+        const SizedBox(height: 8),
+        Text(
+          'The time on Today is when the next notes warm up — not when a Drop '
+          'is guaranteed. $waitLine Quiet hours and re-nudge rules can also delay it.',
+          style: GoogleFonts.inter(
+            fontSize: 13.5,
+            height: 1.45,
+            color: c.grey600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Current · $styleBit',
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 10.5,
+            color: c.grey500,
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 18),
+        InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            RecallHaptics.selection();
+            setState(() => _expanded = !_expanded);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: c.grey200),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Change Reminder style',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: c.ink,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                  size: 22,
+                  color: c.ink,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 8),
+          ...kFrequencyOptions.map((o) {
+            final isOptDefault = o.$1 == kDefaultDropFrequency;
+            return _OptionRow(
+              title: isOptDefault ? '${o.$2} · Default' : o.$2,
+              subtitle: o.$3,
+              selected: o.$1 == _current,
+              onTap: () {
+                setState(() => _current = o.$1);
+                Navigator.pop(context);
+                widget.onSelected(o.$1);
+              },
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}
+
 Future<void> showFrequencySheet(
   BuildContext context, {
   required String current,
@@ -167,23 +297,28 @@ Future<void> showFrequencySheet(
       const _SheetTitle('Reminder style'),
       const SizedBox(height: 4),
       const _SheetCaption(
-        'How insistently Recall Drop nudges you when due notes wait unseen.',
+        'How insistently Recall Drop nudges you. Pick ASAO if even one note '
+        'should trigger a Drop.',
       ),
       const SizedBox(height: 2),
       _HowItWorksLink(
         title: HowItWorksCopy.reminderStyleTitle,
         sections: HowItWorksCopy.reminderStyleSections,
+        auraPrompt: 'Explain Reminder style in plain words.',
       ),
       const SizedBox(height: 4),
-      ...kFrequencyOptions.map((o) => _OptionRow(
-            title: o.$2,
-            subtitle: o.$3,
-            selected: o.$1 == current,
-            onTap: () {
-              Navigator.pop(context);
-              onSelected(o.$1);
-            },
-          )),
+      ...kFrequencyOptions.map((o) {
+        final isDefault = o.$1 == kDefaultDropFrequency;
+        return _OptionRow(
+          title: isDefault ? '${o.$2} · Default' : o.$2,
+          subtitle: o.$3,
+          selected: o.$1 == current,
+          onTap: () {
+            Navigator.pop(context);
+            onSelected(o.$1);
+          },
+        );
+      }),
     ]),
   );
 }
@@ -256,13 +391,15 @@ Future<void> showCoolingSheet(
 Future<void> showDailyLimitSheet(
   BuildContext context, {
   required int? current,
+  required int tierDefault,
   required bool isPremium,
-  required ValueChanged<int> onSelected,
+  required ValueChanged<int?> onSelected,
 }) {
   return _sheet(
     context,
     _DailyLimitEditor(
-      current: current ?? kDailyLimitMin,
+      current: current,
+      tierDefault: tierDefault,
       isPremium: isPremium,
       onSelected: onSelected,
     ),
@@ -270,11 +407,13 @@ Future<void> showDailyLimitSheet(
 }
 
 class _DailyLimitEditor extends StatefulWidget {
-  final int current;
+  final int? current;
+  final int tierDefault;
   final bool isPremium;
-  final ValueChanged<int> onSelected;
+  final ValueChanged<int?> onSelected;
   const _DailyLimitEditor({
     required this.current,
+    required this.tierDefault,
     required this.isPremium,
     required this.onSelected,
   });
@@ -284,38 +423,83 @@ class _DailyLimitEditor extends StatefulWidget {
 }
 
 class _DailyLimitEditorState extends State<_DailyLimitEditor> {
-  late int _value = widget.current.clamp(kDailyLimitMin, kDailyLimitMax);
+  late int _value =
+      (widget.current ?? widget.tierDefault).clamp(kDailyLimitMin, kDailyLimitMax);
+  late bool _usingDefault = widget.current == null;
 
   void _step(int delta) {
     final next = (_value + delta).clamp(kDailyLimitMin, kDailyLimitMax);
-    if (next == _value) return;
+    if (next == _value && !_usingDefault) return;
     RecallHaptics.selection();
-    setState(() => _value = next);
+    setState(() {
+      _value = next;
+      _usingDefault = false;
+    });
+  }
+
+  void _useDefault() {
+    RecallHaptics.selection();
+    setState(() {
+      _value = widget.tierDefault.clamp(kDailyLimitMin, kDailyLimitMax);
+      _usingDefault = true;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
+    final defaultLabel = 'Default(${widget.tierDefault})';
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      const _SheetTitle('Daily review limit'),
+      const _SheetTitle('Cards per session'),
+      const SizedBox(height: 4),
+      const _SheetCaption(
+        'How many notes appear in one review session — not when Drops fire. '
+        'Drops use Reminder style above.',
+      ),
       const SizedBox(height: 18),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         _StepButton(icon: Icons.remove, onTap: () => _step(-kDailyLimitStep)),
         Column(children: [
-          Text('$_value',
-              style: GoogleFonts.fraunces(
-                  fontSize: 40, fontWeight: FontWeight.w500, color: c.ink)),
-          Text('CARDS',
-              style: GoogleFonts.jetBrainsMono(
-                  fontSize: 10, color: c.grey500, letterSpacing: 1.6)),
+          Text(
+            _usingDefault ? defaultLabel : '$_value',
+            style: GoogleFonts.fraunces(
+              fontSize: _usingDefault ? 28 : 40,
+              fontWeight: FontWeight.w500,
+              color: c.ink,
+            ),
+          ),
+          Text(
+            'CARDS',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10,
+              color: c.grey500,
+              letterSpacing: 1.6,
+            ),
+          ),
         ]),
         _StepButton(icon: Icons.add, onTap: () => _step(kDailyLimitStep)),
       ]),
-      const SizedBox(height: 16),
-      if (!widget.isPremium)
-        Text('Free plan reviews up to 8 cards per session.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600)),
+      const SizedBox(height: 12),
+      if (!_usingDefault)
+        TextButton(
+          onPressed: _useDefault,
+          child: Text(
+            'Use $defaultLabel',
+            style: GoogleFonts.inter(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: c.ink,
+            ),
+          ),
+        ),
+      if (!widget.isPremium) ...[
+        const SizedBox(height: 4),
+        Text(
+          'Free plan reviews up to 8 cards per session.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600),
+        ),
+      ],
       const SizedBox(height: 18),
       SizedBox(
         width: double.infinity,
@@ -324,7 +508,7 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
           onPressed: () {
             RecallHaptics.selection();
             Navigator.pop(context);
-            widget.onSelected(_value);
+            widget.onSelected(_usingDefault ? null : _value);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: c.ink,
@@ -333,9 +517,11 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          child: Text('Save',
-              style:
-                  GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
+          child: Text(
+            'Save',
+            style:
+                GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
         ),
       ),
     ]);
@@ -418,6 +604,180 @@ Future<void> showQuietHoursSheet(
       ),
     ]),
   );
+}
+
+/// Calm "Reminders" diagnostic. Reads drop_debug_rpc so the user can see, in
+/// plain words, whether a Drop can reach them and why it's quiet — and repair
+/// it in one tap when reminders are off / the device isn't registered.
+Future<void> showRemindersDiagnosticSheet(
+  BuildContext context,
+  SettingsController controller,
+) {
+  // Kick off the check as the sheet opens; the body reacts to the result.
+  controller.loadDropDebug();
+  return _sheet<void>(
+    context,
+    Obx(() {
+      final c = RecallColors.of(context);
+      final d = controller.dropDebug.value;
+      final loading = controller.dropDebugLoading.value;
+
+      if (d == null) {
+        return Column(mainAxisSize: MainAxisSize.min, children: [
+          const _SheetTitle('Reminders'),
+          const SizedBox(height: 18),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else ...[
+            const _SheetCaption("Couldn't check just now."),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: controller.loadDropDebug,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text('Try again',
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: c.ink)),
+              ),
+            ),
+          ],
+        ]);
+      }
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _SheetTitle('Reminders'),
+          const SizedBox(height: 4),
+          _SheetCaption(d.headline),
+          const SizedBox(height: 14),
+          _DiagRow(label: 'Reminders', value: d.pushOptIn ? 'On' : 'Off'),
+          _DiagRow(
+            label: 'This device',
+            value: d.deviceTokenCount > 0 ? 'Registered' : 'Not registered',
+          ),
+          _DiagRow(label: 'Style', value: d.reminderStyle),
+          _DiagRow(label: 'Next drop', value: _nextDropText(d.nextDropAt)),
+          if (d.reasons.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "WHY IT'S QUIET",
+                style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9.5, color: c.grey500, letterSpacing: 1.4),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...d.reasons.map((r) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, right: 8),
+                        child: Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                              color: c.grey400, shape: BoxShape.circle),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(r,
+                            style: GoogleFonts.inter(
+                                fontSize: 13.5, height: 1.35, color: c.grey600)),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+          if (!d.canDeliver) ...[
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: controller.repairingReminders.value
+                    ? null
+                    : () async {
+                        final ok = await controller.repairReminders();
+                        if (ok && context.mounted) Navigator.pop(context);
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: c.ink,
+                  foregroundColor: c.inkOnInk,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+                child: controller.repairingReminders.value
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text('Turn on reminders',
+                        style: GoogleFonts.inter(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ],
+      );
+    }),
+  );
+}
+
+/// Compact, honest next-drop readout for the diagnostic (or an em-dash).
+String _nextDropText(DateTime? at) {
+  if (at == null) return '—';
+  final local = at.toLocal();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(local.year, local.month, local.day);
+  final diff = day.difference(today).inDays;
+  final clock = RecallTime.clock12h(local);
+  if (diff <= 0) return 'Today · $clock';
+  if (diff == 1) return 'Tomorrow · $clock';
+  if (diff < 7) return 'In $diff days · $clock';
+  return clock;
+}
+
+class _DiagRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DiagRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
+          Text(value,
+              style: GoogleFonts.inter(
+                  fontSize: 14, fontWeight: FontWeight.w600, color: c.ink)),
+        ],
+      ),
+    );
+  }
 }
 
 TimeOfDay? _parseTod(String? wire) {

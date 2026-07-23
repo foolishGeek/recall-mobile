@@ -157,43 +157,69 @@ class NodeController extends BaseController {
       return;
     }
     setLoading();
+
+    // Only the note itself is critical. Everything else (assets, tags, review
+    // history, AI evaluation, profile) is enrichment: if one of those RPCs is
+    // ever dropped/renamed/slow, the note must still open with what we have —
+    // never a full-screen error. This is the resilience the retired
+    // `node_heat_pct` call lacked.
+    final Node? loadedNode;
     try {
-      final results = await Future.wait([
-        _nodeRepo.fetchById(nodeId), // 0
-        _nodeRepo.fetchAssets(nodeId), // 1
-        _nodeRepo.fetchTagsForNode(nodeId), // 2
-        _nodeRepo.hasReviews(nodeId), // 3
-        _aiRepo.fetchLatestEvaluation(nodeId), // 4
-        _loadProfile(), // 5
-      ]);
-
-      final loadedNode = results[0] as Node?;
-      if (loadedNode == null) {
-        setError('Note not found.');
-        return;
-      }
-      node.value = loadedNode;
-      assets.assignAll(results[1] as List<NodeAsset>);
-      tags.assignAll(results[2] as List<Tag>);
-      hasReviews.value = results[3] as bool;
-      final loadedEval = results[4] as AiEvaluation?;
-      evaluation.value = loadedEval == null
-          ? null
-          : _withPreservedUrls(loadedEval, loadedNode.markdown);
-      dismissedLinkSuggestions.clear();
-
-      _loadBucketName(loadedNode.bucketId);
-      _loadModelLabel();
-      _signAssetUrls();
-      _loadContentLinks(loadedNode);
-
-      if (evaluation.value == null && showAiPanel && !overviewLocked) {
-        _triggerEvaluate();
-      }
-
-      setSuccess();
+      loadedNode = await _nodeRepo.fetchById(nodeId);
     } on RepoException catch (e) {
       setError(e.message);
+      return;
+    }
+    if (loadedNode == null) {
+      setError('Note not found.');
+      return;
+    }
+    node.value = loadedNode;
+
+    final results = await Future.wait([
+      _guard('assets', () => _nodeRepo.fetchAssets(nodeId), const <NodeAsset>[]),
+      _guard('tags', () => _nodeRepo.fetchTagsForNode(nodeId), const <Tag>[]),
+      _guard('reviews', () => _nodeRepo.hasReviews(nodeId), false),
+      _guard<AiEvaluation?>(
+          'evaluation', () => _aiRepo.fetchLatestEvaluation(nodeId), null),
+      _guard<void>('profile', _loadProfile, null),
+    ]);
+
+    assets.assignAll(results[0] as List<NodeAsset>);
+    tags.assignAll(results[1] as List<Tag>);
+    hasReviews.value = results[2] as bool;
+    final loadedEval = results[3] as AiEvaluation?;
+    evaluation.value = loadedEval == null
+        ? null
+        : _withPreservedUrls(loadedEval, loadedNode.markdown);
+    dismissedLinkSuggestions.clear();
+
+    _loadBucketName(loadedNode.bucketId);
+    _loadModelLabel();
+    _signAssetUrls();
+    _loadContentLinks(loadedNode);
+
+    if (evaluation.value == null && showAiPanel && !overviewLocked) {
+      _triggerEvaluate();
+    }
+
+    setSuccess();
+  }
+
+  /// Runs a non-critical fetch, returning [fallback] (and logging a non-fatal
+  /// breadcrumb) if it fails, so one degraded RPC never blocks the note screen.
+  Future<T> _guard<T>(String what, Future<T> Function() fetch, T fallback) async {
+    try {
+      return await fetch();
+    } catch (e, st) {
+      Sentry.captureException(
+        e,
+        stackTrace: st,
+        withScope: (s) => s
+          ..setTag('feature', 'node_detail')
+          ..setTag('node_detail.degraded', what),
+      );
+      return fallback;
     }
   }
 

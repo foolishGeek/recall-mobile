@@ -8,6 +8,8 @@ import '../../modules/ai_chat/binding/ai_chat_binding.dart';
 import '../../modules/ai_chat/view/ai_chat_view.dart';
 import '../../modules/bucket/binding/bucket_binding.dart';
 import '../../modules/bucket/view/bucket_view.dart';
+import '../../modules/bucket_config/binding/bucket_config_binding.dart';
+import '../../modules/bucket_config/view/bucket_config_view.dart';
 import '../../modules/empty/binding/empty_binding.dart';
 import '../../modules/empty/empty_variant.dart';
 import '../../modules/empty/view/empty_view.dart';
@@ -89,6 +91,11 @@ class AppPages {
       name: Routes.bucket,
       page: () => const BucketView(),
       binding: BucketBinding(),
+    ),
+    GetPage(
+      name: Routes.bucketConfig,
+      page: () => const BucketConfigView(),
+      binding: BucketConfigBinding(),
     ),
     GetPage(
       name: Routes.node,

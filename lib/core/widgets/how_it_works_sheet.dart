@@ -3,10 +3,13 @@
 // Never auto-shows — only opened from a quiet "How it works" affordance.
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../app/routes/app_routes.dart';
 import '../theme/recall_colors.dart';
 import '../utils/recall_haptics.dart';
+import 'aura_mark.dart';
 
 /// One short block inside [showHowItWorksSheet].
 class HowItWorksSection {
@@ -20,6 +23,11 @@ Future<void> showHowItWorksSheet(
   BuildContext context, {
   required String title,
   required List<HowItWorksSection> sections,
+  // Optional "Ask Aura" footer — turns every explainer into a 5-second lesson.
+  // When [auraPrompt] is set, a quiet Aura row deep-links to the chat pre-seeded
+  // with the question (bucket-scoped when [auraBucketIds] is provided).
+  String? auraPrompt,
+  List<String>? auraBucketIds,
 }) {
   final c = RecallColors.of(context);
   RecallHaptics.selection();
@@ -65,6 +73,14 @@ Future<void> showHowItWorksSheet(
                     ),
                   ),
                 ),
+                if (auraPrompt != null) ...[
+                  const SizedBox(height: 16),
+                  _AskAuraRow(
+                    prompt: auraPrompt,
+                    bucketIds: auraBucketIds,
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
@@ -87,6 +103,61 @@ Future<void> showHowItWorksSheet(
       );
     },
   );
+}
+
+/// Quiet "Ask Aura" row for the explainer footer. Monochrome + AuraMark; no
+/// model name. Closes the sheet, then opens Aura chat pre-seeded with [prompt].
+class _AskAuraRow extends StatelessWidget {
+  final String prompt;
+  final List<String>? bucketIds;
+  final VoidCallback onTap;
+
+  const _AskAuraRow({
+    required this.prompt,
+    required this.bucketIds,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = RecallColors.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        RecallHaptics.selection();
+        onTap();
+        Get.toNamed(Routes.aiChat, arguments: {
+          if (bucketIds != null) 'bucket_ids': bucketIds,
+          'seed_prompt': prompt,
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: c.canvas,
+          border: Border.all(color: c.grey200),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const AuraMark(size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Ask Aura to explain in your words',
+                style: GoogleFonts.inter(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: c.ink,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: c.grey500),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Grip extends StatelessWidget {
