@@ -1,88 +1,135 @@
-// Recall · tier gate. Subscription gating — native free, premium, downgraded
-// (sprint S02 §5 / Block B5). Free numeric caps come from [LimitsConfig]
-// when registered; otherwise canon defaults.
-// While `app_config.limits_profile = "relaxed"`, suppress paywall UX and open
-// premium feature access (except Quiz WIP). Flip back via SQL only — no app
-// release. See recall-backend/docs/LIMITS-ROLLBACK.md.
+// Recall · tier gate. Pure value object — no Get.find. Free numeric caps come
+// from the injected [AppLimits] snapshot. While limits_profile = "relaxed",
+// suppress paywall UX and open premium feature access (except Quiz WIP).
+// See recall-backend/docs/LIMITS-ROLLBACK.md.
 
-import 'package:get/get.dart';
-
-import '../config/limits_config.dart';
+import '../config/app_limits.dart';
+import 'feature.dart';
 
 enum SubscriptionTier { free, premium, downgraded }
 
 class TierGate {
+  const TierGate(this.tier, this.limits);
+
   final SubscriptionTier tier;
+  final AppLimits limits;
 
-  const TierGate(this.tier);
-
-  LimitsConfig? get _limitsOrNull =>
-      Get.isRegistered<LimitsConfig>() ? Get.find<LimitsConfig>() : null;
-
-  int get _aiQuota =>
-      _limitsOrNull?.aiQuotaFreeMonthly ?? LimitsConfig.canonAiQuota;
-  int get _aiOverviews =>
-      _limitsOrNull?.aiOverviewFreeMonthly ?? LimitsConfig.canonAiOverviews;
-  int get _buckets =>
-      _limitsOrNull?.bucketsFreeWritable ?? LimitsConfig.canonBuckets;
-  int get _sessionSize =>
-      _limitsOrNull?.sessionSizeFree ?? LimitsConfig.canonSessionSize;
-
-  /// Live `app_config.limits_profile == relaxed` (temporary free).
-  bool get isRelaxed => _limitsOrNull?.isRelaxed ?? false;
-
-  /// True paid premium, or temporary-free while limits are relaxed.
+  bool get isRelaxed => limits.isRelaxed;
   bool get hasPremiumAccess => isPremium || isRelaxed;
-
-  /// Hide / no-op all paywall navigation while temporary free is on.
   bool get suppressPaywall => isRelaxed;
 
   bool get isPremium => tier == SubscriptionTier.premium;
   bool get isDowngraded => tier == SubscriptionTier.downgraded;
   bool get isFree => tier == SubscriptionTier.free;
 
-  /// Quiz tab blocked for free and downgraded (WIP sheet — not unlocked by relaxed).
+  /// Quiz stays premium-only (WIP) — never unlocked by relaxed.
   bool get quizBlocked => !isPremium;
 
-  /// AI features disabled when downgraded (open while limits_profile=relaxed).
   bool get aiDisabled => isDowngraded && !isRelaxed;
+  bool get aiOverviewBlocked => isDowngraded && !isRelaxed;
 
-  /// AI quota lock when a free user has exhausted monthly requests.
   bool aiQuotaExhausted({required int requestsUsed, int? limit}) =>
-      isFree && requestsUsed >= (limit ?? _aiQuota);
+      isFree && requestsUsed >= (limit ?? limits.aiQuotaFreeMonthly);
 
-  /// Max writable/active buckets: app_config free, unlimited premium, first 3
-  /// downgraded — uncapped for everyone while relaxed.
-  int get maxActiveBuckets {
-    if (isRelaxed) return 999;
-    switch (tier) {
-      case SubscriptionTier.premium:
-        return 999;
-      case SubscriptionTier.downgraded:
-        return 3;
-      case SubscriptionTier.free:
-        return _buckets;
-    }
-  }
+  bool aiOverviewQuotaExhausted({required int overviewsUsed, int? limit}) =>
+      isFree && overviewsUsed >= (limit ?? limits.aiOverviewFreeMonthly);
 
-  /// Cards per generated stack: session_size_free / 12 premium [D-ENG-3].
-  int get cardsPerStack => hasPremiumAccess ? 12 : _sessionSize;
+  int get cardsPerStack => hasPremiumAccess ? 12 : limits.sessionSizeFree;
 
-  /// Bucket index is read-only when downgraded and index >= 3 (off while relaxed).
-  bool isBucketReadOnly(int bucketIndex) =>
-      !isRelaxed && isDowngraded && bucketIndex >= 3;
-
-  /// Show the PRO lock on the add-bucket FAB: free at config cap, downgraded at 3.
+  /// Show the PRO lock on the add-bucket FAB.
   bool showBucketFabLock({required int currentBucketCount}) {
     if (isRelaxed) return false;
-    if (isFree) return currentBucketCount >= _buckets;
+    if (isFree) return currentBucketCount >= limits.bucketsFreeWritable;
     if (isDowngraded) return currentBucketCount >= 3;
     return false;
   }
 
-  /// Node AI overview: blocked for downgraded unless temporary free is on.
-  bool get aiOverviewBlocked => isDowngraded && !isRelaxed;
+  /// Numeric cap for a feature (stacks/month, buckets, AI quotas, session size).
+  int capFor(Feature feature) {
+    switch (feature) {
+      case Feature.reviewStack:
+        return hasPremiumAccess ? 999 : limits.stacksFreeMonthly;
+      case Feature.bucketCreate:
+        if (isRelaxed || isPremium) return 999;
+        if (isDowngraded) return 3;
+        return limits.bucketsFreeWritable;
+      case Feature.aiChat:
+        return hasPremiumAccess ? 999 : limits.aiQuotaFreeMonthly;
+      case Feature.aiOverview:
+        return hasPremiumAccess ? 999 : limits.aiOverviewFreeMonthly;
+      case Feature.sessionSize:
+        return cardsPerStack;
+      case Feature.insightsFull:
+      case Feature.youLedger:
+      case Feature.quiz:
+        return hasPremiumAccess || (feature != Feature.quiz && isRelaxed)
+            ? 1
+            : 0;
+    }
+  }
 
-  bool aiOverviewQuotaExhausted({required int overviewsUsed, int? limit}) =>
-      isFree && overviewsUsed >= (limit ?? _aiOverviews);
+  /// Single policy switch for every pro/free feature.
+  Access access(Feature feature, {int used = 0}) {
+    switch (feature) {
+      case Feature.quiz:
+        if (isPremium) return const Access.allowed();
+        return const Access.denied(AccessDenial.wip,
+            message: 'Quiz is in progress for Premium.');
+
+      case Feature.insightsFull:
+      case Feature.youLedger:
+        if (hasPremiumAccess) return const Access.allowed();
+        return const Access.denied(AccessDenial.paywall);
+
+      case Feature.reviewStack:
+        if (hasPremiumAccess) return const Access.allowed();
+        if (used >= limits.stacksFreeMonthly) {
+          return Access.denied(
+            AccessDenial.paywall,
+            message:
+                'Free plan allows ${limits.stacksFreeMonthly} stacks per month.',
+          );
+        }
+        return const Access.allowed();
+
+      case Feature.bucketCreate:
+        if (isRelaxed || isPremium) return const Access.allowed();
+        final cap = isDowngraded ? 3 : limits.bucketsFreeWritable;
+        if (used >= cap) {
+          return Access.denied(
+            AccessDenial.paywall,
+            message: 'Free plan allows up to $cap buckets.',
+          );
+        }
+        return const Access.allowed();
+
+      case Feature.aiChat:
+        if (aiDisabled) {
+          return const Access.denied(AccessDenial.paywall,
+              message: 'AI unavailable — resubscribe to continue');
+        }
+        if (aiQuotaExhausted(requestsUsed: used)) {
+          return Access.denied(
+            AccessDenial.quota,
+            message: 'Monthly AI limit reached',
+          );
+        }
+        return const Access.allowed();
+
+      case Feature.aiOverview:
+        if (aiOverviewBlocked) {
+          return const Access.denied(AccessDenial.paywall);
+        }
+        if (aiOverviewQuotaExhausted(overviewsUsed: used)) {
+          return Access.denied(
+            AccessDenial.quota,
+            message: 'Monthly overview limit reached',
+          );
+        }
+        return const Access.allowed();
+
+      case Feature.sessionSize:
+        return const Access.allowed();
+    }
+  }
 }
