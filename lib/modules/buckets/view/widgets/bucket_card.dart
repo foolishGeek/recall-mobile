@@ -5,7 +5,7 @@ import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
 import '../../../../core/widgets/neo_chip.dart';
 import '../../../../core/widgets/soft_card.dart';
-import '../../../../data/models/bucket.dart';
+import '../../../../data/models/bucket/bucket.dart';
 import '../../controller/buckets_controller.dart';
 
 class BucketCard extends StatelessWidget {
@@ -182,7 +182,8 @@ class _MasteryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final value = progress.clamp(0.0, 1.0);
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final label = '${(value * 100).round()}%';
     const height = 30.0;
 
@@ -216,7 +217,8 @@ class _MasteryStrip extends StatelessWidget {
                   ),
                   Positioned.fill(
                     child: Center(
-                      child: Text(label, style: baseStyle.copyWith(color: c.ink)),
+                      child:
+                          Text(label, style: baseStyle.copyWith(color: c.ink)),
                     ),
                   ),
                   Positioned.fill(

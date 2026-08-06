@@ -6,19 +6,20 @@ import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/utils/coach_keys.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
-import '../../../data/services/metrics_service.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/metrics/metrics_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 import '../../shell/controller/shell_controller.dart';
 
 enum BucketFilter { all, active, cooling, aToZ }
@@ -85,7 +86,9 @@ class BucketsController extends BaseController
   }
 
   bool isReadOnly(Bucket b) =>
-      _tierService.gate.isDowngraded && !activeBucketIds.contains(b.id);
+      !_tierService.gate.isRelaxed &&
+      _tierService.gate.isDowngraded &&
+      !activeBucketIds.contains(b.id);
 
   bool isCooling(Bucket b) =>
       b.cooldownUntil != null && b.cooldownUntil!.isAfter(DateTime.now());
@@ -328,6 +331,10 @@ class BucketsController extends BaseController
       RecallHaptics.medium();
       await reload(forceRemote: true);
     } on RepoException catch (e) {
+      if (e.code == RepoErrorCode.freeTierBucketLimit) {
+        _tierService.enforce(Feature.bucketCreate, used: buckets.length);
+        return;
+      }
       setError(e.isOffline
           ? 'You\'re offline. Check your connection and try again.'
           : e.message);

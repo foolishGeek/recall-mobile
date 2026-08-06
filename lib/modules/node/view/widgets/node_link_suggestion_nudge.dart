@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
 import '../../../../core/utils/note_links.dart';
-import '../../../../data/models/link_suggestion.dart';
+import '../../../../data/models/ai/link_suggestion.dart';
 
 class NodeLinkSuggestionNudge extends StatefulWidget {
   final LinkSuggestion suggestion;

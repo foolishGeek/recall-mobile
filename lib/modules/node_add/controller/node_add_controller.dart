@@ -6,18 +6,20 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/base/base_controller.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/utils/coach_keys.dart';
+import '../../../core/utils/node_metadata.dart';
 import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/neo_chip.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/node_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/node/node_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import 'picked_file.dart';
 
 class NodeAddController extends BaseController {
@@ -165,8 +167,8 @@ class NodeAddController extends BaseController {
           comfortReadOnly.value = results[4] as bool;
           existingAssets.assignAll(results[5] as List<NodeAsset>);
           _signExistingAssets();
-          final nodeBucketWritable = writableBuckets
-              .any((b) => b.id == _existingNode!.bucketId);
+          final nodeBucketWritable =
+              writableBuckets.any((b) => b.id == _existingNode!.bucketId);
           if (!nodeBucketWritable) {
             bucketReadOnly.value = true;
             setError(
@@ -323,35 +325,12 @@ class NodeAddController extends BaseController {
 
   // ── Chip cycling ──
 
-  static const _priorityLabels = ['LOW', 'LOW', 'MED', 'HIGH', 'HIGH'];
-  static const _difficultyLabels = ['EASY', 'EASY', 'MED', 'HARD', 'HARD'];
-
-  String priorityLabel(int val) => _priorityLabels[(val - 1).clamp(0, 4)];
-  String difficultyLabel(int val) => _difficultyLabels[(val - 1).clamp(0, 4)];
-
-  static String comfortLabel(int val) {
-    if (val <= 33) return 'LOW';
-    if (val <= 66) return 'SO-SO';
-    return 'COMFY';
-  }
-
-  NeoLevel priorityLevel(int val) {
-    if (val >= 4) return NeoLevel.high;
-    if (val >= 3) return NeoLevel.medium;
-    return NeoLevel.low;
-  }
-
-  NeoLevel difficultyLevel(int val) {
-    if (val >= 4) return NeoLevel.high;
-    if (val >= 3) return NeoLevel.medium;
-    return NeoLevel.low;
-  }
-
-  NeoLevel comfortLevel(int val) {
-    if (val <= 33) return NeoLevel.high;
-    if (val <= 66) return NeoLevel.medium;
-    return NeoLevel.low;
-  }
+  String priorityLabel(int val) => NodeMetadata.priorityLabel(val);
+  String difficultyLabel(int val) => NodeMetadata.difficultyLabel(val);
+  static String comfortLabel(int val) => NodeMetadata.comfortLabel(val);
+  NeoLevel priorityLevel(int val) => NodeMetadata.priorityLevel(val);
+  NeoLevel difficultyLevel(int val) => NodeMetadata.difficultyLevel(val);
+  NeoLevel comfortLevel(int val) => NodeMetadata.comfortLevel(val);
 
   void onPriorityCycle() {
     RecallHaptics.light();
@@ -440,8 +419,15 @@ class NodeAddController extends BaseController {
       _revalidate();
       RecallHaptics.selection();
     } on RepoException catch (e, st) {
-      validationError.value = e.message;
-      _capture(e, st);
+      if (e.code == RepoErrorCode.freeTierBucketLimit) {
+        tierService.enforce(
+          Feature.bucketCreate,
+          used: writableBuckets.length,
+        );
+      } else {
+        validationError.value = e.message;
+        _capture(e, st);
+      }
     }
   }
 
@@ -699,7 +685,7 @@ class NodeAddController extends BaseController {
   }
 
   void _capture(Object error, StackTrace st) {
-    Sentry.captureException(error, stackTrace: st,
-        withScope: (s) => s.setTag('feature', 'node_add'));
+    Sentry.captureException(error,
+        stackTrace: st, withScope: (s) => s.setTag('feature', 'node_add'));
   }
 }

@@ -8,9 +8,9 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/neo_chip.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/quiz_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
+import '../../../data/repositories/quiz/quiz_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import '../../quiz_home/view/widgets/quiz_in_progress_sheet.dart';
 
 part 'quiz_play_controller_flow.dart';
@@ -51,8 +51,9 @@ class QuizPlayController extends BaseController {
   double get progress => total == 0 ? 0 : displayPosition / total;
   bool get hasTimer => (timerSec ?? 0) > 0;
 
-  GeneratedQuizQuestion? get current =>
-      currentIndex.value < questions.length ? questions[currentIndex.value] : null;
+  GeneratedQuizQuestion? get current => currentIndex.value < questions.length
+      ? questions[currentIndex.value]
+      : null;
   QuizQuestion? get question => current?.question;
   QuizQuestionType get type => question?.type ?? QuizQuestionType.mcq;
 

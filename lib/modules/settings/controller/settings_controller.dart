@@ -19,7 +19,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
-import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../core/utils/coach_keys.dart';
@@ -29,15 +28,17 @@ import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/notification_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/revenuecat_service.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/revenuecat_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/platform/notification_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 
 part 'settings_controller_actions.dart';
+
+enum SubscriptionCardMode { premium, relaxedFree, downgraded, free }
 
 /// Selectable cooling-period durations (days) for the Review default [S24].
 const List<int> kCoolingDayOptions = [1, 3, 7, 14, 30];
@@ -67,11 +68,7 @@ const List<(String, String, String)> kFrequencyOptions = [
     'Persistent',
     'Keeps nudging · smaller batches · re-nudges every ~2h'
   ),
-  (
-    'asap',
-    'ASAO',
-    'As soon as one · Drop when even a single note is ready'
-  ),
+  ('asap', 'ASAO', 'As soon as one · Drop when even a single note is ready'),
 ];
 
 class SettingsController extends BaseController {
@@ -124,14 +121,23 @@ class SettingsController extends BaseController {
   final RxBool repairingReminders = false.obs;
 
   // ── Tier ──────────────────────────────────────────────────────────────────
-  TierGate get gate => TierGate(tier.value);
-  bool get isPremium => tier.value == SubscriptionTier.premium;
+  TierGate get gate => _tier.gate;
+  bool get isPremium =>
+      _tier.tierRx.value == SubscriptionTier.premium ||
+      tier.value == SubscriptionTier.premium;
   bool get isDowngraded => tier.value == SubscriptionTier.downgraded;
   bool get isFree => tier.value == SubscriptionTier.free;
 
   /// Config-driven temporary free (`limits_profile=relaxed`).
-  bool get suppressPaywall =>
-      Get.isRegistered<LimitsConfig>() && Get.find<LimitsConfig>().isRelaxed;
+  bool get suppressPaywall => gate.suppressPaywall;
+
+  /// Single view-mode for the subscription card (avoids multi-branch in the view).
+  SubscriptionCardMode get subscriptionMode {
+    if (isPremium) return SubscriptionCardMode.premium;
+    if (suppressPaywall) return SubscriptionCardMode.relaxedFree;
+    if (isDowngraded) return SubscriptionCardMode.downgraded;
+    return SubscriptionCardMode.free;
+  }
 
   bool get isOffline => _syncStatus.isOffline.value;
 
@@ -168,8 +174,7 @@ class SettingsController extends BaseController {
     return days < 1 ? 1 : days;
   }
 
-  String get coolingLabel =>
-      coolingDays == 1 ? '1 day' : '$coolingDays days';
+  String get coolingLabel => coolingDays == 1 ? '1 day' : '$coolingDays days';
 
   int? get sessionSizeOverride => profile.value?.sessionSizeOverride;
 
@@ -307,8 +312,8 @@ class SettingsController extends BaseController {
       }
       await _notifications.registerDeviceToken();
     }
-    await _patch({'push_opt_in': value},
-        profile.value?.copyWith(pushOptIn: value));
+    await _patch(
+        {'push_opt_in': value}, profile.value?.copyWith(pushOptIn: value));
   }
 
   /// Loads the honest Drop eligibility breakdown for the Reminders diagnostic.
@@ -421,7 +426,8 @@ class SettingsController extends BaseController {
     final userId = _auth.currentUserId;
     if (userId == null) return;
     try {
-      profile.value = await _profiles.updatePreferences(userId, {'theme': value});
+      profile.value =
+          await _profiles.updatePreferences(userId, {'theme': value});
     } on RepoException catch (e, st) {
       await _theme.apply(prevTheme);
       profile.value = prev;
@@ -439,8 +445,8 @@ class SettingsController extends BaseController {
     final userId = _auth.currentUserId;
     if (userId == null) return;
     try {
-      profile.value =
-          await _profiles.updatePreferences(userId, {'analytics_opt_in': value});
+      profile.value = await _profiles
+          .updatePreferences(userId, {'analytics_opt_in': value});
     } on RepoException catch (e, st) {
       _auth.setAnalyticsOptIn(prev?.analyticsOptIn ?? true);
       profile.value = prev;
@@ -511,6 +517,16 @@ class SettingsController extends BaseController {
 }
 
 const _kMonthAbbr = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];

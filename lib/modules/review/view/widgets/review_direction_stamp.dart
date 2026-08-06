@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../data/models/enums.dart';
+import '../../../../data/models/shared/enums.dart';
 
 class ReviewDirectionStamp extends StatelessWidget {
   final ReviewGrade grade;

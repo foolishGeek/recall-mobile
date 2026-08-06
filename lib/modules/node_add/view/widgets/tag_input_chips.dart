@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../data/models/tag.dart';
+import '../../../../data/models/node/tag.dart';
 
 class TagInputChips extends StatelessWidget {
   final List<Tag> tags;

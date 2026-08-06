@@ -21,10 +21,16 @@ class SettingsSubscriptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      if (controller.isPremium) return _premium(context);
-      if (controller.suppressPaywall) return _relaxedFree(context);
-      if (controller.isDowngraded) return _downgraded(context);
-      return _free(context);
+      switch (controller.subscriptionMode) {
+        case SubscriptionCardMode.premium:
+          return _premium(context);
+        case SubscriptionCardMode.relaxedFree:
+          return _relaxedFree(context);
+        case SubscriptionCardMode.downgraded:
+          return _downgraded(context);
+        case SubscriptionCardMode.free:
+          return _free(context);
+      }
     });
   }
 

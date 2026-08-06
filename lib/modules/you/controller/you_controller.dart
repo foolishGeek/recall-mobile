@@ -18,31 +18,21 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
-import '../../../core/config/limits_config.dart';
+import '../../../core/constants/subscription_links.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/level_titles.dart';
 import '../../../core/utils/recall_haptics.dart';
+import '../../../core/utils/recall_time.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/insights_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/insights/insights_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 import '../../shell/controller/shell_controller.dart';
-
-/// Native OS subscription-management deep links. RevenueCat Customer Center can
-/// replace these in S23; today this is the calm, forward-compatible target.
-const _kIosManageSubscriptions =
-    'https://apps.apple.com/account/subscriptions';
-const _kAndroidManageSubscriptions =
-    'https://play.google.com/store/account/subscriptions';
-
-const _kMonthAbbr = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
 
 /// The total achievement set is the 12-row canonical seed [D-SCHEMA-1].
 const int kAchievementTotal = 12;
@@ -64,12 +54,7 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
 
   /// Memory simulation + premium You ledger while payments settle
   /// (`limits_profile=relaxed`) or when truly premium.
-  bool get showSimulation {
-    if (isPremium) return true;
-    if (!Get.isRegistered<LimitsConfig>()) return false;
-    return Get.find<LimitsConfig>().profileRx.value ==
-        LimitsConfig.profileRelaxed;
-  }
+  bool get showSimulation => gate.access(Feature.youLedger).allowed;
 
   // ── State (all server-authoritative) ────────────────────────────────────
   final Rxn<Profile> profile = Rxn<Profile>();
@@ -105,9 +90,10 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
   }
 
   // ── Derived (presentation) ───────────────────────────────────────────────
-  String get displayName => profile.value?.displayName?.trim().isNotEmpty == true
-      ? profile.value!.displayName!.trim()
-      : 'Your profile';
+  String get displayName =>
+      profile.value?.displayName?.trim().isNotEmpty == true
+          ? profile.value!.displayName!.trim()
+          : 'Your profile';
 
   String? get email => _auth.currentEmail;
 
@@ -148,7 +134,7 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
   String? get memberSinceLabel {
     final d = lifetime.value?.memberSince;
     if (d == null) return null;
-    final mon = _kMonthAbbr[(d.month - 1).clamp(0, 11)];
+    final mon = RecallTime.monthAbbr(d.month);
     final yy = (d.year % 100).toString().padLeft(2, '0');
     return "since $mon '$yy";
   }
@@ -325,14 +311,13 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
   Future<void> onManageSubscription() async {
     _track('manage_subscription_tapped', {'tier': gate.tier.name});
     final url = Platform.isIOS || Platform.isMacOS
-        ? _kIosManageSubscriptions
-        : _kAndroidManageSubscriptions;
+        ? SubscriptionLinks.ios
+        : SubscriptionLinks.android;
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     } catch (e, st) {
       await Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'you'));
+          stackTrace: st, withScope: (s) => s.setTag('feature', 'you'));
     }
   }
 

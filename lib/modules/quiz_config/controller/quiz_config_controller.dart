@@ -6,14 +6,14 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/node_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/repositories/quiz_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/node/node_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/repositories/quiz/quiz_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 import '../../quiz_home/view/widgets/quiz_in_progress_sheet.dart';
 
 part 'quiz_config_controller_flow.dart';
@@ -194,10 +194,12 @@ class QuizConfigController extends BaseController {
   void setTimerEnabled(bool value) => timerEnabled.value = value;
 
   void applyGhostPrompt(String text) {
-    final cleaned = text.replaceAll(RegExp(r'^try\s+'), '').replaceAll('"', '').trim();
+    final cleaned =
+        text.replaceAll(RegExp(r'^try\s+'), '').replaceAll('"', '').trim();
     if (cleaned.isEmpty) return;
     promptController.text = cleaned;
-    promptController.selection = TextSelection.collapsed(offset: cleaned.length);
+    promptController.selection =
+        TextSelection.collapsed(offset: cleaned.length);
     RecallHaptics.selection();
   }
 

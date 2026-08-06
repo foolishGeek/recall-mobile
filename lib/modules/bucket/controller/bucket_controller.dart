@@ -12,13 +12,13 @@ import '../../../core/widgets/cooling_period_selector.dart';
 import '../../../core/widgets/reminder_style_selector.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/node_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/node/node_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import '../../buckets/controller/buckets_controller.dart';
 
 class BucketController extends BaseController {
@@ -91,10 +91,12 @@ class BucketController extends BaseController {
         });
         break;
       case 2: // A → Z
-        nodes.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        nodes.sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
         break;
       case 3: // newest
-        nodes.sort((a, b) => (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
+        nodes.sort((a, b) => (b.createdAt ?? DateTime(2000))
+            .compareTo(a.createdAt ?? DateTime(2000)));
         break;
     }
   }
@@ -148,8 +150,7 @@ class BucketController extends BaseController {
   int get dueCount {
     final now = DateTime.now().toUtc();
     return nodes
-        .where((n) =>
-            n.srEnabled && n.dueAt != null && !n.dueAt!.isAfter(now))
+        .where((n) => n.srEnabled && n.dueAt != null && !n.dueAt!.isAfter(now))
         .length;
   }
 
@@ -258,7 +259,8 @@ class BucketController extends BaseController {
       );
     } on RepoException catch (e, st) {
       schedulingPrefs.value = prev;
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
@@ -275,15 +277,15 @@ class BucketController extends BaseController {
       );
     } on RepoException catch (e, st) {
       schedulingPrefs.value = prev;
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
 
   void _syncDraftFromBucket(Bucket b) {
     final days = b.coolingPeriodDuration?.inDays;
-    final presetIndex =
-        days == null ? -1 : _coolingPresetDays.indexOf(days);
+    final presetIndex = days == null ? -1 : _coolingPresetDays.indexOf(days);
     if (presetIndex >= 0) {
       draftCoolingIndex.value = presetIndex;
       draftCustomDays.value = null;
@@ -362,7 +364,8 @@ class BucketController extends BaseController {
       // Revert draft to server state on failure
       if (bucket.value != null) _syncDraftFromBucket(bucket.value!);
       hasPendingChanges.value = false;
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     } finally {
       isSavingConfig.value = false;
@@ -392,7 +395,8 @@ class BucketController extends BaseController {
       );
     } on RepoException catch (e, st) {
       summaryError.value = e.message;
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     } finally {
       isSummarizing.value = false;
@@ -426,7 +430,8 @@ class BucketController extends BaseController {
       _refreshBucketsList();
     } on RepoException catch (e, st) {
       bucket.value = prev;
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
@@ -446,7 +451,8 @@ class BucketController extends BaseController {
       bucket.value = updated;
     } on RepoException catch (e, st) {
       bucket.value = prev;
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
@@ -484,7 +490,8 @@ class BucketController extends BaseController {
     } on RepoException catch (e, st) {
       bucket.value = prev;
       await _reloadNodes();
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
@@ -527,7 +534,8 @@ class BucketController extends BaseController {
     } on RepoException catch (e, st) {
       // Restore on failure so the note never silently vanishes.
       nodes.insert(index.clamp(0, nodes.length), removed);
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
       return false;
     }
@@ -541,7 +549,8 @@ class BucketController extends BaseController {
       await _bucketRepo.softDelete(bucketId);
       Get.back();
     } on RepoException catch (e, st) {
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
@@ -566,6 +575,8 @@ class BucketController extends BaseController {
     await Get.toNamed(Routes.bucketConfig, arguments: {'bucket_id': bucketId});
   }
 
+  void onUpgradeTap() => _tierService.openPaywall();
+
   /// Silently refreshes the node list + mastery after returning from add/edit
   /// (no loading flicker), so newly saved or edited nodes appear immediately.
   Future<void> _reloadNodes() async {
@@ -579,7 +590,8 @@ class BucketController extends BaseController {
       _applySorting();
       mastery.value = (results[1] as double?) ?? mastery.value;
     } on RepoException catch (e, st) {
-      Sentry.captureException(e, stackTrace: st,
+      Sentry.captureException(e,
+          stackTrace: st,
           withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }

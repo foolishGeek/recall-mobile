@@ -4,17 +4,19 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/gates/tier_gate.dart';
+import '../../../core/utils/node_metadata.dart';
 import '../../../core/utils/note_links.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/neo_chip.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/node_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/node/node_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import '../view/widgets/node_ai_diff_view.dart';
 import '../view/widgets/node_ask_ai_update_sheet.dart';
 
@@ -79,7 +81,8 @@ class NodeController extends BaseController {
   bool get showAiPanel => !gate.aiOverviewBlocked;
   bool get showAskAi => !gate.aiDisabled;
   bool get overviewLocked =>
-      gate.aiOverviewQuotaExhausted(overviewsUsed: overviewsUsed.value);
+      gate.access(Feature.aiOverview, used: overviewsUsed.value).denial ==
+      AccessDenial.quota;
 
   String get nodeTypeLabel {
     switch (node.value?.type ?? NodeType.text) {
@@ -126,7 +129,7 @@ class NodeController extends BaseController {
       comfortLabel(evaluation.value?.suggestedComfort ?? 50);
 
   NeoLevel get suggestedComfortLevel =>
-      _comfortLevel(evaluation.value?.suggestedComfort ?? 50);
+      comfortLevelFor(evaluation.value?.suggestedComfort ?? 50);
 
   String? get evalFeedback => evaluation.value?.feedback;
 
@@ -138,7 +141,8 @@ class NodeController extends BaseController {
     return s.trim() != (node.value?.markdown ?? '').trim();
   }
 
-  String get overviewQuotaLabel => '${overviewsUsed.value} / 2';
+  String get overviewQuotaLabel =>
+      '${overviewsUsed.value} / ${gate.capFor(Feature.aiOverview)}';
 
   @override
   void onInit() {
@@ -177,7 +181,8 @@ class NodeController extends BaseController {
     node.value = loadedNode;
 
     final results = await Future.wait([
-      _guard('assets', () => _nodeRepo.fetchAssets(nodeId), const <NodeAsset>[]),
+      _guard(
+          'assets', () => _nodeRepo.fetchAssets(nodeId), const <NodeAsset>[]),
       _guard('tags', () => _nodeRepo.fetchTagsForNode(nodeId), const <Tag>[]),
       _guard('reviews', () => _nodeRepo.hasReviews(nodeId), false),
       _guard<AiEvaluation?>(
@@ -208,7 +213,8 @@ class NodeController extends BaseController {
 
   /// Runs a non-critical fetch, returning [fallback] (and logging a non-fatal
   /// breadcrumb) if it fails, so one degraded RPC never blocks the note screen.
-  Future<T> _guard<T>(String what, Future<T> Function() fetch, T fallback) async {
+  Future<T> _guard<T>(
+      String what, Future<T> Function() fetch, T fallback) async {
     try {
       return await fetch();
     } catch (e, st) {
@@ -345,9 +351,8 @@ class NodeController extends BaseController {
 
   Future<void> _enrichLink(String url, int index) async {
     try {
-      final preview = await _aiRepo
-          .linkPreview(url)
-          .timeout(const Duration(seconds: 6));
+      final preview =
+          await _aiRepo.linkPreview(url).timeout(const Duration(seconds: 6));
       var enriched =
           preview.canonicalUrl == null || preview.canonicalUrl!.isEmpty
               ? preview.copyWith(canonicalUrl: url)
@@ -367,37 +372,12 @@ class NodeController extends BaseController {
 
   // ── Chip cycling ──
 
-  static const _priorityLabels = ['LOW', 'LOW', 'MED', 'HIGH', 'HIGH'];
-  static const _difficultyLabels = ['EASY', 'EASY', 'MED', 'HARD', 'HARD'];
-
-  String priorityLabel(int val) => _priorityLabels[(val - 1).clamp(0, 4)];
-  String difficultyLabel(int val) => _difficultyLabels[(val - 1).clamp(0, 4)];
-
-  static String comfortLabel(int val) {
-    if (val <= 33) return 'LOW';
-    if (val <= 66) return 'SO-SO';
-    return 'COMFY';
-  }
-
-  NeoLevel priorityLevel(int val) {
-    if (val >= 4) return NeoLevel.high;
-    if (val >= 3) return NeoLevel.medium;
-    return NeoLevel.low;
-  }
-
-  NeoLevel difficultyLevel(int val) {
-    if (val >= 4) return NeoLevel.high;
-    if (val >= 3) return NeoLevel.medium;
-    return NeoLevel.low;
-  }
-
-  static NeoLevel _comfortLevel(int val) {
-    if (val <= 33) return NeoLevel.high;
-    if (val <= 66) return NeoLevel.medium;
-    return NeoLevel.low;
-  }
-
-  NeoLevel comfortLevelFor(int val) => _comfortLevel(val);
+  String priorityLabel(int val) => NodeMetadata.priorityLabel(val);
+  String difficultyLabel(int val) => NodeMetadata.difficultyLabel(val);
+  static String comfortLabel(int val) => NodeMetadata.comfortLabel(val);
+  NeoLevel priorityLevel(int val) => NodeMetadata.priorityLevel(val);
+  NeoLevel difficultyLevel(int val) => NodeMetadata.difficultyLevel(val);
+  NeoLevel comfortLevelFor(int val) => NodeMetadata.comfortLevel(val);
 
   void onPriorityTap() {
     RecallHaptics.light();
@@ -435,7 +415,8 @@ class NodeController extends BaseController {
     final n = node.value;
     if (n == null || n.srEnabled == enabled) return;
     RecallHaptics.selection();
-    await _updateNodeField('sr_enabled', enabled, n.copyWith(srEnabled: enabled));
+    await _updateNodeField(
+        'sr_enabled', enabled, n.copyWith(srEnabled: enabled));
   }
 
   Future<void> _updateNodeField(
@@ -456,8 +437,8 @@ class NodeController extends BaseController {
       node.value = updated;
     } on RepoException catch (e, st) {
       node.value = prev;
-      Sentry.captureException(e, stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'node_detail'));
+      Sentry.captureException(e,
+          stackTrace: st, withScope: (s) => s.setTag('feature', 'node_detail'));
     }
   }
 
@@ -469,8 +450,7 @@ class NodeController extends BaseController {
     evalError.value = null;
     _trackEvent('ai_overview_viewed', {'node_id': nodeId});
     try {
-      final result =
-          await _aiRepo.evaluate(nodeId, forceRefresh: forceRefresh);
+      final result = await _aiRepo.evaluate(nodeId, forceRefresh: forceRefresh);
       final draft = AiEvaluation(
         id: '',
         nodeId: nodeId,
@@ -487,9 +467,14 @@ class NodeController extends BaseController {
       dismissedLinkSuggestions.clear();
       evalRating.value = 0;
     } on RepoException catch (e, st) {
-      evalError.value = e.message;
-      Sentry.captureException(e, stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'node_detail'));
+      if (e.code == RepoErrorCode.overviewQuotaExceeded) {
+        _tierService.enforce(Feature.aiOverview, used: overviewsUsed.value);
+      } else {
+        evalError.value = e.message;
+        Sentry.captureException(e,
+            stackTrace: st,
+            withScope: (s) => s.setTag('feature', 'node_detail'));
+      }
     } finally {
       isEvalLoading.value = false;
     }
@@ -702,8 +687,8 @@ class NodeController extends BaseController {
       );
     } on RepoException catch (e, st) {
       ragError.value = e.message;
-      Sentry.captureException(e, stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'node_detail'));
+      Sentry.captureException(e,
+          stackTrace: st, withScope: (s) => s.setTag('feature', 'node_detail'));
     } finally {
       isAskingAi.value = false;
     }
@@ -759,8 +744,8 @@ class NodeController extends BaseController {
       await _nodeRepo.softDelete(nodeId);
       Get.back();
     } on RepoException catch (e, st) {
-      Sentry.captureException(e, stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'node_detail'));
+      Sentry.captureException(e,
+          stackTrace: st, withScope: (s) => s.setTag('feature', 'node_detail'));
     }
   }
 
@@ -800,7 +785,9 @@ class NodeController extends BaseController {
   String pdfSizeLabel(int? bytes) {
     if (bytes == null) return 'PDF';
     if (bytes < 1024) return '$bytes B · PDF';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB · PDF';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(0)} KB · PDF';
+    }
     return '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB · PDF';
   }
 

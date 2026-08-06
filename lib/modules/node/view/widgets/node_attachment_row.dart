@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../data/models/node_asset.dart';
+import '../../../../data/models/node/node_asset.dart';
 import 'node_body_image.dart';
 import 'node_body_pdf.dart';
 
@@ -49,8 +49,9 @@ class NodeAttachmentRow extends StatelessWidget {
     final signedUrl = signedUrls[asset.id];
     final sizeLabel = _fileSizeLabel(asset.fileSizeBytes);
     if (asset.mimeType.contains('pdf')) {
-      final pdfLabel =
-          asset.pageCount != null ? '$sizeLabel · ${asset.pageCount}p' : sizeLabel;
+      final pdfLabel = asset.pageCount != null
+          ? '$sizeLabel · ${asset.pageCount}p'
+          : sizeLabel;
       return NodeBodyPdf(
         signedUrl: signedUrl,
         sizeLabel: pdfLabel,

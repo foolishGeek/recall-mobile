@@ -8,9 +8,6 @@ import '../../../../core/brand/aura_brand.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/widgets/mono_label.dart';
 
-/// The user-facing AI brand. Always Aura regardless of the routed model.
-String aiModelBrand(String? model) => AuraBrand.name;
-
 class AiModelTag extends StatelessWidget {
   final String? model;
   final bool streaming;

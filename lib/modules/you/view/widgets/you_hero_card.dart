@@ -12,7 +12,7 @@ import '../../../../core/theme/recall_motion.dart';
 import '../../../../core/widgets/mono_label.dart';
 import '../../../../core/widgets/retention_curve.dart';
 import '../../../../core/widgets/soft_card.dart';
-import '../../../../data/models/retention_simulation.dart';
+import '../../../../data/models/insights/retention_simulation.dart';
 
 class YouHeroCard extends StatelessWidget {
   final RetentionSimulation retention;

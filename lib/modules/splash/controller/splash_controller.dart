@@ -7,20 +7,20 @@ import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/routes/app_routes.dart';
+import '../../../core/config/limits_config.dart';
 import '../../../core/gates/auth_gate.dart';
 import '../../../core/theme/recall_motion.dart';
-import '../../../core/config/limits_config.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/notification_service.dart';
-import '../../../data/services/remote_config_service.dart';
-import '../../../data/services/sync_service.dart';
-import '../../../data/services/tier_service.dart';
-import '../../../data/services/repo_exception.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/platform/notification_service.dart';
+import '../../../data/services/platform/play_update_service.dart';
+import '../../../data/services/platform/remote_config_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_service.dart';
 import '../view/widgets/app_update_sheet.dart';
 
-class SplashController extends GetxController
-    with GetTickerProviderStateMixin {
+class SplashController extends GetxController with GetTickerProviderStateMixin {
   final AuthService _auth = Get.find<AuthService>();
   final ProfileRepository _profileRepo = Get.find<ProfileRepository>();
 
@@ -232,7 +232,10 @@ class SplashController extends GetxController
     final gate = await rc.resolveGate();
     if (gate != AppUpdateGate.force) return false;
     // Stay on splash forever behind a non-dismissible sheet.
-    await AppUpdateSheet.showForce(rc.forceCopy());
+    await AppUpdateSheet.showForce(
+      rc.forceCopy(),
+      onUpdate: _startPlayUpdate,
+    );
     return true;
   }
 
@@ -241,7 +244,17 @@ class SplashController extends GetxController
     final rc = Get.find<RemoteConfigService>();
     final gate = await rc.resolveGate();
     if (gate != AppUpdateGate.soft) return;
-    await AppUpdateSheet.showSoft(rc.softCopy());
+    await AppUpdateSheet.showSoft(
+      rc.softCopy(),
+      onUpdate: _startPlayUpdate,
+    );
+  }
+
+  Future<void> _startPlayUpdate({required bool force}) async {
+    final play = Get.isRegistered<PlayUpdateService>()
+        ? Get.find<PlayUpdateService>()
+        : PlayUpdateService();
+    await play.startUpdate(force: force);
   }
 
   String? _pendingNotificationRoute() {

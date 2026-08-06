@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
@@ -11,8 +10,7 @@ import '../../../../core/theme/recall_typography.dart';
 import '../../../../core/utils/drop_readiness.dart';
 import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/recall_button.dart';
-import '../../../../data/services/metrics_service.dart';
-import '../../../settings/controller/settings_controller.dart';
+import '../../../../data/services/metrics/metrics_service.dart';
 import '../../../settings/view/widgets/settings_pref_sheets.dart';
 import '../../../today/view/widgets/today_top_bar.dart';
 import 'empty_column_reveal.dart';
@@ -57,13 +55,7 @@ class EmptyTodayBody extends StatelessWidget {
       context,
       current: dropFrequency,
       onSelected: (v) {
-        if (onDropFrequencyChanged != null) {
-          onDropFrequencyChanged!(v);
-          return;
-        }
-        if (Get.isRegistered<SettingsController>()) {
-          Get.find<SettingsController>().setDropFrequency(v);
-        }
+        onDropFrequencyChanged?.call(v);
       },
     );
   }

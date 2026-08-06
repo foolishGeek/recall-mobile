@@ -11,15 +11,14 @@ import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/node_repository.dart';
-import '../../../data/repositories/review_repository.dart';
-import '../../../data/repositories/stack_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/metrics_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/supabase_service.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/node/node_repository.dart';
+import '../../../data/repositories/review/review_repository.dart';
+import '../../../data/repositories/stack/stack_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/metrics/metrics_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import '../../shell/controller/shell_controller.dart';
 
 typedef IntervalPreview = Map<String, dynamic>;
@@ -31,7 +30,6 @@ class ReviewController extends BaseController {
   final _nodeRepo = Get.find<NodeRepository>();
   final _bucketRepo = Get.find<BucketRepository>();
   final _aiRepo = Get.find<AiRepository>();
-  final _supabase = Get.find<SupabaseService>();
   final _metrics = Get.find<MetricsService>();
   final _local = Get.find<LocalStore>();
 
@@ -45,6 +43,7 @@ class ReviewController extends BaseController {
   final RxMap<String, List<NodeAsset>> nodeAssets =
       <String, List<NodeAsset>>{}.obs;
   final RxMap<String, String> signedUrls = <String, String>{}.obs;
+
   /// LINKED / WATCH previews from markdown URLs, keyed by nodeId.
   final RxMap<String, List<LinkPreview>> contentLinks =
       <String, List<LinkPreview>>{}.obs;
@@ -106,8 +105,8 @@ class ReviewController extends BaseController {
     }
     final navigator = Get.key.currentState;
     if (navigator != null && navigator.canPop()) {
-      Get.until((Route<dynamic> route) =>
-          _shellRoutes.contains(route.settings.name));
+      Get.until(
+          (Route<dynamic> route) => _shellRoutes.contains(route.settings.name));
     } else {
       Get.offAllNamed(Routes.today);
     }
@@ -349,12 +348,9 @@ class ReviewController extends BaseController {
 
   Future<void> _fetchInterval(String nodeId) async {
     try {
-      final result = await _supabase.rpc(
-        'preview_due_interval_rpc',
-        params: {'node_id': nodeId},
-      );
-      if (result is Map) {
-        intervalPreviews[nodeId] = Map<String, dynamic>.from(result);
+      final result = await _stackRepo.previewDueInterval(nodeId);
+      if (result != null) {
+        intervalPreviews[nodeId] = result;
       }
     } catch (_) {
       // Non-critical; buttons show without captions
@@ -466,13 +462,8 @@ class ReviewController extends BaseController {
     RecallHaptics.heavy();
 
     try {
-      final result = await _supabase.rpc(
-        'complete_stack_rpc',
-        params: {'p_stack_id': stack.value!.id},
-      );
+      final map = await _stackRepo.completeStack(stack.value!.id);
 
-      final map =
-          result is Map ? Map<String, dynamic>.from(result) : <String, dynamic>{};
       final cooling = map['cooling_buckets'];
 
       if (cooling is List && cooling.isNotEmpty) {

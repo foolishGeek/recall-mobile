@@ -8,9 +8,9 @@ import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/theme/recall_motion.dart';
 import '../../../core/utils/recall_haptics.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/notification_service.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/platform/notification_service.dart';
 
 class OnboardingController extends BaseController {
   OnboardingController(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../data/models/enums.dart';
+import '../../../../data/models/shared/enums.dart';
 
 /// Flashcard self-rating: Forgot / Hard / Good / Easy. Stored as the grade;
 /// scheduling happens on the backend at quiz-complete.
