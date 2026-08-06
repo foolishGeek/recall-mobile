@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../data/models/node_asset.dart';
+import '../../../../core/widgets/recall_sheet.dart';
+import '../../../../data/models/node/node_asset.dart';
 import '../../../node/view/widgets/pdf_first_page_thumbnail.dart';
 import '../../controller/picked_file.dart';
 
@@ -136,8 +137,7 @@ class _Thumb extends StatelessWidget {
               left: 6,
               bottom: 6,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
                   color: c.ink,
                   borderRadius: BorderRadius.circular(4),
@@ -182,37 +182,32 @@ class _AddTile extends StatelessWidget {
 
   void _showMenu(BuildContext context) {
     final c = colors;
-    showModalBottomSheet(
+    showRecallSheet(
       context: context,
-      backgroundColor: c.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: c.grey400,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      isScrollControlled: false,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: c.grey400,
+                borderRadius: BorderRadius.circular(2),
               ),
-              const SizedBox(height: 16),
-              _row(ctx, Icons.picture_as_pdf_outlined, 'Add PDF', () {
-                Navigator.pop(ctx);
-                onAddPdf();
-              }),
-              _row(ctx, Icons.image_outlined, 'Add image', () {
-                Navigator.pop(ctx);
-                onAddImage();
-              }),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            _row(ctx, Icons.picture_as_pdf_outlined, 'Add PDF', () {
+              Navigator.pop(ctx);
+              onAddPdf();
+            }),
+            _row(ctx, Icons.image_outlined, 'Add image', () {
+              Navigator.pop(ctx);
+              onAddImage();
+            }),
+          ],
         ),
       ),
     );

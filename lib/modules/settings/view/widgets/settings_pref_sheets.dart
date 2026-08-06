@@ -13,26 +13,19 @@ import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/utils/recall_time.dart';
 import '../../../../core/widgets/how_it_works_sheet.dart';
 import '../../../../core/widgets/memory_strength_selector.dart';
+import '../../../../core/widgets/recall_sheet.dart';
 import '../../controller/settings_controller.dart';
 
 Future<T?> _sheet<T>(BuildContext context, Widget child) {
-  final c = RecallColors.of(context);
-  return showModalBottomSheet<T>(
+  return showRecallSheet<T>(
     context: context,
-    backgroundColor: c.card,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const _Grip(),
-          const SizedBox(height: 16),
-          child,
-        ]),
-      ),
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const _Grip(),
+        const SizedBox(height: 16),
+        child,
+      ]),
     ),
   );
 }
@@ -45,8 +38,8 @@ class _Grip extends StatelessWidget {
     return Container(
       width: 36,
       height: 4,
-      decoration:
-          BoxDecoration(color: c.grey400, borderRadius: BorderRadius.circular(2)),
+      decoration: BoxDecoration(
+          color: c.grey400, borderRadius: BorderRadius.circular(2)),
     );
   }
 }
@@ -78,7 +71,8 @@ class _SheetCaption extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Text(
         text,
-        style: GoogleFonts.inter(fontSize: 12.5, height: 1.35, color: c.grey500),
+        style:
+            GoogleFonts.inter(fontSize: 12.5, height: 1.35, color: c.grey500),
       ),
     );
   }
@@ -148,7 +142,8 @@ class _OptionRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
         child: Row(children: [
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: GoogleFonts.inter(fontSize: 15, color: c.ink)),
               if (subtitle != null) ...[
                 const SizedBox(height: 2),
@@ -423,8 +418,8 @@ class _DailyLimitEditor extends StatefulWidget {
 }
 
 class _DailyLimitEditorState extends State<_DailyLimitEditor> {
-  late int _value =
-      (widget.current ?? widget.tierDefault).clamp(kDailyLimitMin, kDailyLimitMax);
+  late int _value = (widget.current ?? widget.tierDefault)
+      .clamp(kDailyLimitMin, kDailyLimitMax);
   late bool _usingDefault = widget.current == null;
 
   void _step(int delta) {
@@ -495,7 +490,7 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
       if (!widget.isPremium) ...[
         const SizedBox(height: 4),
         Text(
-          'Free plan reviews up to 8 cards per session.',
+          'Free plan reviews up to ${widget.tierDefault} cards per session.',
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600),
         ),
@@ -519,8 +514,7 @@ class _DailyLimitEditorState extends State<_DailyLimitEditor> {
           ),
           child: Text(
             'Save',
-            style:
-                GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+            style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
           ),
         ),
       ),
@@ -581,7 +575,8 @@ Future<void> showQuietHoursSheet(
           Navigator.pop(context);
           final s = await showTimePicker(
             context: context,
-            initialTime: _parseTod(start) ?? const TimeOfDay(hour: 22, minute: 0),
+            initialTime:
+                _parseTod(start) ?? const TimeOfDay(hour: 22, minute: 0),
             helpText: 'Quiet hours start',
           );
           if (s == null || !context.mounted) return;
@@ -697,7 +692,9 @@ Future<void> showRemindersDiagnosticSheet(
                       Expanded(
                         child: Text(r,
                             style: GoogleFonts.inter(
-                                fontSize: 13.5, height: 1.35, color: c.grey600)),
+                                fontSize: 13.5,
+                                height: 1.35,
+                                color: c.grey600)),
                       ),
                     ],
                   ),
@@ -769,8 +766,7 @@ class _DiagRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
+          Text(label, style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
           Text(value,
               style: GoogleFonts.inter(
                   fontSize: 14, fontWeight: FontWeight.w600, color: c.ink)),

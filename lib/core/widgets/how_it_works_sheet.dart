@@ -10,6 +10,7 @@ import '../../app/routes/app_routes.dart';
 import '../theme/recall_colors.dart';
 import '../utils/recall_haptics.dart';
 import 'aura_mark.dart';
+import 'recall_sheet.dart';
 
 /// One short block inside [showHowItWorksSheet].
 class HowItWorksSection {
@@ -31,73 +32,66 @@ Future<void> showHowItWorksSheet(
 }) {
   final c = RecallColors.of(context);
   RecallHaptics.selection();
-  return showModalBottomSheet<void>(
+  return showRecallSheet<void>(
     context: context,
-    backgroundColor: c.card,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (ctx) {
       final maxH = MediaQuery.sizeOf(ctx).height * 0.72;
-      return SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxH),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _Grip(),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: GoogleFonts.fraunces(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w500,
-                    color: c.ink,
-                  ),
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxH),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _Grip(),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: GoogleFonts.fraunces(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w500,
+                  color: c.ink,
                 ),
-                const SizedBox(height: 14),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (var i = 0; i < sections.length; i++) ...[
-                          if (i > 0) const SizedBox(height: 14),
-                          _Section(sections[i]),
-                        ],
+              ),
+              const SizedBox(height: 14),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < sections.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 14),
+                        _Section(sections[i]),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-                if (auraPrompt != null) ...[
-                  const SizedBox(height: 16),
-                  _AskAuraRow(
-                    prompt: auraPrompt,
-                    bucketIds: auraBucketIds,
-                    onTap: () => Navigator.pop(ctx),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(
-                      'Got it',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: c.ink,
-                      ),
-                    ),
-                  ),
+              ),
+              if (auraPrompt != null) ...[
+                const SizedBox(height: 16),
+                _AskAuraRow(
+                  prompt: auraPrompt,
+                  bucketIds: auraBucketIds,
+                  onTap: () => Navigator.pop(ctx),
                 ),
               ],
-            ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    'Got it',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: c.ink,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );

@@ -10,8 +10,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/brand/aura_brand.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/line_diff.dart';
+import '../../../../core/utils/recall_insets.dart';
 import '../../../../core/widgets/aura_mark.dart';
 import '../../../../core/widgets/mono_label.dart';
+import '../../../../core/widgets/recall_sheet.dart';
 
 class NodeAiDiffView extends StatelessWidget {
   final String before;
@@ -33,14 +35,8 @@ class NodeAiDiffView extends StatelessWidget {
     required String after,
     String? feedback,
   }) {
-    final c = RecallColors.of(context);
-    return showModalBottomSheet<bool>(
+    return showRecallSheet<bool>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: c.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (_) => NodeAiDiffView(
         before: before,
         after: after,
@@ -227,12 +223,7 @@ class NodeAiDiffView extends StatelessWidget {
 
   Widget _actions(BuildContext context, RecallColors c) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        12,
-        20,
-        12 + MediaQuery.of(context).padding.bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12).bottomSafe(context),
       child: Row(
         children: [
           Expanded(

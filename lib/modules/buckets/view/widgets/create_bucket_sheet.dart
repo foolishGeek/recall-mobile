@@ -6,6 +6,7 @@ import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_shape.dart';
 import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/list_row.dart';
+import '../../../../core/widgets/recall_sheet.dart';
 
 /// Lightweight create/edit-bucket flow: a polished bottom sheet collecting a
 /// name, optional description, and (on create) whether new notes join spaced
@@ -18,6 +19,7 @@ class CreateBucketSheet extends StatefulWidget {
   final String title;
   final String subtitle;
   final String ctaLabel;
+
   /// When false (edit mode), the SR toggle is hidden.
   final bool showSrToggle;
   final bool initialSrEnabled;
@@ -46,14 +48,8 @@ class CreateBucketSheet extends StatefulWidget {
     bool showSrToggle = true,
     bool initialSrEnabled = true,
   }) {
-    final c = RecallColors.of(context);
-    return showModalBottomSheet(
+    return showRecallSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: c.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (_) => CreateBucketSheet(
         onCreate: onCreate,
         initialName: initialName,
@@ -97,7 +93,8 @@ class _CreateBucketSheetState extends State<CreateBucketSheet> {
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),

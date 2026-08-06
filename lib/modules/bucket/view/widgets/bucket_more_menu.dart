@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/recall_sheet.dart';
 import '../../../buckets/view/widgets/create_bucket_sheet.dart';
 
 Future<void> showBucketMoreMenu({
@@ -13,61 +14,56 @@ Future<void> showBucketMoreMenu({
   required VoidCallback onDelete,
 }) async {
   final c = RecallColors.of(context);
-  await showModalBottomSheet(
+  await showRecallSheet(
     context: context,
-    backgroundColor: c.card,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: c.grey400,
-                borderRadius: BorderRadius.circular(2),
-              ),
+    isScrollControlled: false,
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: c.grey400,
+              borderRadius: BorderRadius.circular(2),
             ),
-            const SizedBox(height: 16),
-            _MenuRow(
-              icon: Icons.edit_outlined,
-              label: 'Edit bucket',
-              onTap: () {
-                Navigator.pop(ctx);
-                CreateBucketSheet.show(
-                  context,
-                  initialName: currentName,
-                  initialDescription: currentDescription,
-                  title: 'Edit bucket',
-                  subtitle: 'Update the name and description.',
-                  ctaLabel: 'Edit bucket',
-                  showSrToggle: false,
-                  onCreate: (name, desc, {srEnabled = true}) =>
-                      onEditBucket(name, desc),
-                );
-              },
-            ),
-            const SizedBox(height: 4),
-            _MenuRow(
-              icon: Icons.delete_outline,
-              label: 'Delete bucket',
-              destructive: true,
-              onTap: () {
-                Navigator.pop(ctx);
-                _showDeleteConfirm(
-                  context: context,
-                  bucketName: currentName,
-                  onDelete: onDelete,
-                );
-              },
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          _MenuRow(
+            icon: Icons.edit_outlined,
+            label: 'Edit bucket',
+            onTap: () {
+              Navigator.pop(ctx);
+              CreateBucketSheet.show(
+                context,
+                initialName: currentName,
+                initialDescription: currentDescription,
+                title: 'Edit bucket',
+                subtitle: 'Update the name and description.',
+                ctaLabel: 'Edit bucket',
+                showSrToggle: false,
+                onCreate: (name, desc, {srEnabled = true}) =>
+                    onEditBucket(name, desc),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+          _MenuRow(
+            icon: Icons.delete_outline,
+            label: 'Delete bucket',
+            destructive: true,
+            onTap: () {
+              Navigator.pop(ctx);
+              _showDeleteConfirm(
+                context: context,
+                bucketName: currentName,
+                onDelete: onDelete,
+              );
+            },
+          ),
+        ],
       ),
     ),
   );
@@ -120,78 +116,73 @@ void _showDeleteConfirm({
   required VoidCallback onDelete,
 }) {
   final c = RecallColors.of(context);
-  showModalBottomSheet(
+  showRecallSheet(
     context: context,
-    backgroundColor: c.card,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: c.grey400,
-                borderRadius: BorderRadius.circular(2),
+    isScrollControlled: false,
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: c.grey400,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Delete "$bucketName"?',
+            style: GoogleFonts.fraunces(
+              fontSize: 22,
+              fontWeight: FontWeight.w500,
+              color: c.ink,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'All notes in this bucket will be removed. This can\'t be undone.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 14, color: c.grey600),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                RecallHaptics.heavy();
+                Navigator.pop(ctx);
+                onDelete();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: c.chipRed,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                'Delete bucket',
+                style: GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Delete "$bucketName"?',
-              style: GoogleFonts.fraunces(
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                color: c.ink,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'All notes in this bucket will be removed. This can\'t be undone.',
-              textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
               style: GoogleFonts.inter(fontSize: 14, color: c.grey600),
             ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () {
-                  RecallHaptics.heavy();
-                  Navigator.pop(ctx);
-                  onDelete();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: c.chipRed,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Delete bucket',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.inter(fontSize: 14, color: c.grey600),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     ),
   );

@@ -8,6 +8,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/recall_sheet.dart';
 import '../../controller/settings_controller.dart';
 
 class _Grip extends StatelessWidget {
@@ -18,8 +19,8 @@ class _Grip extends StatelessWidget {
     return Container(
       width: 36,
       height: 4,
-      decoration:
-          BoxDecoration(color: c.grey400, borderRadius: BorderRadius.circular(2)),
+      decoration: BoxDecoration(
+          color: c.grey400, borderRadius: BorderRadius.circular(2)),
     );
   }
 }
@@ -29,56 +30,49 @@ Future<void> showSignOutSheet(
   required VoidCallback onConfirm,
 }) {
   final c = RecallColors.of(context);
-  return showModalBottomSheet<void>(
+  return showRecallSheet<void>(
     context: context,
-    backgroundColor: c.card,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const _Grip(),
-          const SizedBox(height: 18),
-          Text('Sign out?',
-              style: GoogleFonts.fraunces(
-                  fontSize: 22, fontWeight: FontWeight.w500, color: c.ink)),
-          const SizedBox(height: 8),
-          Text('You can sign back in anytime. Your data stays safe.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: () {
-                RecallHaptics.selection();
-                Navigator.pop(context);
-                onConfirm();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: c.ink,
-                foregroundColor: c.inkOnInk,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-              ),
-              child: Text('Sign out',
-                  style: GoogleFonts.inter(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const _Grip(),
+        const SizedBox(height: 18),
+        Text('Sign out?',
+            style: GoogleFonts.fraunces(
+                fontSize: 22, fontWeight: FontWeight.w500, color: c.ink)),
+        const SizedBox(height: 8),
+        Text('You can sign back in anytime. Your data stays safe.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
+        const SizedBox(height: 18),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: () {
+              RecallHaptics.selection();
+              Navigator.pop(context);
+              onConfirm();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: c.ink,
+              foregroundColor: c.inkOnInk,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
             ),
+            child: Text('Sign out',
+                style: GoogleFonts.inter(
+                    fontSize: 15, fontWeight: FontWeight.w600)),
           ),
-          const SizedBox(height: 6),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
-                style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
-          ),
-        ]),
-      ),
+        ),
+        const SizedBox(height: 6),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel',
+              style: GoogleFonts.inter(fontSize: 14, color: c.grey600)),
+        ),
+      ]),
     ),
   );
 }
@@ -87,14 +81,8 @@ Future<void> showDeleteAccountSheet(
   BuildContext context, {
   required VoidCallback onConfirm,
 }) {
-  final c = RecallColors.of(context);
-  return showModalBottomSheet<void>(
+  return showRecallSheet<void>(
     context: context,
-    backgroundColor: c.card,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (ctx) => _DeleteConfirm(onConfirm: onConfirm),
   );
 }
@@ -126,7 +114,8 @@ class _DeleteConfirmState extends State<_DeleteConfirm> {
             'This permanently removes your buckets, notes, reviews, and progress. '
             'It cannot be undone.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(fontSize: 14, color: c.grey600, height: 1.45),
+            style:
+                GoogleFonts.inter(fontSize: 14, color: c.grey600, height: 1.45),
           ),
           const SizedBox(height: 16),
           InkWell(
@@ -145,7 +134,8 @@ class _DeleteConfirmState extends State<_DeleteConfirm> {
                   decoration: BoxDecoration(
                     color: _acknowledged ? c.chipRed : Colors.transparent,
                     border: Border.all(
-                        color: _acknowledged ? c.chipRed : c.grey400, width: 1.5),
+                        color: _acknowledged ? c.chipRed : c.grey400,
+                        width: 1.5),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: _acknowledged
@@ -203,58 +193,50 @@ Future<void> showBuyCreditsSheet(
   required SettingsController controller,
 }) {
   final c = RecallColors.of(context);
-  return showModalBottomSheet<void>(
+  return showRecallSheet<void>(
     context: context,
-    backgroundColor: c.card,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const _Grip(),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Buy AI credits',
-                style: GoogleFonts.fraunces(
-                    fontSize: 22, fontWeight: FontWeight.w500, color: c.ink)),
-          ),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Balance · ${controller.creditBalance} credits',
-                style: GoogleFonts.jetBrainsMono(
-                    fontSize: 11, color: c.grey500)),
-          ),
-          const SizedBox(height: 14),
-          _CreditOption(
-            label: '100 credits',
-            product: controller.credits100,
-            onTap: (p) {
-              Navigator.pop(context);
-              controller.onBuyCredits(p);
-            },
-          ),
-          const SizedBox(height: 10),
-          _CreditOption(
-            label: '500 credits',
-            product: controller.credits500,
-            onTap: (p) {
-              Navigator.pop(context);
-              controller.onBuyCredits(p);
-            },
-          ),
-          if (controller.credits100 == null && controller.credits500 == null) ...[
-            const SizedBox(height: 12),
-            Text('Credit packs are unavailable right now — try again later.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600)),
-          ],
-        ]),
-      ),
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const _Grip(),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Buy AI credits',
+              style: GoogleFonts.fraunces(
+                  fontSize: 22, fontWeight: FontWeight.w500, color: c.ink)),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Balance · ${controller.creditBalance} credits',
+              style: GoogleFonts.jetBrainsMono(fontSize: 11, color: c.grey500)),
+        ),
+        const SizedBox(height: 14),
+        _CreditOption(
+          label: '100 credits',
+          product: controller.credits100,
+          onTap: (p) {
+            Navigator.pop(context);
+            controller.onBuyCredits(p);
+          },
+        ),
+        const SizedBox(height: 10),
+        _CreditOption(
+          label: '500 credits',
+          product: controller.credits500,
+          onTap: (p) {
+            Navigator.pop(context);
+            controller.onBuyCredits(p);
+          },
+        ),
+        if (controller.credits100 == null && controller.credits500 == null) ...[
+          const SizedBox(height: 12),
+          Text('Credit packs are unavailable right now — try again later.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600)),
+        ],
+      ]),
     ),
   );
 }
