@@ -10,9 +10,6 @@ import '../../modules/bucket/binding/bucket_binding.dart';
 import '../../modules/bucket/view/bucket_view.dart';
 import '../../modules/bucket_config/binding/bucket_config_binding.dart';
 import '../../modules/bucket_config/view/bucket_config_view.dart';
-import '../../modules/empty/binding/empty_binding.dart';
-import '../../modules/empty/empty_variant.dart';
-import '../../modules/empty/view/empty_view.dart';
 import '../../modules/node/binding/node_binding.dart';
 import '../../modules/node/view/node_view.dart';
 import '../../modules/node_add/binding/node_add_binding.dart';
@@ -145,23 +142,6 @@ class AppPages {
       name: Routes.aiChat,
       page: () => const AiChatView(),
       binding: AiChatBinding(),
-    ),
-
-    // Empty states (deep-link fallbacks)
-    GetPage(
-      name: Routes.emptyBuckets,
-      page: () => const EmptyView(variant: EmptyVariant.buckets),
-      binding: EmptyBinding(),
-    ),
-    GetPage(
-      name: Routes.emptyToday,
-      page: () => const EmptyView(variant: EmptyVariant.today),
-      binding: EmptyBinding(),
-    ),
-    GetPage(
-      name: Routes.emptyInsights,
-      page: () => const EmptyView(variant: EmptyVariant.insights),
-      binding: EmptyBinding(),
     ),
   ];
 }

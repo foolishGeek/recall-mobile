@@ -34,9 +34,4 @@ abstract class Routes {
   static const settings = '/settings';
   static const paywall = '/paywall';
   static const aiChat = '/ai/chat';
-
-  // Empty states
-  static const emptyBuckets = '/empty/buckets';
-  static const emptyToday = '/empty/today';
-  static const emptyInsights = '/empty/insights';
 }

@@ -9,7 +9,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../data/models/retention_simulation.dart';
+import '../../data/models/insights/retention_simulation.dart';
 import '../theme/recall_colors.dart';
 import '../theme/recall_motion.dart';
 
@@ -100,21 +100,25 @@ class _CurvePainter extends CustomPainter {
     final Path dashed;
     if (points.length > 1) {
       final maxDay = points.last.day == 0 ? 1 : points.last.day;
-      solid = _seriesPath(points.map((p) => p.withRecall).toList(), maxDay, w, yFor);
-      dashed = _seriesPath(points.map((p) => p.baseline).toList(), maxDay, w, yFor);
+      solid = _seriesPath(
+          points.map((p) => p.withRecall).toList(), maxDay, w, yFor);
+      dashed =
+          _seriesPath(points.map((p) => p.baseline).toList(), maxDay, w, yFor);
     } else {
       solid = _previewSolid(w, topY, bottomY, yFor);
       dashed = _previewDashed(w, topY, bottomY, yFor);
     }
 
-    _drawProgress(canvas, dashed, baselineProgress, dashedInk, 1.6, dashedStroke: true);
+    _drawProgress(canvas, dashed, baselineProgress, dashedInk, 1.6,
+        dashedStroke: true);
     _drawProgress(canvas, solid, solidProgress, ink, 2.2, dashedStroke: false);
 
     _endDot(canvas, solid, solidProgress, ink, 3.6);
     _endDot(canvas, dashed, baselineProgress, dashedInk, 3.4);
   }
 
-  Path _seriesPath(List<double> values, int maxDay, double w, double Function(double) yFor) {
+  Path _seriesPath(
+      List<double> values, int maxDay, double w, double Function(double) yFor) {
     final path = Path();
     for (var i = 0; i < values.length; i++) {
       final x = (i / (values.length - 1)) * w;
@@ -128,21 +132,24 @@ class _CurvePainter extends CustomPainter {
     return path;
   }
 
-  Path _previewSolid(double w, double topY, double bottomY, double Function(double) yFor) {
+  Path _previewSolid(
+      double w, double topY, double bottomY, double Function(double) yFor) {
     final yWith = yFor(withRecall);
     return Path()
       ..moveTo(0, topY)
       ..cubicTo(w * 0.22, topY + (yWith - topY) * 0.15, w * 0.45,
           topY + (yWith - topY) * 0.55, w * 0.70, yWith)
-      ..cubicTo(w * 0.85, yWith + (yFor(withRecall * 0.95) - yWith) * 0.5, w * 0.95,
-          yFor(withRecall * 0.93), w, yFor(withRecall * 0.92));
+      ..cubicTo(w * 0.85, yWith + (yFor(withRecall * 0.95) - yWith) * 0.5,
+          w * 0.95, yFor(withRecall * 0.93), w, yFor(withRecall * 0.92));
   }
 
-  Path _previewDashed(double w, double topY, double bottomY, double Function(double) yFor) {
+  Path _previewDashed(
+      double w, double topY, double bottomY, double Function(double) yFor) {
     final yWithout = yFor(withoutRecall);
     return Path()
       ..moveTo(0, topY)
-      ..cubicTo(w * 0.12, topY + 10, w * 0.30, bottomY * 0.55, w * 0.56, yWithout - 10)
+      ..cubicTo(w * 0.12, topY + 10, w * 0.30, bottomY * 0.55, w * 0.56,
+          yWithout - 10)
       ..cubicTo(w * 0.78, yWithout + 6, w * 0.92, bottomY - 6, w, bottomY);
   }
 
@@ -188,7 +195,8 @@ class _CurvePainter extends CustomPainter {
     }
   }
 
-  void _endDot(Canvas canvas, Path path, double progress, Color color, double r) {
+  void _endDot(
+      Canvas canvas, Path path, double progress, Color color, double r) {
     if (progress <= 0) return;
     for (final metric in path.computeMetrics()) {
       final tan = metric.getTangentForOffset(metric.length * progress);
@@ -260,7 +268,9 @@ class _AnimatedRetentionCurveState extends State<AnimatedRetentionCurve>
     final follow = CurvedAnimation(
       parent: _ctrl,
       curve: Interval(120 / _total, 1.0,
-          curve: widget.baselineFirst ? RecallMotion.bubbly : RecallMotion.easeInOut),
+          curve: widget.baselineFirst
+              ? RecallMotion.bubbly
+              : RecallMotion.easeInOut),
     );
 
     if (widget.baselineFirst) {
@@ -271,8 +281,8 @@ class _AnimatedRetentionCurveState extends State<AnimatedRetentionCurve>
       _dashed = follow;
     }
 
-    final reduceMotion =
-        WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+    final reduceMotion = WidgetsBinding
+        .instance.platformDispatcher.accessibilityFeatures.disableAnimations;
     if (reduceMotion) {
       _ctrl.value = 1.0;
     } else {
