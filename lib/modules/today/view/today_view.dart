@@ -1,17 +1,13 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../core/theme/recall_colors.dart';
-import '../../../core/theme/recall_motion.dart';
 import '../../../core/utils/how_it_works_copy.dart';
 import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_skeleton.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../empty/view/widgets/empty_today_body.dart';
 import '../controller/today_controller.dart';
-import 'widgets/today_heat_ring.dart';
+import 'widgets/today_cards_progress.dart';
 import 'widgets/today_peeking_stack.dart';
 import 'widgets/today_relearn_card.dart';
 import 'widgets/today_stacks_meter.dart';
@@ -108,19 +104,13 @@ class _TodayLoaded extends StatelessWidget {
                         ),
                       );
                     }),
-                    AnimatedBuilder(
-                      animation: controller.ringController,
-                      builder: (context, _) {
-                        return Obx(() {
-                          return TodayHeatRing(
-                            dueCount: controller.dueCount.value,
-                            progress: controller.ringProgress.value,
-                          );
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    // Stack sits right under the ring; the action dock (Aura
+                    const SizedBox(height: 26),
+                    Obx(() => TodayCardsProgress(
+                          remaining: controller.cardsRemaining,
+                          total: controller.sessionTotal,
+                        )),
+                    const SizedBox(height: 30),
+                    // Stack sits right under the hero; the action dock (Aura
                     // whisper + Start CTA) is pushed to the bottom by Spacer.
                     Obx(() {
                       final nodes = controller.peekingNodes.toList();
@@ -131,7 +121,9 @@ class _TodayLoaded extends StatelessWidget {
                     }),
                     const Spacer(),
                     Obx(() {
-                      if (!controller.showRelearn) return const SizedBox.shrink();
+                      if (!controller.showRelearn) {
+                        return const SizedBox.shrink();
+                      }
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: TodayRelearnCard(
@@ -143,13 +135,9 @@ class _TodayLoaded extends StatelessWidget {
                       );
                     }),
                     Obx(() => TodayStartCta(
-                          label: controller.isAtStackLimit
-                              ? 'Unlock unlimited reviews'
-                              : 'Start review',
+                          label: controller.reviewCtaLabel,
                           isLoading: controller.isStarting.value,
-                          onPressed: controller.isAtStackLimit
-                              ? controller.openPaywall
-                              : controller.startReview,
+                          onPressed: controller.onReviewCta,
                         )),
                     Obx(() {
                       if (!controller.showStacksMeter) {
@@ -189,8 +177,17 @@ class _TodaySkeleton extends StatelessWidget {
               RecallSkeleton(width: 60, height: 14, phase: 0.2),
             ],
           ),
-          const SizedBox(height: 24),
-          const _RingSkeleton(phase: 0.35),
+          const SizedBox(height: 34),
+          const RecallSkeleton(width: 150, height: 52, phase: 0.35),
+          const SizedBox(height: 14),
+          const RecallSkeleton(width: 130, height: 13, phase: 0.42),
+          const SizedBox(height: 20),
+          const RecallSkeleton(
+            width: 104,
+            height: 3,
+            borderRadius: BorderRadius.all(Radius.circular(1.5)),
+            phase: 0.48,
+          ),
           const SizedBox(height: 30),
           SizedBox(
             height: 176,
@@ -240,98 +237,4 @@ class _TodaySkeleton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RingSkeleton extends StatefulWidget {
-  final double phase;
-
-  const _RingSkeleton({this.phase = 0});
-
-  @override
-  State<_RingSkeleton> createState() => _RingSkeletonState();
-}
-
-class _RingSkeletonState extends State<_RingSkeleton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: RecallMotion.shimmer,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.value = widget.phase.clamp(0.0, 1.0);
-    _controller.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = RecallColors.of(context);
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-
-    final ring = SizedBox(
-      width: 206,
-      height: 206,
-      child: CustomPaint(
-        painter: _RingSkeletonPainter(
-          color: c.grey300,
-          trackColor: c.grey300,
-        ),
-      ),
-    );
-
-    if (reduceMotion) return Opacity(opacity: 0.7, child: ring);
-
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.4, end: 1.0).animate(
-        CurvedAnimation(parent: _controller, curve: RecallMotion.easeInOut),
-      ),
-      child: ring,
-    );
-  }
-}
-
-class _RingSkeletonPainter extends CustomPainter {
-  final Color color;
-  final Color trackColor;
-
-  _RingSkeletonPainter({required this.color, required this.trackColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const r = 86.0;
-    final center = Offset(size.width / 2, size.height / 2);
-    final rect = Rect.fromCircle(center: center, radius: r);
-
-    canvas.drawCircle(
-      center,
-      r,
-      Paint()
-        ..color = trackColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10,
-    );
-
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      math.pi * 1.15,
-      false,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 15
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _RingSkeletonPainter old) => false;
 }

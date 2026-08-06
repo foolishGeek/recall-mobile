@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/recall_motion.dart';
 import '../../../../core/utils/recall_haptics.dart';
-import '../../../../data/models/due_preview_node.dart';
+import '../../../../data/models/review/due_preview_node.dart';
 import 'today_peeking_card.dart';
 
 /// Vertical peek offset between stacked cards.
@@ -36,8 +36,9 @@ class TodayPeekingStack extends StatelessWidget {
           final children = <Widget>[];
           for (int i = count - 1; i >= 0; i--) {
             final isFront = i == 0;
-            final restTop =
-                isFront ? (count - 1) * kTodayPeekStep : (count - 1 - i) * kTodayPeekStep;
+            final restTop = isFront
+                ? (count - 1) * kTodayPeekStep
+                : (count - 1 - i) * kTodayPeekStep;
             final restInset = i * 9.0;
 
             // Entrance: every card starts collapsed near the hero (as if deep in
