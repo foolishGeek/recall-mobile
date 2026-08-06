@@ -2,8 +2,8 @@
 // only `delivered`/`opened` [D-EF-10] (enforced by RLS in migration 00003).
 // `metadata` is freeform jsonb, kept as a typed map.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class NotificationEvent {
   final String id;

@@ -6,13 +6,13 @@
 import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-import '../models/models.dart';
-import '../repositories/insights_repository.dart';
-import '../repositories/profile_repository.dart';
-import '../repositories/review_repository.dart';
-import '../repositories/stack_repository.dart';
-import '../services/auth_service.dart';
-import '../services/tier_service.dart';
+import '../../models/models.dart';
+import '../../repositories/insights/insights_repository.dart';
+import '../../repositories/profile/profile_repository.dart';
+import '../../repositories/review/review_repository.dart';
+import '../../repositories/stack/stack_repository.dart';
+import '../auth/auth_service.dart';
+import '../billing/tier_service.dart';
 
 typedef DoneFastBanner = ({int minutes, bool fasterThanUsual});
 
@@ -40,6 +40,15 @@ class MetricsService extends GetxService {
   void clearDoneFastCache() {
     _lastCompletedStackId = null;
     _lastCompletedAt = null;
+  }
+
+  /// Opt-in analytics breadcrumb (gated by analytics_opt_in).
+  void trackBreadcrumb(String name, [Map<String, dynamic>? params]) {
+    if (!Get.isRegistered<AuthService>()) return;
+    if (!Get.find<AuthService>().analyticsOptIn) return;
+    Sentry.addBreadcrumb(
+      Breadcrumb(category: 'analytics', message: name, data: params),
+    );
   }
 
   /// S26 §7 — breadcrumb when a downgraded user hits a gated surface.
@@ -115,7 +124,8 @@ class MetricsService extends GetxService {
     required List<Review> stackReviews,
     required List<int> trailingStackDurationsMin,
   }) {
-    if (DateTime.now().difference(stackCompletedAt) > const Duration(minutes: 5)) {
+    if (DateTime.now().difference(stackCompletedAt) >
+        const Duration(minutes: 5)) {
       return null;
     }
 
@@ -136,10 +146,8 @@ class MetricsService extends GetxService {
   static int? stackDurationMinutes(List<Review> reviews) {
     if (reviews.isEmpty) return null;
 
-    final times = reviews
-        .map((r) => r.reviewedAt)
-        .whereType<DateTime>()
-        .toList();
+    final times =
+        reviews.map((r) => r.reviewedAt).whereType<DateTime>().toList();
     if (times.length >= 2) {
       times.sort();
       final span = times.last.difference(times.first);
@@ -147,9 +155,8 @@ class MetricsService extends GetxService {
       return mins > 0 ? mins : 1;
     }
 
-    final responseSum = reviews
-        .map((r) => r.responseMs ?? 0)
-        .fold<int>(0, (a, b) => a + b);
+    final responseSum =
+        reviews.map((r) => r.responseMs ?? 0).fold<int>(0, (a, b) => a + b);
     if (responseSum <= 0) return null;
     final mins = (responseSum / 60000).ceil();
     return mins > 0 ? mins : 1;

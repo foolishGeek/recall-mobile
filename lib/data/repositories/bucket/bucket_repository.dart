@@ -6,12 +6,12 @@
 
 import 'dart:async';
 
-import '../local/local_store.dart';
-import '../models/models.dart';
-import '../services/repo_exception.dart';
-import '../services/supabase_service.dart';
-import '../services/sync_status_service.dart';
-import 'base_repository.dart';
+import '../../local/local_store.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
+import '../../services/sync/sync_status_service.dart';
+import '../base/base_repository.dart';
 
 /// Fresh per-bucket heat stats from `v_bucket_heat`.
 typedef BucketHeatStats = ({
@@ -53,7 +53,8 @@ class BucketRepository extends BaseRepository {
       });
 
   /// All non-deleted buckets, cache-first with background reconcile.
-  Future<List<Bucket>> fetchAll(String userId, {bool forceRemote = false}) async {
+  Future<List<Bucket>> fetchAll(String userId,
+      {bool forceRemote = false}) async {
     if (!_local.isEnabled) return _remoteAll(userId);
 
     if (forceRemote) {
@@ -180,11 +181,7 @@ class BucketRepository extends BaseRepository {
             .eq('bucket_id', bucketId)
             .maybeSingle();
         if (row == null) return null;
-        return (
-          nodeCount: asInt(row['node_count']),
-          dueCount: asInt(row['due_count']),
-          dominantPriority: asInt(row['dominant_priority'], 1),
-        );
+        return _parseHeatRow(row);
       });
 
   // --------------------------------------------------------- batch (S12) --
@@ -215,14 +212,16 @@ class BucketRepository extends BaseRepository {
         for (final r in rows) {
           final id = asString(r['bucket_id']);
           if (id.isEmpty) continue;
-          map[id] = (
-            nodeCount: asInt(r['node_count']),
-            dueCount: asInt(r['due_count']),
-            dominantPriority: asInt(r['dominant_priority'], 1),
-          );
+          map[id] = _parseHeatRow(r);
         }
         return map;
       });
+
+  BucketHeatStats _parseHeatRow(Map<String, dynamic> row) => (
+        nodeCount: asInt(row['node_count']),
+        dueCount: asInt(row['due_count']),
+        dominantPriority: asInt(row['dominant_priority'], 1),
+      );
 
   /// Total node count across all user buckets from `v_bucket_heat`.
   Future<int> fetchTotalNodeCount(String userId) => guard(() async {
@@ -276,23 +275,4 @@ class BucketRepository extends BaseRepository {
       return null;
     }
   }
-
-  /// AI model display labels from `app_config` [D-SCHEMA-9].
-  Future<Map<String, String>> fetchAiModelLabels() => guard(() async {
-        final rows = await supabase
-            .from('app_config')
-            .select('key, value')
-            .inFilter('key', ['ai_model_free', 'ai_model_premium']);
-        final map = <String, String>{};
-        for (final r in rows) {
-          final k = asString(r['key']);
-          final v = r['value'];
-          if (k.isNotEmpty) {
-            map[k] = v is String
-                ? v.replaceAll('"', '')
-                : v.toString().replaceAll('"', '');
-          }
-        }
-        return map;
-      });
 }

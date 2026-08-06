@@ -2,8 +2,8 @@
 // Every field maps to a server-computed value (score, breakdown, weak topics,
 // comfort transitions, review-missed nodes, XP). The client only renders these.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class QuizResult {
   final double scorePct;
@@ -36,7 +36,8 @@ class QuizResult {
         scopeLabel: asStringOrNull(json['scope_label']),
         questions: _list(json['questions'], QuizResultQuestion.fromJson),
         weakTopics: _list(json['weak_topics'], QuizWeakTopic.fromJson),
-        comfortUpdates: _list(json['comfort_updates'], QuizComfortUpdate.fromJson),
+        comfortUpdates:
+            _list(json['comfort_updates'], QuizComfortUpdate.fromJson),
         reviewMissedNodeIds: asStringList(json['review_missed_node_ids']),
       );
 
@@ -80,9 +81,8 @@ class QuizResultQuestion {
         userAnswer: asStringOrNull(json['user_answer']),
         correctAnswer: asStringOrNull(json['correct_answer']),
         aiFeedback: asStringOrNull(json['ai_feedback']),
-        grade: json['grade'] == null
-            ? null
-            : ReviewGrade.fromWire(json['grade']),
+        grade:
+            json['grade'] == null ? null : ReviewGrade.fromWire(json['grade']),
         nodeId: asStringOrNull(json['node_id']),
         nodeTitle: asStringOrNull(json['node_title']),
       );
@@ -136,9 +136,8 @@ class QuizComfortUpdate {
         title: asString(json['title']),
         comfortBefore: asIntOrNull(json['comfort_before']),
         comfortAfter: asIntOrNull(json['comfort_after']),
-        grade: json['grade'] == null
-            ? null
-            : ReviewGrade.fromWire(json['grade']),
+        grade:
+            json['grade'] == null ? null : ReviewGrade.fromWire(json['grade']),
       );
 
   /// True when the post-review comfort rose (drives the arrow tilt + copy).

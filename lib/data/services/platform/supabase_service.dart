@@ -6,8 +6,8 @@
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/utils/app_env.dart';
-import 'repo_exception.dart';
+import '../../../core/utils/app_env.dart';
+import '../shared/repo_exception.dart';
 
 class SupabaseService extends GetxService {
   /// Validates env and initializes the Supabase client. Throws

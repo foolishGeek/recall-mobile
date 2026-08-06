@@ -2,7 +2,7 @@
 // Canonical response [D-EF-2]; duration_sec/video_id are YouTube-only.
 // read_time_sec is for articles; view_count is for YouTube.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class LinkPreview {
   final String? title;

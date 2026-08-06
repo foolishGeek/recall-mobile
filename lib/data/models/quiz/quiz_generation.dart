@@ -1,7 +1,7 @@
 // Recall - QuizGeneration - response from `quiz-generate` after S17 creates an
 // in-progress attempt and returns redacted play-ready questions.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 import 'quiz_question.dart';
 
 class GeneratedQuizQuestion {

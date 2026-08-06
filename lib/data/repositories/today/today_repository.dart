@@ -1,6 +1,6 @@
-import '../models/models.dart';
-import '../services/supabase_service.dart';
-import 'base_repository.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../base/base_repository.dart';
 
 typedef TodaySummary = ({
   int dueCount,

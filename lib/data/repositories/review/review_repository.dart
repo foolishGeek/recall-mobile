@@ -7,11 +7,11 @@
 
 import 'dart:async';
 
-import '../local/local_store.dart';
-import '../models/models.dart';
-import '../services/supabase_service.dart';
-import '../services/sync_service.dart';
-import 'base_repository.dart';
+import '../../local/local_store.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/sync/sync_service.dart';
+import '../base/base_repository.dart';
 
 /// `queued` = the review went to the offline queue (replays in the background);
 /// `node` is then the cached node (server scheduling lands after replay). When

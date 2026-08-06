@@ -7,8 +7,8 @@
 
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-import '../services/repo_exception.dart';
-import '../services/supabase_service.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
 
 abstract class BaseRepository {
   const BaseRepository(this.supabase, this.feature);

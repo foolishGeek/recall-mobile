@@ -8,7 +8,7 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'supabase_service.dart';
+import '../platform/supabase_service.dart';
 
 class AuthService extends GetxService {
   AuthService(this._supabase);

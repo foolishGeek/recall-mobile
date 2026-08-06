@@ -15,15 +15,16 @@ import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-import '../../app/routes/app_routes.dart';
-import '../../core/firebase/firebase_bootstrap.dart';
-import '../../core/theme/recall_colors.dart';
-import '../../core/widgets/recall_scaffold.dart';
-import '../../modules/shell/controller/shell_controller.dart';
-import '../../modules/today/controller/today_controller.dart';
-import '../models/models.dart';
-import '../repositories/notification_repository.dart';
-import 'auth_service.dart';
+import '../../../app/routes/app_routes.dart';
+import '../../../core/config/limits_config.dart';
+import '../../../core/firebase/firebase_bootstrap.dart';
+import '../../../core/theme/recall_colors.dart';
+import '../../../core/widgets/recall_scaffold.dart';
+import '../../../modules/shell/controller/shell_controller.dart';
+import '../../../modules/today/controller/today_controller.dart';
+import '../../models/models.dart';
+import '../../repositories/notification/notification_repository.dart';
+import '../auth/auth_service.dart';
 
 /// FCM data payload `type` for a Recall Drop (matches compute-due EF).
 const String _dropType = 'recall_drop';
@@ -80,8 +81,7 @@ class NotificationService extends GetxService {
       _tokenRefreshSub =
           FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);
       _onMessageSub = FirebaseMessaging.onMessage.listen(_handleForeground);
-      _onOpenedSub =
-          FirebaseMessaging.onMessageOpenedApp.listen(_handleOpened);
+      _onOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen(_handleOpened);
 
       final initial = await FirebaseMessaging.instance.getInitialMessage();
       if (initial != null) _handleOpened(initial);
@@ -252,7 +252,8 @@ class NotificationService extends GetxService {
         colorText: colors?.ink,
         onTap: (_) {
           if (Get.isSnackbarOpen) Get.closeCurrentSnackbar();
-          unawaited(onNotificationOpened(message.data['dedupe_key'] as String?));
+          unawaited(
+              onNotificationOpened(message.data['dedupe_key'] as String?));
           _trackDropEvent('drop_opened', {
             'dedupe_key': message.data['dedupe_key'],
           });
@@ -295,35 +296,55 @@ class NotificationService extends GetxService {
   }
 
   /// Routes the payload's `route` (fallback /today) without racing app startup.
-  /// - App already in the tab shell: switch to Today in-place (no `offAllNamed`
-  ///   re-entry churn) and refresh so the freshly-matured cards show.
+  /// - App already in the tab shell: await limits refresh, switch to Today
+  ///   in-place, then reload so the freshly-matured cards show.
   /// - App not yet in the shell (cold start / still on splash): stash the target
   ///   as a pending deep link for SplashController to honor after hydration.
   /// - Authed but outside the shell (edge case): fall back to `offAllNamed`.
   void _deepLink(String? route) {
     if (_auth.currentUserId == null) return;
-    final target = (route == null || route.isEmpty) ? Routes.today : route;
+    final target = _whitelistShellRoute(route);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        if (_isInShell) {
-          Get.find<ShellController>().onTabSelected(RecallTab.today);
-          if (Get.isRegistered<TodayController>()) {
-            unawaited(Get.find<TodayController>().reload());
-          }
-          return;
-        }
-        if (!Get.isRegistered<ShellController>()) {
-          pendingRoute = target;
-          return;
-        }
-        Get.offAllNamed(target);
-      } catch (e, st) {
-        _capture(e, st);
-        try {
-          Get.offAllNamed(Routes.today);
-        } catch (_) {}
-      }
+      unawaited(_deepLinkAsync(target));
     });
+  }
+
+  Future<void> _deepLinkAsync(String target) async {
+    try {
+      if (_isInShell) {
+        if (Get.isRegistered<LimitsConfig>()) {
+          await Get.find<LimitsConfig>().refresh();
+        }
+        Get.find<ShellController>().onTabSelected(RecallTab.today);
+        if (Get.isRegistered<TodayController>()) {
+          await Get.find<TodayController>().reload();
+        }
+        return;
+      }
+      if (!Get.isRegistered<ShellController>()) {
+        pendingRoute = target;
+        return;
+      }
+      Get.offAllNamed(target);
+    } catch (e, st) {
+      _capture(e, st);
+      try {
+        Get.offAllNamed(Routes.today);
+      } catch (_) {}
+    }
+  }
+
+  /// Only shell tab routes are valid drop deep-links; anything else → /today.
+  static String _whitelistShellRoute(String? route) {
+    if (route == null || route.isEmpty) return Routes.today;
+    const allowed = {
+      Routes.today,
+      Routes.buckets,
+      Routes.quiz,
+      Routes.insights,
+      Routes.you,
+    };
+    return allowed.contains(route) ? route : Routes.today;
   }
 
   /// True when the tab shell is live and currently the active route.

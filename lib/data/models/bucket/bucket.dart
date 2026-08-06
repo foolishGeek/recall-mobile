@@ -1,8 +1,8 @@
 // Recall · Bucket model — `buckets` row. `heat_summary` parses into a typed
 // HeatSummary; `cooling_period` is kept as raw interval text (+ Duration getter).
 
-import 'heat_summary.dart';
-import 'json_utils.dart';
+import '../insights/heat_summary.dart';
+import '../shared/json_utils.dart';
 
 class Bucket {
   final String id;

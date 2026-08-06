@@ -2,7 +2,7 @@
 // One zip per user; `signedUrl` is short-lived (re-minted via the "status"
 // action), while the file itself lives until `fileExpiresAt` (12h, cron-pruned).
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class ExportStatus {
   final bool ready;

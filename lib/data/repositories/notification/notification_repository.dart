@@ -2,9 +2,9 @@
 // (`delivered`/`opened` — enforced by 00003 RLS) and device tokens; reads recent
 // events. Returns models only.
 
-import '../models/models.dart';
-import '../services/supabase_service.dart';
-import 'base_repository.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../base/base_repository.dart';
 
 class NotificationRepository extends BaseRepository {
   NotificationRepository(SupabaseService supabase)
@@ -32,7 +32,8 @@ class NotificationRepository extends BaseRepository {
         );
       });
 
-  Future<List<NotificationEvent>> fetchRecent(String userId, {int limit = 50}) =>
+  Future<List<NotificationEvent>> fetchRecent(String userId,
+          {int limit = 50}) =>
       guard(() async {
         final rows = await supabase
             .from('notification_events')

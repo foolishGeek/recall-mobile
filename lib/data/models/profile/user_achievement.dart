@@ -1,7 +1,7 @@
 // Recall · UserAchievement model — `user_achievements` row (unlock record).
 // Server-authoritative: written by the 00003 triggers, read-only on the client.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class UserAchievement {
   final String userId;

@@ -5,8 +5,8 @@
 
 import 'package:get/get.dart';
 
-import '../models/models.dart';
-import 'supabase_service.dart';
+import '../../models/models.dart';
+import '../platform/supabase_service.dart';
 
 class AiService extends GetxService {
   AiService(this._supabase);
@@ -97,7 +97,8 @@ class AiService extends GetxService {
 
   /// Fetch a link preview (7-field) via the standalone `link-preview` function.
   Future<LinkPreview> linkPreview(String url) async {
-    final body = await _supabase.invokeFunction('link-preview', body: {'url': url});
+    final body =
+        await _supabase.invokeFunction('link-preview', body: {'url': url});
     return LinkPreview.fromJson(body);
   }
 

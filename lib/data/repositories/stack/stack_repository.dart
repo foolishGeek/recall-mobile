@@ -5,12 +5,12 @@
 
 import 'dart:async';
 
-import '../local/local_store.dart';
-import '../models/models.dart';
-import '../services/repo_exception.dart';
-import '../services/supabase_service.dart';
-import '../services/sync_status_service.dart';
-import 'base_repository.dart';
+import '../../local/local_store.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
+import '../../services/sync/sync_status_service.dart';
+import '../base/base_repository.dart';
 
 typedef StackBuildResult = ({
   Stack? stack,
@@ -30,11 +30,10 @@ class StackRepository extends BaseRepository {
     final base = s == null
         ? 'none'
         : '${s.id}@${s.updatedAt?.toIso8601String() ?? ''}@${s.status.wire}';
-    final itemSig = (items
-            .map((i) => '${i.id}:${i.position}:${i.reviewed}')
-            .toList()
-          ..sort())
-        .join(',');
+    final itemSig =
+        (items.map((i) => '${i.id}:${i.position}:${i.reviewed}').toList()
+              ..sort())
+            .join(',');
     return '$base|$itemSig';
   }
 
@@ -173,7 +172,8 @@ class StackRepository extends BaseRepository {
   /// Abandon an active stack mid-session. Clears cooldown on scope buckets that
   /// still have due cards so Today shows remaining work (S11 / engine §10.14).
   Future<void> abandon(String stackId) => guard(() async {
-        await supabase.rpc('abandon_stack_rpc', params: {'p_stack_id': stackId});
+        await supabase
+            .rpc('abandon_stack_rpc', params: {'p_stack_id': stackId});
         await _local.evictStack(stackId);
       });
 
@@ -249,4 +249,25 @@ class StackRepository extends BaseRepository {
       reason: asStringOrNull(json['reason']),
     );
   }
+
+  /// Preview due intervals for Again/Hard/Good/Easy labels on the rate row.
+  Future<Map<String, dynamic>?> previewDueInterval(String nodeId) =>
+      guard(() async {
+        final result = await supabase.rpc(
+          'preview_due_interval_rpc',
+          params: {'node_id': nodeId},
+        );
+        if (result is Map) return Map<String, dynamic>.from(result);
+        return null;
+      });
+
+  /// Completes the stack and returns cooling-bucket metadata from the RPC.
+  Future<Map<String, dynamic>> completeStack(String stackId) => guard(() async {
+        final result = await supabase.rpc(
+          'complete_stack_rpc',
+          params: {'p_stack_id': stackId},
+        );
+        if (result is Map) return Map<String, dynamic>.from(result);
+        return <String, dynamic>{};
+      });
 }

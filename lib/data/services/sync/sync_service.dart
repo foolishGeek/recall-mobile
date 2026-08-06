@@ -8,10 +8,10 @@
 
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-import '../local/local_store.dart';
-import '../models/models.dart';
-import 'repo_exception.dart';
-import 'supabase_service.dart';
+import '../../local/local_store.dart';
+import '../../models/models.dart';
+import '../platform/supabase_service.dart';
+import '../shared/repo_exception.dart';
 import 'sync_status_service.dart';
 
 class SyncService {

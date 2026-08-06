@@ -1,9 +1,9 @@
 // Recall · QuizRepository. Quiz configs, attempts, and per-question attempts.
 // `question_count` is denormalized on attempts [D-SCHEMA-5]. Returns models only.
 
-import '../models/models.dart';
-import '../services/supabase_service.dart';
-import 'base_repository.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../base/base_repository.dart';
 
 class QuizRepository extends BaseRepository {
   QuizRepository(SupabaseService supabase) : super(supabase, 'quiz');

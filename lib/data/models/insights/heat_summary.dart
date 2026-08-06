@@ -1,7 +1,7 @@
 // Recall · HeatSummary — typed view of buckets.heat_summary jsonb [02c].
 // Defaults safely when the key is absent or `{}` so parsing never crashes.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class HeatSummary {
   final double aggregateHeat;
@@ -32,8 +32,7 @@ class HeatSummary {
       hotCount: asInt(json['hot_count']),
       warmCount: asInt(json['warm_count']),
       coolCount: asInt(json['cool_count']),
-      segments:
-          raw is List ? raw.map((e) => asDouble(e)).toList() : const [],
+      segments: raw is List ? raw.map((e) => asDouble(e)).toList() : const [],
       dominantPriority: asInt(json['dominant_priority'], 1),
     );
   }

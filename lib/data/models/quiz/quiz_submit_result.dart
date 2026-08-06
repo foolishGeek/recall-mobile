@@ -3,8 +3,8 @@
 // answer awaiting AI) and `flashcardBack` (reveal). `grade`/`isCorrect` are
 // stored server-side and surfaced again in S19 results.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class QuizSubmitResult {
   final bool isCorrect;
@@ -24,7 +24,8 @@ class QuizSubmitResult {
   factory QuizSubmitResult.fromJson(Map<String, dynamic> json) =>
       QuizSubmitResult(
         isCorrect: asBool(json['is_correct']),
-        grade: json['grade'] == null ? null : ReviewGrade.fromWire(json['grade']),
+        grade:
+            json['grade'] == null ? null : ReviewGrade.fromWire(json['grade']),
         aiFeedback: asStringOrNull(json['ai_feedback']),
         flashcardBack: asStringOrNull(json['flashcard_back']),
         pending: asBool(json['pending']),

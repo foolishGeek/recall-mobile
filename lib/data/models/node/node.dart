@@ -1,8 +1,8 @@
 // Recall · Node model — `nodes` row. FSRS scheduling fields live here and are
 // written client-side by the engine (S04). `link_preview_json` → LinkPreview.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 import 'link_preview.dart';
 
 class Node {
@@ -80,8 +80,9 @@ class Node {
       reps: asInt(json['reps']),
       lapses: asInt(json['lapses']),
       state: NodeState.fromWire(json['state']),
-      lastGrade:
-          json['last_grade'] == null ? null : ReviewGrade.fromWire(json['last_grade']),
+      lastGrade: json['last_grade'] == null
+          ? null
+          : ReviewGrade.fromWire(json['last_grade']),
       lastResponseMs: asIntOrNull(json['last_response_ms']),
       extractedText: asStringOrNull(json['extracted_text']),
       contentHash: asStringOrNull(json['content_hash']),

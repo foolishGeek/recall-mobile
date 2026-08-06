@@ -1,6 +1,6 @@
 // Recall · NodeAsset model — `node_assets` row (PDF/image storage references).
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class NodeAsset {
   final String id;

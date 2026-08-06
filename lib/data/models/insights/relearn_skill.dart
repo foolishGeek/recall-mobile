@@ -1,7 +1,7 @@
 // Recall · RelearnSkill — one ranked weak node from `v_relearn_skills` [D-AI-9].
 // Drives the soft "Re-learn weak skills" nudge. Read-only on the client.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class RelearnSkill {
   final String nodeId;

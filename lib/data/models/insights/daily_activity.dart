@@ -1,7 +1,7 @@
 // Recall · DailyActivity model — `daily_activity` row (review_count per day).
 // Server-authoritative: written by the 00003 reviews trigger, read-only client.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class DailyActivity {
   final String userId;

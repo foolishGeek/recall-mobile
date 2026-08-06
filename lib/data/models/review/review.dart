@@ -2,8 +2,8 @@
 // idempotency key; stores before/after S/D/comfort/R and due_before/due_after
 // [D-SCHEMA-4] for adherence + deterministic replay.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class Review {
   final String id;

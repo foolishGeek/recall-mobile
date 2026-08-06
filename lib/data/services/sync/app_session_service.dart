@@ -11,9 +11,9 @@ import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/config/limits_config.dart';
-import '../../core/utils/app_env.dart';
-import 'supabase_service.dart';
+import '../../../core/config/limits_config.dart';
+import '../../../core/utils/app_env.dart';
+import '../platform/supabase_service.dart';
 
 class AppSessionService extends GetxService with WidgetsBindingObserver {
   AppSessionService(this._supabase);

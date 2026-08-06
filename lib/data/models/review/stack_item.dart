@@ -1,6 +1,6 @@
 // Recall · StackItem model — `stack_items` row (ordered node in a stack).
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class StackItem {
   final String id;

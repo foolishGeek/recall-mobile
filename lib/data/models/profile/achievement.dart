@@ -1,6 +1,6 @@
 // Recall · Achievement model — `achievements` row (12-item canonical seed).
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class Achievement {
   final String id;

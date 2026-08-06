@@ -2,7 +2,7 @@
 // server-authoritative (written by migration 00003 triggers / ai-forge); the
 // client only edits preference fields (see ProfileRepository.updatePreferences).
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class Profile {
   final String id;

@@ -2,7 +2,7 @@
 // per-user style directives Aura injects into that user's prompts. Read-only on
 // the client (writes go through ai_apply_suggestion / ai_clear_preferences).
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class AiUserPreferences {
   final String userId;

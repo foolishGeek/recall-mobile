@@ -3,8 +3,8 @@
 // correct_index / reference_answer / grading_rubric (and flashcard_back until
 // reveal), so those are nullable here.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class QuizQuestion {
   final int position;

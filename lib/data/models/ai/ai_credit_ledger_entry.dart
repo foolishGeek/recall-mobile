@@ -1,7 +1,7 @@
 // Recall · AiCreditLedgerEntry model — `ai_credit_ledger` row. Append-only
 // source of truth for AI credit balance. Written server-side; read-only client.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class AiCreditLedgerEntry {
   final String id;

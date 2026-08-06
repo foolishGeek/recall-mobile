@@ -1,8 +1,8 @@
 // Recall · QuizAttempt model — `quiz_attempts` row. `question_count` is
 // denormalized at generate time [D-SCHEMA-5] for the Recent-quizzes chips.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class QuizAttempt {
   final String id;

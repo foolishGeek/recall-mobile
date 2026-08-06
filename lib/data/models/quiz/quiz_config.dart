@@ -1,7 +1,7 @@
 // Recall · QuizConfig model — `quiz_configs` row (a saved quiz setup).
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class QuizConfig {
   final String id;

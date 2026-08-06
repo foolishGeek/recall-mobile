@@ -2,12 +2,12 @@
 // server-side) and wraps AiService for `ai-forge` calls. Feature-typed returns
 // land in S06; the invoke seam returns the raw EF body for now.
 
-import '../local/local_store.dart';
-import '../models/models.dart';
-import '../services/ai_service.dart';
-import '../services/repo_exception.dart';
-import '../services/supabase_service.dart';
-import 'base_repository.dart';
+import '../../local/local_store.dart';
+import '../../models/models.dart';
+import '../../services/ai/ai_service.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
+import '../base/base_repository.dart';
 
 class AiRepository extends BaseRepository {
   AiRepository(SupabaseService supabase, this._ai, this._local)
@@ -70,7 +70,8 @@ class AiRepository extends BaseRepository {
     String? nodeId,
     String? bucketId,
   }) =>
-      guard(() => _ai.summarize(scope: scope, nodeId: nodeId, bucketId: bucketId));
+      guard(() =>
+          _ai.summarize(scope: scope, nodeId: nodeId, bucketId: bucketId));
 
   /// Generate (or return cached) AI overview for a node.
   /// Pass [forceRefresh] from Regenerate so stale cached suggestions refresh.
@@ -166,7 +167,9 @@ class AiRepository extends BaseRepository {
           'p_rating': rating,
           'p_interaction': interactionId,
         });
-        return res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{};
+        return res is Map
+            ? Map<String, dynamic>.from(res)
+            : <String, dynamic>{};
       });
 
   /// Current learned Aura preferences for transparency/control.

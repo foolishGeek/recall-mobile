@@ -1,8 +1,8 @@
 // Recall · Stack model — `stacks` row. `scope` jsonb holds the bucket ids the
 // stack was generated from; parsed into a typed list.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class Stack {
   final String id;

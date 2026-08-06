@@ -2,8 +2,8 @@
 // Edge Function response shapes; the client only renders them (the backend owns
 // all decisioning). Errors surface as RepoException via SupabaseService.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 import 'link_suggestion.dart';
 
 /// Provider token usage echoed by generative features (informational).
@@ -81,7 +81,8 @@ class SummarizeResult {
     this.usage,
   });
 
-  factory SummarizeResult.fromJson(Map<String, dynamic> json) => SummarizeResult(
+  factory SummarizeResult.fromJson(Map<String, dynamic> json) =>
+      SummarizeResult(
         summary: asStringList(json['summary']),
         keyThemes: asStringList(json['key_themes']),
         model: asStringOrNull(json['model']),
@@ -144,7 +145,8 @@ class QuizGradeResult {
     this.model,
   });
 
-  factory QuizGradeResult.fromJson(Map<String, dynamic> json) => QuizGradeResult(
+  factory QuizGradeResult.fromJson(Map<String, dynamic> json) =>
+      QuizGradeResult(
         isCorrect: asBool(json['is_correct']),
         suggestedGrade: ReviewGrade.fromWire(json['suggested_grade']),
         feedback: asStringOrNull(json['feedback']),

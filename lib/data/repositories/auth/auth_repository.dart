@@ -10,10 +10,10 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/utils/app_env.dart';
-import '../services/repo_exception.dart';
-import '../services/supabase_service.dart';
-import 'base_repository.dart';
+import '../../../core/utils/app_env.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
+import '../base/base_repository.dart';
 
 class AuthRepository extends BaseRepository {
   AuthRepository(SupabaseService supabase) : super(supabase, 'signin');

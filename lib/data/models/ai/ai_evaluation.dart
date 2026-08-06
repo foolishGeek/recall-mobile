@@ -1,7 +1,7 @@
 // Recall · AiEvaluation model — `node_ai_evaluations` row (AI overview cached by
 // content_hash). Written server-side by ai-forge (S06); read-only on the client.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 import 'link_suggestion.dart';
 
 class AiEvaluation {

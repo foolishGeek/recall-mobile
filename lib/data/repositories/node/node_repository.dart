@@ -10,12 +10,12 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
 
-import '../local/local_store.dart';
-import '../models/models.dart';
-import '../services/repo_exception.dart';
-import '../services/supabase_service.dart';
-import '../services/sync_status_service.dart';
-import 'base_repository.dart';
+import '../../local/local_store.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
+import '../../services/sync/sync_status_service.dart';
+import '../base/base_repository.dart';
 
 class NodeRepository extends BaseRepository {
   NodeRepository(SupabaseService supabase, this._local, this._status)
@@ -211,7 +211,8 @@ class NodeRepository extends BaseRepository {
             .eq('node_id', nodeId);
         return rows
             .where((r) => r['tags'] != null)
-            .map((r) => Tag.fromJson(Map<String, dynamic>.from(r['tags'] as Map)))
+            .map((r) =>
+                Tag.fromJson(Map<String, dynamic>.from(r['tags'] as Map)))
             .toList();
       });
 
@@ -287,9 +288,8 @@ class NodeRepository extends BaseRepository {
       guard(() async {
         await supabase.from('node_tags').delete().eq('node_id', nodeId);
         if (tagIds.isEmpty) return;
-        final rows = tagIds
-            .map((tid) => {'node_id': nodeId, 'tag_id': tid})
-            .toList();
+        final rows =
+            tagIds.map((tid) => {'node_id': nodeId, 'tag_id': tid}).toList();
         await supabase.from('node_tags').insert(rows);
       });
 

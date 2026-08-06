@@ -2,7 +2,7 @@
 // 00047). "Memory strength" (desired retention) resolved bucket > user > global.
 // The UI speaks in friendly terms; this holds the raw 0..1 fractions.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class SchedulingPrefs {
   /// Global app default retention (0..1), e.g. 0.90.
@@ -24,7 +24,8 @@ class SchedulingPrefs {
     this.effective = 0.90,
   });
 
-  factory SchedulingPrefs.fromJson(Map<String, dynamic> json) => SchedulingPrefs(
+  factory SchedulingPrefs.fromJson(Map<String, dynamic> json) =>
+      SchedulingPrefs(
         appDefault: asDoubleOrNull(json['app_default']),
         userValue: asDoubleOrNull(json['user_value']),
         bucketValue: asDoubleOrNull(json['bucket_value']),

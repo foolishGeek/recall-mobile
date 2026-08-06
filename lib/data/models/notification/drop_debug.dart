@@ -2,7 +2,7 @@
 // per-user breakdown of why a Recall Drop will or won't fire. Powers the calm
 // "Reminders" diagnostic in Settings. Read-only; mirrors compute_due_candidates.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class DropDebug {
   final bool pushOptIn;

@@ -1,4 +1,4 @@
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class DuePreviewNode {
   final String nodeId;

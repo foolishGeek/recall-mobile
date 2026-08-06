@@ -1,8 +1,8 @@
 // Recall · Subscription model — `subscriptions` row. `tier` is free/premium in
 // the DB (downgraded is derived app-side). Server-authoritative (webhook writes).
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 
 class Subscription {
   final String userId;

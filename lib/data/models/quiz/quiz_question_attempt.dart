@@ -1,8 +1,8 @@
 // Recall · QuizQuestionAttempt model — `quiz_question_attempts` row. The stored
 // `question_json` superset [D-QUIZ-1] parses into a typed QuizQuestion.
 
-import 'enums.dart';
-import 'json_utils.dart';
+import '../shared/enums.dart';
+import '../shared/json_utils.dart';
 import 'quiz_question.dart';
 
 class QuizQuestionAttempt {
@@ -52,7 +52,8 @@ class QuizQuestionAttempt {
         userAnswer: asStringOrNull(json['user_answer']),
         grade:
             json['grade'] == null ? null : ReviewGrade.fromWire(json['grade']),
-        isCorrect: json['is_correct'] == null ? null : asBool(json['is_correct']),
+        isCorrect:
+            json['is_correct'] == null ? null : asBool(json['is_correct']),
         aiFeedback: asStringOrNull(json['ai_feedback']),
         responseMs: asIntOrNull(json['response_ms']),
         timedOut: asBool(json['timed_out']),

@@ -3,7 +3,7 @@
 // memory simulation (S22). All numbers are server-authoritative; the client
 // only renders + animates. Hero percents are 0..100; curve points are 0..1.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 /// One sampled day on the dual-line forgetting curve (0..1 retention).
 class CurvePoint {

@@ -2,11 +2,11 @@
 // only update preference columns (gamification/AI/billing columns are locked by
 // migration 00003 and written server-side).
 
-import '../local/local_store.dart';
-import '../models/models.dart';
-import '../services/repo_exception.dart';
-import '../services/supabase_service.dart';
-import 'base_repository.dart';
+import '../../local/local_store.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
+import '../base/base_repository.dart';
 
 class ProfileRepository extends BaseRepository {
   ProfileRepository(this._local, SupabaseService supabase)
@@ -89,12 +89,11 @@ class ProfileRepository extends BaseRepository {
       if (!e.isOffline) rethrow;
       await _local.enqueueProfilePrefs(userId, changes);
       return current?.copyWith(
-        onboardingDone: changes['onboarding_done'] as bool? ??
-            current.onboardingDone,
-        pushOptIn:
-            changes['push_opt_in'] as bool? ?? current.pushOptIn,
-        dropFrequency: changes['drop_frequency'] as String? ??
-            current.dropFrequency,
+        onboardingDone:
+            changes['onboarding_done'] as bool? ?? current.onboardingDone,
+        pushOptIn: changes['push_opt_in'] as bool? ?? current.pushOptIn,
+        dropFrequency:
+            changes['drop_frequency'] as String? ?? current.dropFrequency,
       );
     }
   }

@@ -1,7 +1,7 @@
 // Recall · optional closer-match URL from Aura evaluate. Never auto-applied;
 // the detail view shows a quiet Use / Dismiss nudge under the LINKED/WATCH card.
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class LinkSuggestion {
   final String currentUrl;

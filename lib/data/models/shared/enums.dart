@@ -2,10 +2,10 @@
 // recall-backend/supabase/migrations/00001_initial.sql. Each carries its DB
 // `wire` string and a safe `fromWire` (unknown value → safe default + breadcrumb).
 
-import '../../core/gates/tier_gate.dart';
+import '../../../core/gates/tier_gate.dart';
 import 'json_utils.dart';
 
-export '../../core/gates/tier_gate.dart' show SubscriptionTier;
+export '../../../core/gates/tier_gate.dart' show SubscriptionTier;
 
 /// `subscription_tier` is `free`/`premium` in the DB; the app's `downgraded`
 /// state is derived (free + had_premium), never stored. Reuses the gate enum.
@@ -142,6 +142,6 @@ enum DevicePlatform {
 
   const DevicePlatform(this.wire);
   final String wire;
-  static DevicePlatform fromWire(Object? v) =>
-      parseEnum(values, (e) => e.wire, v, DevicePlatform.ios, 'device_platform');
+  static DevicePlatform fromWire(Object? v) => parseEnum(
+      values, (e) => e.wire, v, DevicePlatform.ios, 'device_platform');
 }

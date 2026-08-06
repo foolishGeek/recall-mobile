@@ -99,12 +99,12 @@ RepoException _mapPostgrest(PostgrestException e, StackTrace? st) {
   // DB-raised business rules (P0001) carry the rule name in the message.
   if (lower.contains('free_tier_bucket_limit')) {
     return RepoException(RepoErrorCode.freeTierBucketLimit,
-        'Free plan allows up to 2 buckets.',
+        'Bucket limit reached for your plan.',
         cause: e, causeStackTrace: st);
   }
   if (lower.contains('free_tier_stack_limit')) {
     return RepoException(RepoErrorCode.freeTierStackLimit,
-        'Free plan allows 2 stacks per month.',
+        'Monthly review limit reached for your plan.',
         cause: e, causeStackTrace: st);
   }
 

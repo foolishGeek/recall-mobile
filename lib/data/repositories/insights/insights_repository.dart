@@ -1,9 +1,9 @@
 // Recall · InsightsRepository. Read-only over the analytics views + activity /
 // achievements tables (all written server-side). Returns models / typed records.
 
-import '../models/models.dart';
-import '../services/supabase_service.dart';
-import 'base_repository.dart';
+import '../../models/models.dart';
+import '../../services/platform/supabase_service.dart';
+import '../base/base_repository.dart';
 
 /// `v_insights_summary` row.
 typedef InsightsSummary = ({

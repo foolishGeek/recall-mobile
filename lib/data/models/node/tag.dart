@@ -1,6 +1,6 @@
 // Recall · Tag model — `tags` row (user-scoped, unique on lower(name)).
 
-import 'json_utils.dart';
+import '../shared/json_utils.dart';
 
 class Tag {
   final String id;

@@ -16,8 +16,8 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../../core/firebase/firebase_bootstrap.dart';
-import '../../core/utils/app_env.dart';
+import '../../../core/firebase/firebase_bootstrap.dart';
+import '../../../core/utils/app_env.dart';
 
 class AppUpdateCopy {
   final String title;
@@ -95,8 +95,8 @@ class RemoteConfigService extends GetxService {
         kAppUpdateConfigKey: _kDefaultJson,
       });
       final activated = await rc.fetchAndActivate().timeout(
-        const Duration(seconds: 10),
-      );
+            const Duration(seconds: 10),
+          );
       _rc = rc;
       _cfg = _readConfig();
       if (kDebugMode || !AppEnv.isProd) {
