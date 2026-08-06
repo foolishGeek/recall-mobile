@@ -39,7 +39,7 @@ android {
         // supabase_flutter transitive deps require minSdk 23
         // (ua_client_hints ≥22, passkeys_android ≥23).
         minSdk = maxOf(23, flutter.minSdkVersion)
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

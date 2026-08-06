@@ -11,6 +11,7 @@ import 'dart:ui';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -20,19 +21,19 @@ import 'core/firebase/firebase_bootstrap.dart';
 import 'core/utils/app_env.dart';
 import 'data/local/app_database.dart';
 import 'data/local/local_store.dart';
-import 'data/models/json_utils.dart';
-import 'data/repositories/notification_repository.dart';
-import 'data/services/app_session_service.dart';
-import 'data/services/auth_service.dart';
-import 'data/services/connectivity_service.dart';
-import 'data/services/notification_service.dart';
-import 'data/services/play_update_service.dart';
-import 'data/services/remote_config_service.dart';
-import 'data/services/revenuecat_service.dart';
-import 'data/services/supabase_service.dart';
-import 'data/services/sync_service.dart';
-import 'data/services/sync_status_service.dart';
-import 'data/services/tier_service.dart';
+import 'data/models/shared/json_utils.dart';
+import 'data/repositories/notification/notification_repository.dart';
+import 'data/services/auth/auth_service.dart';
+import 'data/services/billing/revenuecat_service.dart';
+import 'data/services/billing/tier_service.dart';
+import 'data/services/platform/notification_service.dart';
+import 'data/services/platform/play_update_service.dart';
+import 'data/services/platform/remote_config_service.dart';
+import 'data/services/platform/supabase_service.dart';
+import 'data/services/sync/app_session_service.dart';
+import 'data/services/sync/connectivity_service.dart';
+import 'data/services/sync/sync_service.dart';
+import 'data/services/sync/sync_status_service.dart';
 
 /// FCM background/terminated handler (separate isolate — no GetX). Best-effort
 /// `delivered` log for a Recall Drop; must never throw. [D-EF-10].
@@ -96,6 +97,12 @@ void _wireModelParseWarnings() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Android 15+ enforces edge-to-edge for targetSdk 35+; asking for it
+  // explicitly extends the same layout to older Android versions so insets
+  // behave identically everywhere. Bar styling lives in RecallApp.
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
   await AppEnv.hydrateRelease();
 
   // 1. Bootstrap Supabase + core singletons before anything else.

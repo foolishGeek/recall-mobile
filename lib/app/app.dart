@@ -3,6 +3,7 @@
 // fallback so a missing config never shows a silent white screen.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../core/theme/recall_colors.dart';
@@ -28,6 +29,36 @@ class RecallApp extends StatelessWidget {
       getPages: AppPages.pages,
       defaultTransition: Transition.fadeIn,
       transitionDuration: RecallMotion.normal,
+      builder: (context, child) =>
+          _SystemBars(child: child ?? const SizedBox()),
+    );
+  }
+}
+
+/// Edge-to-edge draws the canvas behind the status and navigation bars, so the
+/// system icons have to be tinted against Recall's canvas rather than left to
+/// the platform default (white icons, invisible on the light paper canvas).
+class _SystemBars extends StatelessWidget {
+  final Widget child;
+  const _SystemBars({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final icons = isDark ? Brightness.light : Brightness.dark;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: icons,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: icons,
+        // Without this, 3-button navigation gets a translucent scrim over the
+        // canvas instead of a clean transparent bar.
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: child,
     );
   }
 }
