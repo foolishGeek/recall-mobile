@@ -1,15 +1,14 @@
 # Flutter / plugin keep rules for release R8.
 # Enables minify + resource shrinking without stripping billing/auth.
 
--keep class io.flutter.app.** { *; }
--keep class io.flutter.plugin.** { *; }
--keep class io.flutter.util.** { *; }
--keep class io.flutter.view.** { *; }
--keep class io.flutter.** { *; }
--keep class io.flutter.plugins.** { *; }
+# FlutterEngine resolves this by name via Class.forName in GeneratedPluginRegister,
+# and swallows a miss — losing it silently unregisters every plugin. The rest of the
+# embedding protects its JNI surface with @androidx.annotation.Keep.
+-keep class io.flutter.plugins.GeneratedPluginRegistrant {
+    public static void registerWith(io.flutter.embedding.engine.FlutterEngine);
+}
 
-# RevenueCat / Purchases
--keep class com.revenuecat.purchases.** { *; }
+# RevenueCat / Purchases (the SDK's own consumer rules keep com.revenuecat.**)
 -dontwarn com.revenuecat.purchases.**
 
 # Supabase / GoTrue / OkHttp
@@ -21,8 +20,7 @@
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 
-# Sentry
--keep class io.sentry.** { *; }
+# Sentry (sentry_flutter ships an identical keep in its consumer rules)
 -dontwarn io.sentry.**
 
 # Gson / serialization used by plugins
