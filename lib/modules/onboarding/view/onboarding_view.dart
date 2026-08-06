@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
 import '../../../core/widgets/recall_scaffold.dart';
+import '../../../core/utils/recall_insets.dart';
 import '../controller/onboarding_controller.dart';
 import 'widgets/onboarding_dots.dart';
 import 'widgets/onboarding_panel_a.dart';
@@ -57,7 +58,8 @@ class OnboardingView extends GetView<OnboardingController> {
             right: 0,
             bottom: 0,
             child: Container(
-              padding: const EdgeInsets.fromLTRB(28, 48, 28, 40),
+              padding:
+                  const EdgeInsets.fromLTRB(28, 48, 28, 40).bottomSafe(context),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,

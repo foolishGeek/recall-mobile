@@ -8,6 +8,7 @@ import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
 import '../../../../core/theme/recall_typography.dart';
 import '../../../../core/widgets/mono_label.dart';
+import '../../../../core/utils/recall_insets.dart';
 
 class AiComposer extends StatefulWidget {
   final TextEditingController controller;
@@ -57,7 +58,7 @@ class _AiComposerState extends State<AiComposer> {
     final sendActive = _hasText && !widget.offline;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 22).bottomSafe(context),
       decoration: BoxDecoration(
         color: c.canvas,
         border: Border(top: BorderSide(color: c.grey200)),

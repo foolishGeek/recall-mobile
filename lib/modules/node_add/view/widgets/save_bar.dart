@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import '../../../../core/utils/recall_insets.dart';
 
 class SaveBar extends StatelessWidget {
   final bool isEditMode;
@@ -23,12 +24,8 @@ class SaveBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 10,
-        bottom: MediaQuery.of(context).padding.bottom + 22,
-      ),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 22)
+          .bottomSafe(context),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
@@ -57,13 +54,15 @@ class SaveBar extends StatelessWidget {
                     ? [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: Theme.of(context).brightness == Brightness.light
-                                ? 0.18
-                                : 0.4,
+                            alpha:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? 0.18
+                                    : 0.4,
                           ),
-                          offset: Theme.of(context).brightness == Brightness.light
-                              ? const Offset(0, 8)
-                              : const Offset(0, 10),
+                          offset:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? const Offset(0, 8)
+                                  : const Offset(0, 10),
                           blurRadius:
                               Theme.of(context).brightness == Brightness.light
                                   ? 22

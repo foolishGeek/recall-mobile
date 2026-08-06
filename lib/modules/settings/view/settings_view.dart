@@ -13,6 +13,7 @@ import '../../../core/widgets/mono_label.dart';
 import '../../../core/widgets/recall_coach_tip.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
+import '../../../core/utils/recall_insets.dart';
 import '../controller/settings_controller.dart';
 import 'widgets/settings_account_sheets.dart';
 import 'widgets/settings_pref_sheets.dart';
@@ -79,7 +80,7 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<SettingsController>();
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 28),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 28).bottomSafe(context),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 12, 0, 0),
@@ -113,173 +114,173 @@ class _Body extends StatelessWidget {
 Widget _sections(BuildContext context, SettingsController controller) {
   final c = RecallColors.of(context);
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // ── Recall Drop ──────────────────────────────────────────────────────
-      SettingsSection(label: 'Recall Drop', children: [
-        ListRow(
-          title: 'Notifications',
-          subtitle: 'Ping me when a fresh set is ready',
-          trailing: RecallToggle(
-            value: controller.pushOptIn,
-            onChanged: controller.togglePush,
-          ),
+    // ── Recall Drop ──────────────────────────────────────────────────────
+    SettingsSection(label: 'Recall Drop', children: [
+      ListRow(
+        title: 'Notifications',
+        subtitle: 'Ping me when a fresh set is ready',
+        trailing: RecallToggle(
+          value: controller.pushOptIn,
+          onChanged: controller.togglePush,
         ),
-        ListRow(
-          title: 'Check reminders',
-          subtitle: 'See why Drops are (or aren’t) arriving',
-          onTap: () => showRemindersDiagnosticSheet(context, controller),
-        ),
-        ListRow(
-          title: 'Reminder style',
-          subtitle: controller.frequencyLabel,
-          onTap: () {
-            controller.dismissReviewCoachTip();
-            showFrequencySheet(
-              context,
-              current: controller.dropFrequency,
-              onSelected: controller.setDropFrequency,
-            );
-          },
-        ),
-        ListRow(
-          title: 'Quiet hours',
-          subtitle: controller.quietHoursLabel,
-          onTap: () => showQuietHoursSheet(
+      ),
+      ListRow(
+        title: 'Check reminders',
+        subtitle: 'See why Drops are (or aren’t) arriving',
+        onTap: () => showRemindersDiagnosticSheet(context, controller),
+      ),
+      ListRow(
+        title: 'Reminder style',
+        subtitle: controller.frequencyLabel,
+        onTap: () {
+          controller.dismissReviewCoachTip();
+          showFrequencySheet(
             context,
-            start: controller.quietHoursStart,
-            end: controller.quietHoursEnd,
-            onChanged: controller.setQuietHours,
-          ),
+            current: controller.dropFrequency,
+            onSelected: controller.setDropFrequency,
+          );
+        },
+      ),
+      ListRow(
+        title: 'Quiet hours',
+        subtitle: controller.quietHoursLabel,
+        onTap: () => showQuietHoursSheet(
+          context,
+          start: controller.quietHoursStart,
+          end: controller.quietHoursEnd,
+          onChanged: controller.setQuietHours,
         ),
-        ListRow(
-          title: 'Haptics on drop',
-          trailing: RecallToggle(
-            value: controller.hapticsOnDrop,
-            onChanged: controller.toggleHaptics,
-          ),
-          divider: false,
+      ),
+      ListRow(
+        title: 'Haptics on drop',
+        trailing: RecallToggle(
+          value: controller.hapticsOnDrop,
+          onChanged: controller.toggleHaptics,
         ),
-      ]),
+        divider: false,
+      ),
+    ]),
 
-      Obx(() {
-        if (!controller.showReviewCoachTip.value) {
-          return const SizedBox.shrink();
-        }
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
-          child: RecallCoachTip(
-            text: HowItWorksCopy.settingsTip,
-            howItWorksTitle: HowItWorksCopy.settingsTitle,
-            howItWorksSections: HowItWorksCopy.settingsSections,
-            onDismiss: controller.dismissReviewCoachTip,
-          ),
-        );
-      }),
-
-      // ── Review ───────────────────────────────────────────────────────────
-      SettingsSection(label: 'Review', children: [
-        ListRow(
-          title: 'Memory strength',
-          subtitle: controller.memoryStrengthLabel,
-          onTap: () {
-            controller.dismissReviewCoachTip();
-            showMemoryStrengthSheet(
-              context,
-              current: controller.memoryStrength,
-              onSelected: controller.setMemoryStrength,
-            );
-          },
+    Obx(() {
+      if (!controller.showReviewCoachTip.value) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+        child: RecallCoachTip(
+          text: HowItWorksCopy.settingsTip,
+          howItWorksTitle: HowItWorksCopy.settingsTitle,
+          howItWorksSections: HowItWorksCopy.settingsSections,
+          onDismiss: controller.dismissReviewCoachTip,
         ),
-        ListRow(
-          title: 'Default cooling period',
-          subtitle: controller.coolingLabel,
-          onTap: () => showCoolingSheet(
+      );
+    }),
+
+    // ── Review ───────────────────────────────────────────────────────────
+    SettingsSection(label: 'Review', children: [
+      ListRow(
+        title: 'Memory strength',
+        subtitle: controller.memoryStrengthLabel,
+        onTap: () {
+          controller.dismissReviewCoachTip();
+          showMemoryStrengthSheet(
             context,
-            currentDays: controller.coolingDays,
-            onSelected: controller.setCoolingDays,
-          ),
+            current: controller.memoryStrength,
+            onSelected: controller.setMemoryStrength,
+          );
+        },
+      ),
+      ListRow(
+        title: 'Default cooling period',
+        subtitle: controller.coolingLabel,
+        onTap: () => showCoolingSheet(
+          context,
+          currentDays: controller.coolingDays,
+          onSelected: controller.setCoolingDays,
         ),
-        ListRow(
-          title: 'Cards per session',
-          subtitle: controller.dailyLimitLabel,
-          divider: false,
-          onTap: () => showDailyLimitSheet(
-            context,
-            current: controller.sessionSizeOverride,
-            tierDefault: controller.cardsPerSessionDefault,
-            isPremium: controller.isPremium,
-            onSelected: controller.setDailyLimit,
-          ),
+      ),
+      ListRow(
+        title: 'Cards per session',
+        subtitle: controller.dailyLimitLabel,
+        divider: false,
+        onTap: () => showDailyLimitSheet(
+          context,
+          current: controller.sessionSizeOverride,
+          tierDefault: controller.cardsPerSessionDefault,
+          isPremium: controller.isPremium,
+          onSelected: controller.setDailyLimit,
         ),
-      ]),
+      ),
+    ]),
 
-      // ── Appearance ───────────────────────────────────────────────────────
-      SettingsSection(label: 'Appearance', children: [
-        SettingsThemeRow(
-          value: controller.theme,
-          onChanged: controller.setTheme,
-        ),
-      ]),
+    // ── Appearance ───────────────────────────────────────────────────────
+    SettingsSection(label: 'Appearance', children: [
+      SettingsThemeRow(
+        value: controller.theme,
+        onChanged: controller.setTheme,
+      ),
+    ]),
 
-      // ── Account ──────────────────────────────────────────────────────────
-      SettingsSection(label: 'Account', children: [
-        _ExportRow(controller: controller),
-        ListRow(
-          title: 'Sign out',
-          onTap: () => showSignOutSheet(context, onConfirm: controller.onSignOut),
-        ),
-        ListRow(
-          title: 'Delete account',
-          titleColor: c.chipRed,
-          divider: false,
-          onTap: () =>
-              showDeleteAccountSheet(context, onConfirm: controller.onDeleteAccount),
-        ),
-      ]),
+    // ── Account ──────────────────────────────────────────────────────────
+    SettingsSection(label: 'Account', children: [
+      _ExportRow(controller: controller),
+      ListRow(
+        title: 'Sign out',
+        onTap: () => showSignOutSheet(context, onConfirm: controller.onSignOut),
+      ),
+      ListRow(
+        title: 'Delete account',
+        titleColor: c.chipRed,
+        divider: false,
+        onTap: () => showDeleteAccountSheet(context,
+            onConfirm: controller.onDeleteAccount),
+      ),
+    ]),
 
-      // ── Subscription ─────────────────────────────────────────────────────
-      SettingsSubscriptionCard(controller: controller),
+    // ── Subscription ─────────────────────────────────────────────────────
+    SettingsSubscriptionCard(controller: controller),
 
-      // ── Data & privacy ───────────────────────────────────────────────────
-      SettingsSection(label: 'Data & privacy', children: [
-        ListRow(
-          title: 'Privacy policy',
-          trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
-          onTap: controller.onOpenPrivacy,
+    // ── Data & privacy ───────────────────────────────────────────────────
+    SettingsSection(label: 'Data & privacy', children: [
+      ListRow(
+        title: 'Privacy policy',
+        trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
+        onTap: controller.onOpenPrivacy,
+      ),
+      ListRow(
+        title: 'Terms of service',
+        trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
+        onTap: controller.onOpenTerms,
+      ),
+      ListRow(
+        title: 'Help',
+        trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
+        onTap: controller.onOpenHelp,
+      ),
+      ListRow(
+        title: 'Analytics',
+        subtitle: 'Anonymous · helps us improve',
+        trailing: RecallToggle(
+          value: controller.analyticsOptIn,
+          onChanged: controller.toggleAnalytics,
         ),
-        ListRow(
-          title: 'Terms of service',
-          trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
-          onTap: controller.onOpenTerms,
-        ),
-        ListRow(
-          title: 'Help',
-          trailing: Icon(Icons.north_east, size: 14, color: c.grey400),
-          onTap: controller.onOpenHelp,
-        ),
-        ListRow(
-          title: 'Analytics',
-          subtitle: 'Anonymous · helps us improve',
-          trailing: RecallToggle(
-            value: controller.analyticsOptIn,
-            onChanged: controller.toggleAnalytics,
-          ),
-          divider: false,
-        ),
-      ]),
+        divider: false,
+      ),
+    ]),
 
-      // Quiet, transient line for pref / IO errors.
-      Obx(() {
-        final msg = controller.notice.value;
-        if (msg == null) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(top: 14, left: 10),
-          child: Text(
-            msg,
-            style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600),
-          ),
-        );
-      }),
-    ]);
+    // Quiet, transient line for pref / IO errors.
+    Obx(() {
+      final msg = controller.notice.value;
+      if (msg == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 14, left: 10),
+        child: Text(
+          msg,
+          style: GoogleFonts.inter(fontSize: 12.5, color: c.grey600),
+        ),
+      );
+    }),
+  ]);
 }
 
 class _ExportRow extends StatelessWidget {

@@ -7,12 +7,15 @@
 // If you don't want a tab bar (Paywall, Settings, Onboarding), use
 // RecallScaffold.bare(body: ...) instead.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/recall_colors.dart';
 import '../theme/recall_motion.dart';
 import '../utils/recall_haptics.dart';
+import '../utils/recall_insets.dart';
 
 enum RecallTab { today, buckets, quiz, insights, you }
 
@@ -56,7 +59,8 @@ class RecallScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
     // Tab swap cross-fade (Block B3: RecallMotion.tabSwap 280ms); snaps under
     // reduced motion.
@@ -88,12 +92,21 @@ class _RecallTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
+
     return Container(
       decoration: BoxDecoration(
         color: c.canvas.withValues(alpha: 0.92),
         border: Border(top: BorderSide(color: c.grey200, width: 1)),
       ),
-      padding: const EdgeInsets.only(top: 12, bottom: 24, left: 8, right: 8),
+      // The tab bar owns the bottom inset for the whole shell (the body above
+      // is SafeArea(bottom: false)). The floor keeps the designed gesture-nav
+      // spacing while 3-button navigation gets its full clearance.
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: math.max(24, context.bottomInset + 8),
+        left: 8,
+        right: 8,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -118,7 +131,8 @@ class _TabItem extends StatelessWidget {
   final RecallTab tab;
   final bool active;
   final VoidCallback? onTap;
-  const _TabItem({required this.tab, required this.active, required this.onTap});
+  const _TabItem(
+      {required this.tab, required this.active, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

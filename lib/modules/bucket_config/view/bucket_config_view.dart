@@ -14,6 +14,7 @@ import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/soft_card.dart';
 import '../../bucket/controller/bucket_controller.dart';
 import '../../bucket/view/widgets/bucket_custom_cooling_dialog.dart';
+import '../../../core/utils/recall_insets.dart';
 
 /// Dedicated "Bucket config" surface: the three dials as a legible recipe, each
 /// with its own "What is it?". Cooling is a per-bucket deferred lever; Memory
@@ -34,7 +35,8 @@ class BucketConfigView extends GetView<BucketController> {
               final disabled =
                   controller.readOnly.value || !controller.bucketSrEnabled;
               return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 6, 20, 40),
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 40)
+                    .bottomSafe(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -295,8 +297,7 @@ class _ConfigSaveBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     return Container(
-      padding: EdgeInsets.fromLTRB(
-          20, 14, 20, MediaQuery.of(context).padding.bottom + 14),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14).bottomSafe(context),
       decoration: BoxDecoration(
         color: c.canvas,
         border: Border(top: BorderSide(color: c.grey200, width: 1)),

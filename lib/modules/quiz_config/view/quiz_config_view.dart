@@ -6,6 +6,7 @@ import '../../../core/theme/recall_typography.dart';
 import '../../../core/widgets/mono_label.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
+import '../../../core/utils/recall_insets.dart';
 import '../controller/quiz_config_controller.dart';
 import 'widgets/quiz_config_footer.dart';
 import 'widgets/quiz_config_mode_top.dart';
@@ -44,7 +45,9 @@ class _QuizConfigContent extends StatelessWidget {
       children: [
         SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(24, 6, 24, 126),
+          // Clears the pinned footer, which grows by the same inset.
+          padding:
+              const EdgeInsets.fromLTRB(24, 6, 24, 126).bottomSafe(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

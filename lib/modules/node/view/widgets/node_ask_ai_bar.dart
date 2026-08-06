@@ -5,8 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/brand/aura_brand.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/utils/recall_insets.dart';
 import '../../../../core/widgets/aura_mark.dart';
-import '../../../../data/models/ai_results.dart';
+import '../../../../data/models/ai/ai_results.dart';
 
 class NodeAskAiBar extends StatefulWidget {
   final String modelLabel;
@@ -77,8 +78,7 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.result != null || widget.error != null)
-          _responseCard(c),
+        if (widget.result != null || widget.error != null) _responseCard(c),
         _gradientMask(c),
         _inputBar(c),
       ],
@@ -190,12 +190,7 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
   Widget _inputBar(RecallColors c) {
     return Container(
       color: c.canvas,
-      padding: EdgeInsets.fromLTRB(
-        20,
-        4,
-        20,
-        MediaQuery.of(context).padding.bottom + 8,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8).bottomSafe(context),
       child: Column(
         children: [
           Container(

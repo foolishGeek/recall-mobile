@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/recall_colors.dart';
 import '../../../core/widgets/recall_state_view.dart';
+import '../../../core/utils/recall_insets.dart';
 import '../controller/quiz_play_controller.dart';
 import 'widgets/quiz_play_top_bar.dart';
 import 'widgets/quiz_progress_bar.dart';
@@ -62,7 +63,8 @@ class _PlayContent extends StatelessWidget {
                 )),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 26)
+                    .bottomSafe(context),
                 child: Column(
                   children: [
                     Expanded(

@@ -10,10 +10,11 @@ import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_share.dart';
 import '../../../core/widgets/mono_label.dart';
 import '../../../core/widgets/recall_scaffold.dart';
+import '../../../core/widgets/recall_sheet.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/tap_to_refresh_nudge.dart';
 import '../../../data/models/models.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../core/utils/recall_insets.dart';
 import '../controller/bucket_controller.dart';
 import 'widgets/bucket_ai_chips.dart';
 import 'widgets/bucket_header.dart';
@@ -61,8 +62,7 @@ class BucketView extends GetView<BucketController> {
                                 nodeCount: controller.nodeCount,
                                 bucketId: controller.bucketId,
                                 readOnly: controller.readOnly.value,
-                                onEditDescription:
-                                    controller.onEditDescription,
+                                onEditDescription: controller.onEditDescription,
                               )),
                           const SizedBox(height: 18),
                           Obx(() {
@@ -85,8 +85,7 @@ class BucketView extends GetView<BucketController> {
                                 srEnabled: controller.bucketSrEnabled,
                                 disabled: controller.readOnly.value,
                                 recipe: controller.configRecipe,
-                                onToggle: (v) =>
-                                    _onBucketSrChanged(context, v),
+                                onToggle: (v) => _onBucketSrChanged(context, v),
                                 onOpenConfig: controller.openBucketConfig,
                               )),
                           const SizedBox(height: 12),
@@ -98,8 +97,7 @@ class BucketView extends GetView<BucketController> {
                             return Column(
                               children: [
                                 BucketAiChips(
-                                  isSummarizing:
-                                      controller.isSummarizing.value,
+                                  isSummarizing: controller.isSummarizing.value,
                                   disabled: !controller.hasNodes,
                                   onSummarize: () => _onSummarize(context),
                                   onAskAi: controller.onAskAiTap,
@@ -120,19 +118,21 @@ class BucketView extends GetView<BucketController> {
                     ),
                     Obx(() {
                       if (controller.readOnly.value) {
-                        return _ReadOnlyBanner();
+                        return _ReadOnlyBanner(
+                          onUpgrade: controller.onUpgradeTap,
+                        );
                       }
                       return const SizedBox.shrink();
                     }),
                     // Add-note FAB — only when notes exist and the bucket is
                     // editable (hidden while read-only banner / save bar are up).
                     Obx(() {
-                      final show = controller.hasNodes &&
-                          !controller.readOnly.value;
+                      final show =
+                          controller.hasNodes && !controller.readOnly.value;
                       if (!show) return const SizedBox.shrink();
                       return Positioned(
                         right: 20,
-                        bottom: 20 + MediaQuery.of(context).padding.bottom,
+                        bottom: 20 + context.bottomInset,
                         child: _AddNoteFab(onTap: controller.onAddNodeTap),
                       );
                     }),
@@ -255,13 +255,11 @@ class BucketView extends GetView<BucketController> {
 
   void _showSummarySheet(BuildContext context, SummarizeResult result) {
     final c = RecallColors.of(context);
-    showModalBottomSheet(
+    showRecallSheet(
       context: context,
-      backgroundColor: c.card,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      // The draggable sheet needs the full height to size against; its ListView
+      // pays the inset instead.
+      safeBottom: false,
       builder: (ctx) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.55,
@@ -275,7 +273,8 @@ class BucketView extends GetView<BucketController> {
               );
           return ListView(
             controller: scroll,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            padding:
+                const EdgeInsets.fromLTRB(20, 16, 20, 24).bottomSafe(sheetCtx),
             children: [
               Center(
                 child: Container(
@@ -346,8 +345,7 @@ class BucketView extends GetView<BucketController> {
                       Expanded(
                         child: Text(
                           bullet,
-                          style:
-                              GoogleFonts.inter(fontSize: 14, color: c.ink),
+                          style: GoogleFonts.inter(fontSize: 14, color: c.ink),
                         ),
                       ),
                     ],
@@ -390,100 +388,93 @@ class BucketView extends GetView<BucketController> {
 Future<bool?> _showBucketSrOffConfirm(BuildContext context) {
   final c = RecallColors.of(context);
   RecallHaptics.selection();
-  return showModalBottomSheet<bool>(
+  return showRecallSheet<bool>(
     context: context,
-    backgroundColor: c.card,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: c.grey400,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: c.grey400,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Turn off spaced revision?',
-              style: GoogleFonts.fraunces(
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                color: c.ink,
-              ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Turn off spaced revision?',
+            style: GoogleFonts.fraunces(
+              fontSize: 22,
+              fontWeight: FontWeight.w500,
+              color: c.ink,
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Every note in this bucket becomes a quiet reference note. '
-              'You can turn it back on anytime.',
-              style: GoogleFonts.inter(
-                  fontSize: 13.5, height: 1.35, color: c.grey500),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(ctx, false),
-                    child: Container(
-                      height: 50,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: c.card,
-                        border: Border.all(color: c.grey200),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: c.grey600,
-                        ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Every note in this bucket becomes a quiet reference note. '
+            'You can turn it back on anytime.',
+            style: GoogleFonts.inter(
+                fontSize: 13.5, height: 1.35, color: c.grey500),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx, false),
+                  child: Container(
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: c.card,
+                      border: Border.all(color: c.grey200),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: c.grey600,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      RecallHaptics.medium();
-                      Navigator.pop(ctx, true);
-                    },
-                    child: Container(
-                      height: 50,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: c.ink,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        'Turn off',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: c.inkOnInk,
-                        ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    RecallHaptics.medium();
+                    Navigator.pop(ctx, true);
+                  },
+                  child: Container(
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: c.ink,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      'Turn off',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: c.inkOnInk,
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     ),
   );
@@ -553,8 +544,7 @@ class _DeletableNodeRowState extends State<_DeletableNodeRow>
   Future<void> _runHint() async {
     if (!mounted) return;
     setState(() => _showSwipeCaption = true);
-    final reduce =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     if (reduce) {
       // Reduced motion: static caption only, then mark seen.
       await Future<void>.delayed(const Duration(milliseconds: 1600));
@@ -657,100 +647,94 @@ class _DeletableNodeRowState extends State<_DeletableNodeRow>
 Future<bool?> _showDeleteConfirm(BuildContext context, String title) {
   final c = RecallColors.of(context);
   RecallHaptics.selection();
-  return showModalBottomSheet<bool>(
+  return showRecallSheet<bool>(
     context: context,
-    backgroundColor: c.card,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: c.grey400,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    builder: (ctx) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: c.grey400,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Delete this note?',
-              style: GoogleFonts.fraunces(
-                fontSize: 22,
-                fontWeight: FontWeight.w500,
-                color: c.ink,
-              ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Delete this note?',
+            style: GoogleFonts.fraunces(
+              fontSize: 22,
+              fontWeight: FontWeight.w500,
+              color: c.ink,
             ),
-            const SizedBox(height: 6),
-            Text(
-              title.isEmpty
-                  ? 'This note will be removed from the bucket.'
-                  : '"$title" will be removed from the bucket.',
-              style: GoogleFonts.inter(fontSize: 13.5, height: 1.35, color: c.grey500),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(ctx, false),
-                    child: Container(
-                      height: 50,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: c.card,
-                        border: Border.all(color: c.grey200),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: c.grey600,
-                        ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title.isEmpty
+                ? 'This note will be removed from the bucket.'
+                : '"$title" will be removed from the bucket.',
+            style: GoogleFonts.inter(
+                fontSize: 13.5, height: 1.35, color: c.grey500),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx, false),
+                  child: Container(
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: c.card,
+                      border: Border.all(color: c.grey200),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: c.grey600,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      RecallHaptics.medium();
-                      Navigator.pop(ctx, true);
-                    },
-                    child: Container(
-                      height: 50,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: c.chipRed,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        'Delete',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: c.inkOnInk,
-                        ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    RecallHaptics.medium();
+                    Navigator.pop(ctx, true);
+                  },
+                  child: Container(
+                    height: 50,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: c.chipRed,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      'Delete',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: c.inkOnInk,
                       ),
                     ),
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     ),
   );
@@ -884,13 +868,17 @@ class _EmptyNodesBody extends StatelessWidget {
 }
 
 class _ReadOnlyBanner extends StatelessWidget {
+  const _ReadOnlyBanner({required this.onUpgrade});
+
+  final VoidCallback onUpgrade;
+
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     return Positioned(
       left: 20,
       right: 20,
-      bottom: 24,
+      bottom: 24 + context.bottomInset,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -916,7 +904,7 @@ class _ReadOnlyBanner extends StatelessWidget {
               ),
             ),
             GestureDetector(
-              onTap: () => Get.find<TierService>().openPaywall(),
+              onTap: onUpgrade,
               child: Text(
                 'Upgrade',
                 style: GoogleFonts.inter(
@@ -932,4 +920,3 @@ class _ReadOnlyBanner extends StatelessWidget {
     );
   }
 }
-
