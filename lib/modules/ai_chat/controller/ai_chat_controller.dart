@@ -94,6 +94,7 @@ class AiChatController extends BaseController {
   final RxBool prefsLoading = false.obs;
 
   String _lastQuestion = '';
+  String? _conversationId;
   Timer? _typeTimer;
 
   TierGate get gate => _tierService.gate;
@@ -290,7 +291,9 @@ class AiChatController extends BaseController {
         question: _lastQuestion,
         bucketIds: _scopeBucketIds,
         spendCredit: spendCredit,
+        conversationId: _conversationId,
       );
+      if (res.conversationId != null) _conversationId = res.conversationId;
       liveCitations.assignAll(res.citations);
       liveModel.value = res.model;
       liveInteractionId.value = res.interactionId;

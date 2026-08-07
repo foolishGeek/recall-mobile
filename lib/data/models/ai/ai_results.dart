@@ -42,6 +42,7 @@ class RagChatResult {
   final String? model;
   final AiUsage? usage;
   final String? interactionId;
+  final String? conversationId;
 
   const RagChatResult({
     required this.answer,
@@ -49,6 +50,7 @@ class RagChatResult {
     this.model,
     this.usage,
     this.interactionId,
+    this.conversationId,
   });
 
   factory RagChatResult.fromJson(Map<String, dynamic> json) => RagChatResult(
@@ -64,6 +66,7 @@ class RagChatResult {
             ? AiUsage.fromJson(Map<String, dynamic>.from(json['usage'] as Map))
             : null,
         interactionId: asStringOrNull(json['interaction_id']),
+        conversationId: asStringOrNull(json['conversation_id']),
       );
 }
 

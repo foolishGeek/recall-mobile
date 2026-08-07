@@ -56,12 +56,14 @@ class AiRepository extends BaseRepository {
     List<String> bucketIds = const [],
     List<String> nodeIds = const [],
     bool spendCredit = false,
+    String? conversationId,
   }) =>
       guard(() => _ai.ragChat(
             question: question,
             bucketIds: bucketIds,
             nodeIds: nodeIds,
             spendCredit: spendCredit,
+            conversationId: conversationId,
           ));
 
   /// Summarize a node or bucket.

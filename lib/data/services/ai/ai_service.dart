@@ -37,12 +37,14 @@ class AiService extends GetxService {
     List<String> bucketIds = const [],
     List<String> nodeIds = const [],
     bool spendCredit = false,
+    String? conversationId,
   }) async {
     final body = await invokeForge('rag_chat', payload: {
       'question': question,
       if (bucketIds.isNotEmpty) 'bucket_ids': bucketIds,
       if (nodeIds.isNotEmpty) 'node_ids': nodeIds,
       if (spendCredit) 'spend_credit': true,
+      if (conversationId != null) 'conversation_id': conversationId,
     });
     return RagChatResult.fromJson(body);
   }
