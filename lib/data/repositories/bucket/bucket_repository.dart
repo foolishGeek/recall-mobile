@@ -6,6 +6,8 @@
 
 import 'dart:async';
 
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
+
 import '../../local/local_store.dart';
 import '../../models/models.dart';
 import '../../services/platform/supabase_service.dart';
@@ -225,15 +227,15 @@ class BucketRepository extends BaseRepository {
 
   /// Total node count across all user buckets from `v_bucket_heat`.
   Future<int> fetchTotalNodeCount(String userId) => guard(() async {
-        final rows = await supabase
-            .from('v_bucket_heat')
-            .select('node_count')
-            .eq('user_id', userId);
-        var total = 0;
-        for (final r in rows) {
-          total += asInt(r['node_count']);
-        }
-        return total;
+        // Counted on nodes, not summed across buckets, so a note that belongs to
+        // no bucket still counts as something Aura can read.
+        final res = await supabase
+            .from('nodes')
+            .select('id')
+            .eq('user_id', userId)
+            .isFilter('deleted_at', null)
+            .count(CountOption.exact);
+        return res.count;
       });
 
   /// Next drop time per bucket via `next_drop_time_rpc`. When [bucketIds] is
