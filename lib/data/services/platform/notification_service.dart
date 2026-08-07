@@ -13,7 +13,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/config/limits_config.dart';
@@ -85,9 +84,7 @@ class NotificationService extends GetxService {
 
       final initial = await FirebaseMessaging.instance.getInitialMessage();
       if (initial != null) _handleOpened(initial);
-    } catch (e, st) {
-      _capture(e, st);
-    }
+    } catch (_) {}
   }
 
   /// Requests OS notification permission. Returns true when granted.
@@ -107,8 +104,7 @@ class NotificationService extends GetxService {
       );
       return settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional;
-    } catch (e, st) {
-      _capture(e, st);
+    } catch (_) {
       return false;
     }
   }
@@ -133,9 +129,7 @@ class NotificationService extends GetxService {
         // switch so the engine (compute_due_candidates) can actually reach them.
         await _setOptIn(true);
       }
-    } catch (e, st) {
-      _capture(e, st);
-    }
+    } catch (_) {}
   }
 
   /// User-driven "turn on reminders" primitive (Settings toggle + the Reminders
@@ -160,9 +154,7 @@ class NotificationService extends GetxService {
     if (userId == null) return;
     try {
       await _notifications.setPushOptIn(userId: userId, value: value);
-    } catch (e, st) {
-      _capture(e, st);
-    }
+    } catch (_) {}
   }
 
   /// Refreshes the token only when push is already permitted — safe to call on
@@ -172,9 +164,7 @@ class NotificationService extends GetxService {
     try {
       final status = await Permission.notification.status;
       if (status.isGranted) await registerDeviceToken();
-    } catch (e, st) {
-      _capture(e, st);
-    }
+    } catch (_) {}
   }
 
   /// Registers/refreshes the current device FCM token (device_tokens).
@@ -184,9 +174,7 @@ class NotificationService extends GetxService {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) return;
       await _registerToken(token);
-    } catch (e, st) {
-      _capture(e, st);
-    }
+    } catch (_) {}
   }
 
   /// Upserts the token with a short bounded retry so a transient network blip
@@ -210,9 +198,8 @@ class NotificationService extends GetxService {
           token: token,
         );
         return;
-      } catch (e, st) {
+      } catch (_) {
         if (attempt == delays.length) {
-          _capture(e, st);
           return;
         }
         await Future<void>.delayed(delays[attempt]);
@@ -260,9 +247,7 @@ class NotificationService extends GetxService {
           _deepLink(message.data['route'] as String?);
         },
       );
-    } catch (e, st) {
-      _capture(e, st);
-    }
+    } catch (_) {}
   }
 
   void _handleOpened(RemoteMessage message) {
@@ -290,9 +275,7 @@ class NotificationService extends GetxService {
         type: type,
         dedupeKey: dedupeKey,
       );
-    } catch (e, st) {
-      _capture(e, st);
-    }
+    } catch (_) {}
   }
 
   /// Routes the payload's `route` (fallback /today) without racing app startup.
@@ -326,8 +309,7 @@ class NotificationService extends GetxService {
         return;
       }
       Get.offAllNamed(target);
-    } catch (e, st) {
-      _capture(e, st);
+    } catch (_) {
       try {
         Get.offAllNamed(Routes.today);
       } catch (_) {}
@@ -355,17 +337,6 @@ class NotificationService extends GetxService {
   /// Provider-agnostic analytics stub, gated by analytics opt-in [D-OBS-2].
   void _trackDropEvent(String name, Map<String, dynamic> params) {
     if (!_auth.analyticsOptIn) return;
-    Sentry.addBreadcrumb(
-      Breadcrumb(category: 'analytics', message: name, data: params),
-    );
-  }
-
-  void _capture(Object e, StackTrace st) {
-    unawaited(Sentry.captureException(
-      e,
-      stackTrace: st,
-      withScope: (scope) => scope.setTag('feature', 'notifications'),
-    ));
   }
 
   @override

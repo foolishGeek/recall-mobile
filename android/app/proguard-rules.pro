@@ -20,9 +20,6 @@
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 
-# Sentry (sentry_flutter ships an identical keep in its consumer rules)
--dontwarn io.sentry.**
-
 # Gson / serialization used by plugins
 -keepattributes Signature
 -keepattributes *Annotation*

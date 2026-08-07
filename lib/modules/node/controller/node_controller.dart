@@ -1,5 +1,4 @@
 import 'package:get/get.dart' hide Node;
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
@@ -211,20 +210,13 @@ class NodeController extends BaseController {
     setSuccess();
   }
 
-  /// Runs a non-critical fetch, returning [fallback] (and logging a non-fatal
-  /// breadcrumb) if it fails, so one degraded RPC never blocks the note screen.
+  /// Runs a non-critical fetch, returning [fallback] if it fails, so one
+  /// degraded RPC never blocks the note screen.
   Future<T> _guard<T>(
       String what, Future<T> Function() fetch, T fallback) async {
     try {
       return await fetch();
-    } catch (e, st) {
-      Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (s) => s
-          ..setTag('feature', 'node_detail')
-          ..setTag('node_detail.degraded', what),
-      );
+    } catch (_) {
       return fallback;
     }
   }
@@ -435,10 +427,8 @@ class NodeController extends BaseController {
     try {
       final updated = await _nodeRepo.update(nodeId, changes);
       node.value = updated;
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       node.value = prev;
-      Sentry.captureException(e,
-          stackTrace: st, withScope: (s) => s.setTag('feature', 'node_detail'));
     }
   }
 
@@ -466,14 +456,11 @@ class NodeController extends BaseController {
       evaluation.value = _withPreservedUrls(draft, node.value?.markdown);
       dismissedLinkSuggestions.clear();
       evalRating.value = 0;
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       if (e.code == RepoErrorCode.overviewQuotaExceeded) {
         _tierService.enforce(Feature.aiOverview, used: overviewsUsed.value);
       } else {
         evalError.value = e.message;
-        Sentry.captureException(e,
-            stackTrace: st,
-            withScope: (s) => s.setTag('feature', 'node_detail'));
       }
     } finally {
       isEvalLoading.value = false;
@@ -685,10 +672,8 @@ class NodeController extends BaseController {
         question: question.trim(),
         nodeIds: [nodeId],
       );
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       ragError.value = e.message;
-      Sentry.captureException(e,
-          stackTrace: st, withScope: (s) => s.setTag('feature', 'node_detail'));
     } finally {
       isAskingAi.value = false;
     }
@@ -743,10 +728,7 @@ class NodeController extends BaseController {
     try {
       await _nodeRepo.softDelete(nodeId);
       Get.back();
-    } on RepoException catch (e, st) {
-      Sentry.captureException(e,
-          stackTrace: st, withScope: (s) => s.setTag('feature', 'node_detail'));
-    }
+    } on RepoException catch (_) {}
   }
 
   void onLinkTap() => openUrl(node.value?.linkPreview?.canonicalUrl);
@@ -801,14 +783,9 @@ class NodeController extends BaseController {
     return '$m:${two(s)}';
   }
 
-  /// Analytics stub — gated by opt-in. Breadcrumb-only until a full analytics
-  /// service is wired (S15+). Safe to call unconditionally.
+  /// Analytics stub — gated by opt-in until a provider is wired. Safe to call
+  /// unconditionally.
   void _trackEvent(String name, Map<String, dynamic> params) {
     if (!_auth.analyticsOptIn) return;
-    Sentry.addBreadcrumb(Breadcrumb(
-      category: 'analytics',
-      message: name,
-      data: params,
-    ));
   }
 }

@@ -13,7 +13,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../core/base/base_controller.dart';
 import '../../../core/gates/feature.dart';
@@ -288,14 +287,8 @@ class InsightsController extends BaseController
     try {
       await body();
       cardError[card] = false;
-    } on RepoException catch (e) {
+    } on RepoException catch (_) {
       cardError[card] = true;
-      Sentry.addBreadcrumb(Breadcrumb(
-        category: 'insights',
-        message: 'card "$card" load failed (non-fatal)',
-        data: {'code': e.code.wire},
-        level: SentryLevel.warning,
-      ));
     }
   }
 
@@ -340,15 +333,10 @@ class InsightsController extends BaseController
     shell.onTabSelected(RecallTab.today);
   }
 
-  /// Analytics stub — opt-in gated, breadcrumb-only until a full analytics
-  /// service is wired (mirrors node_controller). Safe to call unconditionally.
+  /// Analytics stub — opt-in gated until a provider is wired. Safe to call
+  /// unconditionally.
   void _track(String name, Map<String, dynamic> params) {
     if (!_auth.analyticsOptIn) return;
-    Sentry.addBreadcrumb(Breadcrumb(
-      category: 'analytics',
-      message: name,
-      data: params,
-    ));
   }
 
   @override

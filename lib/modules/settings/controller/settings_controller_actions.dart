@@ -28,12 +28,10 @@ extension SettingsActions on SettingsController {
       exportStatus.value = status;
       _track('data_exported', const {});
       await _shareExport();
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       exportError.value = e.message;
-      _capture(e, st, 'export');
-    } catch (e, st) {
+    } catch (_) {
       exportError.value = "Couldn't prepare your export — try again.";
-      _capture(e, st, 'export');
     } finally {
       exporting.value = false;
     }
@@ -70,9 +68,8 @@ extension SettingsActions on SettingsController {
         subject: 'Your Recall data export',
       );
       exportError.value = null;
-    } catch (e, st) {
+    } catch (_) {
       exportError.value = "Couldn't share your export — try again.";
-      _capture(e, st, 'share_export');
     }
   }
 
@@ -81,9 +78,7 @@ extension SettingsActions on SettingsController {
     _track('sign_out', const {});
     try {
       await _auth.signOut();
-    } catch (e, st) {
-      _capture(e, st, 'sign_out');
-    }
+    } catch (_) {}
     Get.offAllNamed(Routes.signin);
   }
 
@@ -100,10 +95,9 @@ extension SettingsActions on SettingsController {
       await _auth.signOut();
       RecallHaptics.heavy();
       Get.offAllNamed(Routes.signin);
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       deleting.value = false;
       _notify("We couldn't delete your account — try again.");
-      _capture(e, st, 'delete_account');
     }
   }
 
@@ -122,10 +116,10 @@ extension SettingsActions on SettingsController {
         _notify('Nothing to restore.');
       }
       _track('restore_tapped', const {});
-    } on PlatformException catch (e, st) {
-      _handleStoreError(e, st, 'restore');
-    } catch (e, st) {
-      _handleStoreError(e, st, 'restore');
+    } on PlatformException catch (e) {
+      _handleStoreError(e, 'restore');
+    } catch (e) {
+      _handleStoreError(e, 'restore');
     } finally {
       restoring.value = false;
     }
@@ -139,9 +133,7 @@ extension SettingsActions on SettingsController {
         : _kAndroidManageSubscriptions;
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (e, st) {
-      _capture(e, st, 'manage_store');
-    }
+    } catch (_) {}
   }
 
   /// Premium-only consumable buy; balance is granted by the webhook, so we poll
@@ -155,10 +147,10 @@ extension SettingsActions on SettingsController {
       await _revenueCat.purchaseProduct(product);
       await _waitForCredits();
       _track('credits_purchased', {'product': product.identifier});
-    } on PlatformException catch (e, st) {
-      _handleStoreError(e, st, 'credits');
-    } catch (e, st) {
-      _handleStoreError(e, st, 'credits');
+    } on PlatformException catch (e) {
+      _handleStoreError(e, 'credits');
+    } catch (e) {
+      _handleStoreError(e, 'credits');
     } finally {
       buyingCredits.value = false;
     }
@@ -208,12 +200,10 @@ extension SettingsActions on SettingsController {
     RecallHaptics.selection();
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (e, st) {
-      _capture(e, st, op);
-    }
+    } catch (_) {}
   }
 
-  void _handleStoreError(Object e, StackTrace st, String kind) {
+  void _handleStoreError(Object e, String kind) {
     if (e is PlatformException &&
         PurchasesErrorHelper.getErrorCode(e) ==
             PurchasesErrorCode.purchaseCancelledError) {
@@ -221,6 +211,5 @@ extension SettingsActions on SettingsController {
     }
     _notify('Something went wrong — please try again.');
     _track('store_action_failed', {'kind': kind});
-    _capture(e, st, kind);
   }
 }

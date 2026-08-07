@@ -24,8 +24,7 @@ In **VS Code / Cursor** pick **recall (staging)** or **recall (prod)** — `.vsc
 In **Android Studio**: add `--flavor staging` (or `prod`) and `--dart-define-from-file=config/…`.
 
 Required keys (see [`../recall-backend/docs/DART-DEFINES.md`](../recall-backend/docs/DART-DEFINES.md)):
-`ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `REVENUECAT_API_KEY`.
-Empty `SENTRY_DSN` is allowed (Sentry init is skipped for local dev).
+`ENV`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `REVENUECAT_API_KEY`.
 Empty `REVENUECAT_API_KEY` is allowed (SDK no-ops until IAP is wired).
 
 **Firebase:** no manual swap at run time — Android flavors pick the file automatically. The files are gitignored (source of truth in the backend vault); populate them once:
@@ -91,7 +90,7 @@ Don't upload a staging AAB to the production Play listing.
 
 ```
 lib/
-  main.dart                 # bootstrap → Sentry → runApp(RecallApp)
+  main.dart                 # bootstrap → offline/sync → runApp(RecallApp)
   app/
     app.dart                # GetMaterialApp (theme, routes, initial binding)
     routes/                 # app_routes.dart (names) + app_pages.dart (GetPage list)

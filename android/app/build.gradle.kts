@@ -20,9 +20,9 @@ if (hasReleaseSigning) {
 
 android {
     namespace = "app.recall.recall"
-    // sentry_flutter compiles against SDK 36. NDK stays on Flutter's default
-    // (26.3) — plugins may warn about 27 but build cleanly; a partial NDK 27
-    // install breaks the build (CXX1101 missing source.properties).
+    // compileSdk 36 matches current Android / plugin requirements. NDK stays on
+    // Flutter's default (26.3) — plugins may warn about 27 but build cleanly; a
+    // partial NDK 27 install breaks the build (CXX1101 missing source.properties).
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 

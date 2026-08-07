@@ -1,5 +1,8 @@
 // Force / soft update bottomsheets. Brand chrome matches AiCooldownSheet.
-// Force: no close. Soft: footer CTA + circular X.
+// Force: no close; on resume re-fetches RC and dismisses if force was cleared.
+// Soft: footer CTA + circular X.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -9,7 +12,7 @@ import '../../../../core/theme/recall_typography.dart';
 import '../../../../core/widgets/mono_label.dart';
 import '../../../../data/services/platform/remote_config_service.dart';
 
-class AppUpdateSheet extends StatelessWidget {
+class AppUpdateSheet extends StatefulWidget {
   final AppUpdateCopy copy;
   final bool force;
   final Future<void> Function({required bool force}) onUpdate;
@@ -48,10 +51,57 @@ class AppUpdateSheet extends StatelessWidget {
     );
   }
 
-  Future<void> _onUpdate() => onUpdate(force: force);
+  @override
+  State<AppUpdateSheet> createState() => _AppUpdateSheetState();
+}
+
+class _AppUpdateSheetState extends State<AppUpdateSheet>
+    with WidgetsBindingObserver {
+  bool _rechecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.force) {
+      WidgetsBinding.instance.addObserver(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.force) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!widget.force) return;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_recheckForceCleared());
+    }
+  }
+
+  Future<void> _recheckForceCleared() async {
+    if (_rechecking || !mounted) return;
+    if (!Get.isRegistered<RemoteConfigService>()) return;
+    _rechecking = true;
+    try {
+      final gate = await Get.find<RemoteConfigService>().resolveGate();
+      if (!mounted) return;
+      if (gate != AppUpdateGate.force) {
+        Get.back();
+      }
+    } finally {
+      _rechecking = false;
+    }
+  }
+
+  Future<void> _onUpdate() => widget.onUpdate(force: widget.force);
 
   void _onClose() {
-    if (force) return;
+    if (widget.force) return;
     Get.back();
   }
 
@@ -59,6 +109,8 @@ class AppUpdateSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
     final t = RecallType.of(context);
+    final copy = widget.copy;
+    final force = widget.force;
 
     return PopScope(
       canPop: !force,

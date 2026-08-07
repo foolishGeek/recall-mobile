@@ -1,10 +1,7 @@
-// Recall · entry point. Bootstrap order (sprint S02 §7 / [D-OBS-1]):
+// Recall · entry point. Bootstrap order:
 //   1. Initialize Supabase + register core singletons BEFORE runApp (no race;
 //      a missing dart-define throws → clear ErrorApp, never a white screen).
-//   2. Init Sentry (skipped gracefully when SENTRY_DSN is empty for local dev),
-//      gated by analytics opt-in. SentryFlutter.init owns zone + error hooks when
-//      DSN is set — do NOT wrap runApp in a separate runZonedGuarded (zone
-//      mismatch with ensureInitialized).
+//   2. Open offline cache + register sync, then runApp.
 
 import 'dart:async';
 import 'dart:ui';
@@ -13,7 +10,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app/app.dart';
 import 'core/config/limits_config.dart';
@@ -21,7 +17,6 @@ import 'core/firebase/firebase_bootstrap.dart';
 import 'core/utils/app_env.dart';
 import 'data/local/app_database.dart';
 import 'data/local/local_store.dart';
-import 'data/models/shared/json_utils.dart';
 import 'data/repositories/notification/notification_repository.dart';
 import 'data/services/auth/auth_service.dart';
 import 'data/services/billing/revenuecat_service.dart';
@@ -70,29 +65,9 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       onConflict: 'dedupe_key,type',
       ignoreDuplicates: true,
     );
-  } catch (e, st) {
-    // Best-effort: delivered logging must never crash the isolate. Surface to
-    // Sentry if this isolate happens to have it wired; otherwise stay silent.
-    try {
-      await Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) => scope.setTag('feature', 'notifications_bg'),
-      );
-    } catch (_) {}
+  } catch (_) {
+    // Best-effort: delivered logging must never crash the isolate.
   }
-}
-
-void _wireModelParseWarnings() {
-  onModelParseWarning = (message) {
-    Sentry.addBreadcrumb(
-      Breadcrumb(
-        message: message,
-        category: 'enum.parse',
-        level: SentryLevel.warning,
-      ),
-    );
-  };
 }
 
 Future<void> main() async {
@@ -160,50 +135,22 @@ Future<void> main() async {
     return;
   }
 
-  // 2. Sentry — skip gracefully when DSN is empty (local dev). The offline
-  //    layer is registered inside the Sentry zone so a DB-open failure is
-  //    captured (S05 §7) before falling back to network-only mode.
-  if (AppEnv.sentryDsn.isEmpty) {
-    await _bootstrapOffline(supabase);
-    runApp(const RecallApp());
-    return;
-  }
-
-  _wireModelParseWarnings();
-
-  await SentryFlutter.init(
-    (o) {
-      o.dsn = AppEnv.sentryDsn;
-      o.environment = AppEnv.env;
-      o.release = AppEnv.release;
-      o.tracesSampleRate = AppEnv.isProd ? 0.05 : 0.2;
-      // Privacy gate — drop events when the user has opted out.
-      o.beforeSend = (event, hint) =>
-          Get.find<AuthService>().analyticsOptIn ? event : null;
-    },
-    appRunner: () async {
-      await _bootstrapOffline(supabase);
-      runApp(const RecallApp());
-    },
-  );
+  // 2. Offline cache + sync, then launch.
+  await _bootstrapOffline(supabase);
+  runApp(const RecallApp());
 }
 
 /// Opens the Drift cache and registers the offline/sync singletons [D-OFF-1].
-/// On DB-open failure the app degrades to a network-only [LocalStore] (disabled)
-/// + a Sentry capture, staying usable online (S05 §7). Kicks an initial drain so
-/// reviews queued in a previous session replay at launch.
+/// On DB-open failure the app degrades to a network-only [LocalStore] (disabled),
+/// staying usable online (S05 §7). Kicks an initial drain so reviews queued in a
+/// previous session replay at launch.
 Future<void> _bootstrapOffline(SupabaseService supabase) async {
   LocalStore localStore;
   try {
     final db = AppDatabase();
     await db.customSelect('SELECT 1').get(); // force lazy open to surface errors
     localStore = LocalStore(db);
-  } catch (e, st) {
-    await Sentry.captureException(
-      e,
-      stackTrace: st,
-      withScope: (scope) => scope.setTag('feature', 'offline_cache'),
-    );
+  } catch (_) {
     localStore = LocalStore(null);
   }
 

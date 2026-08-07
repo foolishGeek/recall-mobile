@@ -6,8 +6,6 @@
 // event stays queued and the others continue (sprint §7). No scheduling math
 // happens here; the server returns the recomputed node, which we cache.
 
-import 'package:sentry_flutter/sentry_flutter.dart';
-
 import '../../local/local_store.dart';
 import '../../models/models.dart';
 import '../platform/supabase_service.dart';
@@ -67,11 +65,7 @@ class SyncService {
       } catch (e, st) {
         final mapped = mapError(e, st);
         if (mapped.isOffline) return;
-        await Sentry.captureException(
-          mapped.cause ?? mapped,
-          stackTrace: mapped.causeStackTrace ?? st,
-          withScope: (scope) => scope.setTag('feature', 'sync_profile_prefs'),
-        );
+        // Permanent failure: leave queued for a later drain attempt.
       }
     }
   }
@@ -140,28 +134,12 @@ class SyncService {
       if (e.code == RepoErrorCode.offline) {
         return false; // keep the backlog; resume on reconnect
       }
-      await _captureFailure(entry, e, null);
+      await _local.markPendingAttempt(entry.clientUuid, e.toString());
       return true; // keep this one queued, continue the rest
-    } catch (e, st) {
-      await _captureFailure(entry, e, st);
+    } catch (e) {
+      await _local.markPendingAttempt(entry.clientUuid, e.toString());
       return true;
     }
-  }
-
-  Future<void> _captureFailure(
-    PendingReviewEntry entry,
-    Object error,
-    StackTrace? st,
-  ) async {
-    await _local.markPendingAttempt(entry.clientUuid, error.toString());
-    await Sentry.captureException(
-      error,
-      stackTrace: st,
-      withScope: (scope) {
-        scope.setTag('feature', 'sync');
-        scope.setContexts('sync', {'idempotency_key': entry.idempotencyKey});
-      },
-    );
   }
 
   /// Mirrors `BaseRepository.writable`: drops nulls + server-managed keys so the

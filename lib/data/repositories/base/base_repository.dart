@@ -1,11 +1,9 @@
 // Recall · BaseRepository. Shared plumbing for repositories: a `guard` that maps
-// any failure to RepoException [CANON §11] and reports it to Sentry tagged with
-// the owning feature, plus small helpers for building insert/update payloads.
+// any failure to RepoException [CANON §11], plus small helpers for building
+// insert/update payloads.
 //
 // Cache seam: repositories are cache-first *ready*. S05 wires a local store
 // (Drift) behind these reads; for now `guard` simply executes the remote call.
-
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../services/platform/supabase_service.dart';
 import '../../services/shared/repo_exception.dart';
@@ -15,25 +13,15 @@ abstract class BaseRepository {
 
   final SupabaseService supabase;
 
-  /// Feature tag attached to Sentry scope on failure (e.g. `buckets`, `review`).
+  /// Feature label for the owning domain (e.g. `buckets`, `review`).
   final String feature;
 
-  /// Runs [action], mapping any error to a [RepoException] and capturing it in
-  /// Sentry with the feature tag. Plain offline errors are not sent to Sentry
-  /// (expected on flaky networks) but are still surfaced as a typed exception.
+  /// Runs [action], mapping any error to a [RepoException].
   Future<T> guard<T>(Future<T> Function() action) async {
     try {
       return await action();
     } catch (e, st) {
-      final mapped = mapError(e, st);
-      if (mapped.code != RepoErrorCode.offline) {
-        await Sentry.captureException(
-          mapped.cause ?? mapped,
-          stackTrace: mapped.causeStackTrace ?? st,
-          withScope: (scope) => scope.setTag('feature', feature),
-        );
-      }
-      throw mapped;
+      throw mapError(e, st);
     }
   }
 

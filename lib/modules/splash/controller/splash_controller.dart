@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/config/limits_config.dart';
@@ -172,20 +171,8 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
       final done = await _profileRepo.resolveOnboardingDone(userId);
       _auth.setOnboardingDone(done);
       await Get.find<TierService>().refreshFromServer(_profileRepo, userId);
-    } on RepoException catch (e) {
-      if (!e.isOffline) {
-        await Sentry.captureException(
-          e,
-          withScope: (scope) => scope.setTag('feature', 'splash'),
-        );
-      }
-    } catch (e, st) {
-      await Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) => scope.setTag('feature', 'splash'),
-      );
-    }
+    } on RepoException catch (_) {
+    } catch (_) {}
   }
 
   Future<void> _navigate() async {
@@ -196,9 +183,7 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
       _bootExtras ?? Future<void>.value(),
     ]);
 
-    if (await _maybeBlockForForceUpdate()) return;
-
-    await _maybeShowSoftUpdate();
+    if (!await _runUpdateGates()) return;
 
     // TODO(analytics): app_opened (gated by analytics_opt_in) [D-OBS-2]
     String route;
@@ -215,39 +200,35 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
         final pending = _pendingNotificationRoute();
         if (pending != null && pending.isNotEmpty) route = pending;
       }
-    } catch (e, st) {
-      Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) => scope.setTag('feature', 'splash'),
-      );
+    } catch (_) {
       route = Routes.signin;
     }
     Get.offAllNamed(route);
   }
 
-  Future<bool> _maybeBlockForForceUpdate() async {
-    if (!Get.isRegistered<RemoteConfigService>()) return false;
+  /// Force blocks until RC clears (resume refetch) or the user updates.
+  /// Soft is dismissible once. Returns false if still hard-blocked.
+  Future<bool> _runUpdateGates() async {
+    if (!Get.isRegistered<RemoteConfigService>()) return true;
     final rc = Get.find<RemoteConfigService>();
-    final gate = await rc.resolveGate();
-    if (gate != AppUpdateGate.force) return false;
-    // Stay on splash forever behind a non-dismissible sheet.
-    await AppUpdateSheet.showForce(
-      rc.forceCopy(),
-      onUpdate: _startPlayUpdate,
-    );
-    return true;
-  }
 
-  Future<void> _maybeShowSoftUpdate() async {
-    if (!Get.isRegistered<RemoteConfigService>()) return;
-    final rc = Get.find<RemoteConfigService>();
-    final gate = await rc.resolveGate();
-    if (gate != AppUpdateGate.soft) return;
-    await AppUpdateSheet.showSoft(
-      rc.softCopy(),
-      onUpdate: _startPlayUpdate,
-    );
+    while (true) {
+      final gate = await rc.resolveGate();
+      if (gate != AppUpdateGate.force) {
+        if (gate == AppUpdateGate.soft) {
+          await AppUpdateSheet.showSoft(
+            rc.softCopy(),
+            onUpdate: _startPlayUpdate,
+          );
+        }
+        return true;
+      }
+      await AppUpdateSheet.showForce(
+        rc.forceCopy(),
+        onUpdate: _startPlayUpdate,
+      );
+      // Sheet closed via resume recheck or update attempt — re-evaluate.
+    }
   }
 
   Future<void> _startPlayUpdate({required bool force}) async {

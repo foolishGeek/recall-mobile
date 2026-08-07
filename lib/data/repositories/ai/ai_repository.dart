@@ -41,7 +41,7 @@ class AiRepository extends BaseRepository {
       });
 
   /// Calls the `ai-forge` router (raw body). Errors map to RepoException inside
-  /// SupabaseService.invokeFunction; `guard` also tags Sentry with `feature: ai`.
+  /// SupabaseService.invokeFunction via `guard`.
   Future<Map<String, dynamic>> invokeForge(
     String feature, {
     Map<String, dynamic> payload = const {},

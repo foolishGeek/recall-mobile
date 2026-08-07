@@ -1,6 +1,6 @@
 // Recall · AuthService. Thin auth state singleton over Supabase auth. S02 scope:
-// session presence (drives AuthGate) + analytics opt-in flag (gates Sentry
-// beforeSend). S08: exposes currentUserId, signOut, and profile-backed
+// session presence (drives AuthGate) + analytics opt-in flag (gates product
+// analytics stubs). S08: exposes currentUserId, signOut, and profile-backed
 // onboardingDone (wired after session appears).
 
 import 'dart:async';
@@ -48,7 +48,7 @@ class AuthService extends GetxService {
   /// Reactive session stream for controllers to listen to sign-in events.
   Rxn<Session> get sessionRx => _session;
 
-  /// Gates Sentry `beforeSend` + telemetry. Real value comes from
+  /// Gates product analytics stubs. Real value comes from
   /// `profiles.analytics_opt_in` in S24.
   bool get analyticsOptIn => _analyticsOptIn.value;
 

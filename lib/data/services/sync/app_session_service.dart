@@ -1,14 +1,13 @@
 // Recall · AppSessionService. Logs an `app_sessions` row on launch/sign-in
 // (platform + app_version) and stamps `ended_at` when the app backgrounds — the
 // only server-side telemetry in v1 [D-OBS-2]. Offline failures are swallowed
-// with a breadcrumb (a durable queue lands in S05).
+// (a durable queue lands in S05).
 
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/limits_config.dart';
@@ -77,8 +76,8 @@ class AppSessionService extends GetxService with WidgetsBindingObserver {
           .select('id')
           .single();
       _sessionId = row['id']?.toString();
-    } catch (e) {
-      _breadcrumb('start failed (queued S05): $e');
+    } catch (_) {
+      // Best-effort; durable queue lands in S05.
     } finally {
       _busy = false;
     }
@@ -92,8 +91,8 @@ class AppSessionService extends GetxService with WidgetsBindingObserver {
       await _supabase.from('app_sessions').update(
         {'ended_at': DateTime.now().toUtc().toIso8601String()},
       ).eq('id', id);
-    } catch (e) {
-      _breadcrumb('end failed: $e');
+    } catch (_) {
+      // Best-effort.
     }
   }
 
@@ -101,16 +100,6 @@ class AppSessionService extends GetxService with WidgetsBindingObserver {
     if (Platform.isIOS) return 'ios';
     if (Platform.isAndroid) return 'android';
     return Platform.operatingSystem;
-  }
-
-  void _breadcrumb(String message) {
-    Sentry.addBreadcrumb(
-      Breadcrumb(
-        message: 'app_session $message',
-        category: 'app_session',
-        level: SentryLevel.info,
-      ),
-    );
   }
 
   @override

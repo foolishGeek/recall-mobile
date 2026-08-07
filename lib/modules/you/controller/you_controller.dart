@@ -13,7 +13,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
@@ -267,19 +266,13 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
       achievements.any((a) => a.id == achievementId);
 
   /// Runs [body], swallowing RepoExceptions into a per-card flag so a single
-  /// failing card never takes down the whole screen (capture scope=you).
+  /// failing card never takes down the whole screen.
   Future<void> _safe(String card, Future<void> Function() body) async {
     try {
       await body();
       cardError[card] = false;
-    } on RepoException catch (e) {
+    } on RepoException catch (_) {
       cardError[card] = true;
-      Sentry.addBreadcrumb(Breadcrumb(
-        category: 'you',
-        message: 'card "$card" load failed (non-fatal)',
-        data: {'code': e.code.wire},
-        level: SentryLevel.warning,
-      ));
     }
   }
 
@@ -307,7 +300,7 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
   void onSettings() => Get.toNamed(Routes.settings);
 
   /// Manage subscription → native OS subscription management (ListRow emits the
-  /// selection tick). Best-effort: a launch failure is captured, never crashes.
+  /// selection tick). Best-effort: a launch failure never crashes.
   Future<void> onManageSubscription() async {
     _track('manage_subscription_tapped', {'tier': gate.tier.name});
     final url = Platform.isIOS || Platform.isMacOS
@@ -315,10 +308,7 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
         : SubscriptionLinks.android;
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (e, st) {
-      await Sentry.captureException(e,
-          stackTrace: st, withScope: (s) => s.setTag('feature', 'you'));
-    }
+    } catch (_) {}
   }
 
   /// Free upgrade CTA → light haptic + paywall (no-op while limits_profile=relaxed).
@@ -328,15 +318,10 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
     _tier.openPaywall();
   }
 
-  /// Analytics stub — opt-in gated, breadcrumb-only until a provider is wired
-  /// (mirrors insights_controller). Safe to call unconditionally.
+  /// Analytics stub — opt-in gated until a provider is wired. Safe to call
+  /// unconditionally.
   void _track(String name, Map<String, dynamic> params) {
     if (!_auth.analyticsOptIn) return;
-    Sentry.addBreadcrumb(Breadcrumb(
-      category: 'analytics',
-      message: name,
-      data: params,
-    ));
   }
 
   @override

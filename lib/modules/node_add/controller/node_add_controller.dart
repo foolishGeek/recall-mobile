@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide Node;
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/base/base_controller.dart';
@@ -204,9 +203,8 @@ class NodeAddController extends BaseController {
       if (!isEditMode && !await _local.coachSeen(CoachKeys.noteSrToggle)) {
         showSrCoachTip.value = true;
       }
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       setError(e.message);
-      _capture(e, st);
     }
   }
 
@@ -418,7 +416,7 @@ class NodeAddController extends BaseController {
       selectedBucket.value = bucket;
       _revalidate();
       RecallHaptics.selection();
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       if (e.code == RepoErrorCode.freeTierBucketLimit) {
         tierService.enforce(
           Feature.bucketCreate,
@@ -426,7 +424,6 @@ class NodeAddController extends BaseController {
         );
       } else {
         validationError.value = e.message;
-        _capture(e, st);
       }
     }
   }
@@ -506,9 +503,8 @@ class NodeAddController extends BaseController {
       });
 
       Get.back(result: true);
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       validationError.value = e.message;
-      _capture(e, st);
     } finally {
       isSaving.value = false;
     }
@@ -665,27 +661,17 @@ class NodeAddController extends BaseController {
     try {
       await _nodeRepo.softDelete(_existingNodeId!);
       Get.back(result: true);
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       validationError.value = e.message;
-      _capture(e, st);
     } finally {
       isSaving.value = false;
     }
   }
 
-  // ── Analytics / Sentry ──
+  // ── Analytics ──
 
   void _trackEvent(String name, Map<String, dynamic> params) {
     if (!_auth.analyticsOptIn) return;
-    Sentry.addBreadcrumb(Breadcrumb(
-      category: 'analytics',
-      message: name,
-      data: params,
-    ));
   }
 
-  void _capture(Object error, StackTrace st) {
-    Sentry.captureException(error,
-        stackTrace: st, withScope: (s) => s.setTag('feature', 'node_add'));
-  }
 }
