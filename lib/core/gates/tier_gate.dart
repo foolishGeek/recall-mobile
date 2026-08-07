@@ -2,17 +2,23 @@
 // from the injected [AppLimits] snapshot. While limits_profile = "relaxed",
 // suppress paywall UX and open premium feature access (except Quiz WIP).
 // See recall-backend/docs/LIMITS-ROLLBACK.md.
+//
+// AI features (chat, overview, quiz) are governed by [AiPolicy], mirrored from
+// the server's ai_feature_policy table — this class renders that decision but
+// does not re-derive it. Everything else still reads [AppLimits].
 
+import '../config/ai_policy.dart';
 import '../config/app_limits.dart';
 import 'feature.dart';
 
 enum SubscriptionTier { free, premium, downgraded }
 
 class TierGate {
-  const TierGate(this.tier, this.limits);
+  const TierGate(this.tier, this.limits, {this.policy = AiPolicy.canon});
 
   final SubscriptionTier tier;
   final AppLimits limits;
+  final AiPolicy policy;
 
   bool get isRelaxed => limits.isRelaxed;
   bool get hasPremiumAccess => isPremium || isRelaxed;
@@ -23,16 +29,16 @@ class TierGate {
   bool get isFree => tier == SubscriptionTier.free;
 
   /// Quiz stays premium-only (WIP) — never unlocked by relaxed.
-  bool get quizBlocked => !isPremium;
+  bool get quizBlocked => !access(Feature.quiz).allowed;
 
-  bool get aiDisabled => isDowngraded && !isRelaxed;
-  bool get aiOverviewBlocked => isDowngraded && !isRelaxed;
+  bool get aiDisabled => _entitlementDenial(Feature.aiChat) != null;
+  bool get aiOverviewBlocked => _entitlementDenial(Feature.aiOverview) != null;
 
   bool aiQuotaExhausted({required int requestsUsed, int? limit}) =>
-      isFree && requestsUsed >= (limit ?? limits.aiQuotaFreeMonthly);
+      _quotaExhausted(Feature.aiChat, requestsUsed, limit);
 
   bool aiOverviewQuotaExhausted({required int overviewsUsed, int? limit}) =>
-      isFree && overviewsUsed >= (limit ?? limits.aiOverviewFreeMonthly);
+      _quotaExhausted(Feature.aiOverview, overviewsUsed, limit);
 
   int get cardsPerStack => hasPremiumAccess ? 12 : limits.sessionSizeFree;
 
@@ -54,17 +60,15 @@ class TierGate {
         if (isDowngraded) return 3;
         return limits.bucketsFreeWritable;
       case Feature.aiChat:
-        return hasPremiumAccess ? 999 : limits.aiQuotaFreeMonthly;
       case Feature.aiOverview:
-        return hasPremiumAccess ? 999 : limits.aiOverviewFreeMonthly;
+        return _aiCap(feature);
       case Feature.sessionSize:
         return cardsPerStack;
+      case Feature.quiz:
+        return access(Feature.quiz).allowed ? 1 : 0;
       case Feature.insightsFull:
       case Feature.youLedger:
-      case Feature.quiz:
-        return hasPremiumAccess || (feature != Feature.quiz && isRelaxed)
-            ? 1
-            : 0;
+        return hasPremiumAccess ? 1 : 0;
     }
   }
 
@@ -72,9 +76,9 @@ class TierGate {
   Access access(Feature feature, {int used = 0}) {
     switch (feature) {
       case Feature.quiz:
-        if (isPremium) return const Access.allowed();
-        return const Access.denied(AccessDenial.wip,
-            message: 'Quiz is in progress for Premium.');
+      case Feature.aiChat:
+      case Feature.aiOverview:
+        return _aiAccess(feature, used);
 
       case Feature.insightsFull:
       case Feature.youLedger:
@@ -103,33 +107,57 @@ class TierGate {
         }
         return const Access.allowed();
 
-      case Feature.aiChat:
-        if (aiDisabled) {
-          return const Access.denied(AccessDenial.paywall,
-              message: 'AI unavailable — resubscribe to continue');
-        }
-        if (aiQuotaExhausted(requestsUsed: used)) {
-          return Access.denied(
-            AccessDenial.quota,
-            message: 'Monthly AI limit reached',
-          );
-        }
-        return const Access.allowed();
-
-      case Feature.aiOverview:
-        if (aiOverviewBlocked) {
-          return const Access.denied(AccessDenial.paywall);
-        }
-        if (aiOverviewQuotaExhausted(overviewsUsed: used)) {
-          return Access.denied(
-            AccessDenial.quota,
-            message: 'Monthly overview limit reached',
-          );
-        }
-        return const Access.allowed();
-
       case Feature.sessionSize:
         return const Access.allowed();
     }
+  }
+
+  // --- AI features: rendered from AiPolicy, never re-decided here ----------
+
+  /// The tier-level block, if any. Null means the tier is entitled, which says
+  /// nothing about whether the quota is still available.
+  Access? _entitlementDenial(Feature feature) {
+    final p = policy.forFeature(feature);
+    if (p == null) return null;
+
+    if (p.isRefused) {
+      return Access.denied(p.clientDenial, message: p.clientMessage);
+    }
+    // Relaxed opens a feature only when the server says so for this profile,
+    // which is why allow_downgraded is read rather than `isRelaxed`.
+    if (isDowngraded && !p.allowDowngraded) {
+      return Access.denied(p.clientDenial, message: p.clientMessage);
+    }
+    if (p.requiresPremium && !isPremium) {
+      return Access.denied(p.clientDenial, message: p.clientMessage);
+    }
+    return null;
+  }
+
+  int _aiCap(Feature feature) {
+    final p = policy.forFeature(feature);
+    if (p == null) return 999;
+    if (isPremium || isRelaxed) return p.premiumMonthlyCap ?? 999;
+    return p.freeMonthlyCap ?? 999;
+  }
+
+  bool _quotaExhausted(Feature feature, int used, int? limit) {
+    final p = policy.forFeature(feature);
+    if (p == null || !p.isMetered) return false;
+    if (!isFree) return false;
+    return used >= (limit ?? _aiCap(feature));
+  }
+
+  Access _aiAccess(Feature feature, int used) {
+    final p = policy.forFeature(feature);
+    if (p == null) return const Access.allowed();
+
+    final blocked = _entitlementDenial(feature);
+    if (blocked != null) return blocked;
+
+    if (_quotaExhausted(feature, used, null)) {
+      return Access.denied(AccessDenial.quota, message: p.clientQuotaMessage);
+    }
+    return const Access.allowed();
   }
 }

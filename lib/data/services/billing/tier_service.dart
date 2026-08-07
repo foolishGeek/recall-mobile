@@ -6,6 +6,8 @@
 import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
+import '../../../core/config/ai_policy.dart';
+import '../../../core/config/ai_policy_config.dart';
 import '../../../core/config/app_limits.dart';
 import '../../../core/config/limits_config.dart';
 import '../../../core/gates/feature.dart';
@@ -23,12 +25,15 @@ class TierService extends GetxService {
   SubscriptionTier get tier => _tier.value;
   Rx<SubscriptionTier> get tierRx => _tier;
 
-  /// Touches both tier and limits Rx so Obx rebuilds on either flip.
+  /// Touches tier, limits and AI-policy Rx so Obx rebuilds on any flip.
   TierGate get gate {
     final limits = Get.isRegistered<LimitsConfig>()
         ? Get.find<LimitsConfig>().snapshot.value
         : AppLimits.canon;
-    return TierGate(_tier.value, limits);
+    final policy = Get.isRegistered<AiPolicyConfig>()
+        ? Get.find<AiPolicyConfig>().snapshot.value
+        : AiPolicy.canon;
+    return TierGate(_tier.value, limits, policy: policy);
   }
 
   bool get isPremium => _tier.value == SubscriptionTier.premium;

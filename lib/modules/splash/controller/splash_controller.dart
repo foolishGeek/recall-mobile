@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
+import '../../../core/config/ai_policy_config.dart';
 import '../../../core/config/limits_config.dart';
 import '../../../core/gates/auth_gate.dart';
 import '../../../core/theme/recall_motion.dart';
@@ -145,6 +146,9 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
     }
     if (Get.isRegistered<LimitsConfig>()) {
       futures.add(Get.find<LimitsConfig>().refresh());
+    }
+    if (Get.isRegistered<AiPolicyConfig>()) {
+      futures.add(Get.find<AiPolicyConfig>().refresh());
     }
     if (futures.isEmpty) return;
     await Future.wait(futures);

@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import 'app/app.dart';
+import 'core/config/ai_policy_config.dart';
 import 'core/config/limits_config.dart';
 import 'core/firebase/firebase_bootstrap.dart';
 import 'core/utils/app_env.dart';
@@ -88,6 +89,7 @@ Future<void> main() async {
     Get.put<AuthService>(AuthService(supabase), permanent: true);
     Get.put<TierService>(TierService(), permanent: true);
     Get.put<LimitsConfig>(LimitsConfig(), permanent: true);
+    Get.put<AiPolicyConfig>(AiPolicyConfig(), permanent: true);
     Get.put<PlayUpdateService>(PlayUpdateService(), permanent: true);
     Get.put<RemoteConfigService>(RemoteConfigService(), permanent: true);
     Get.put<AppSessionService>(AppSessionService(supabase), permanent: true);
