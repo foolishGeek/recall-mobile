@@ -5,6 +5,7 @@ export 'shared/json_utils.dart';
 
 export 'ai/ai_credit_ledger_entry.dart';
 export 'ai/ai_evaluation.dart';
+export 'ai/ai_feedback_kind.dart';
 export 'ai/ai_results.dart';
 export 'ai/ai_user_preferences.dart';
 export 'ai/link_suggestion.dart';

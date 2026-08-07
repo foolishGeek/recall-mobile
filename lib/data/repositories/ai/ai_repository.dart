@@ -57,6 +57,7 @@ class AiRepository extends BaseRepository {
     List<String> nodeIds = const [],
     bool spendCredit = false,
     String? conversationId,
+    String? replacesInteractionId,
   }) =>
       guard(() => _ai.ragChat(
             question: question,
@@ -64,6 +65,7 @@ class AiRepository extends BaseRepository {
             nodeIds: nodeIds,
             spendCredit: spendCredit,
             conversationId: conversationId,
+            replacesInteractionId: replacesInteractionId,
           ));
 
   /// Summarize a node or bucket.
@@ -133,6 +135,35 @@ class AiRepository extends BaseRepository {
         });
       }
       return false;
+    }
+  }
+
+  /// Weak feedback signals on an AI answer — a citation opened, an answer
+  /// copied, a stream abandoned [D-AI-6]. These are the cheapest relevance
+  /// labels we get: they need no prompt from us and cost the user nothing.
+  /// Fire-and-forget; offline-queued for replay like ratings [D-OFF-1].
+  /// [ref] carries the note id for a citation open — which source was worth
+  /// opening is the label, so the answer id alone is not enough.
+  Future<void> submitSignal(String interactionId, AiFeedbackKind kind,
+      {String? ref}) async {
+    try {
+      await guard(() async {
+        await supabase.rpc('ai_record_feedback', params: {
+          'p_interaction': interactionId,
+          'p_kind': kind.wireName,
+          'p_value': 1,
+          'p_text': ref,
+        });
+      });
+    } on RepoException catch (e) {
+      if (e.isOffline) {
+        await _local.enqueueAiFeedback({
+          'type': 'signal',
+          'interaction_id': interactionId,
+          'kind': kind.wireName,
+          'ref': ref,
+        });
+      }
     }
   }
 

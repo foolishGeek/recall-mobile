@@ -17,6 +17,7 @@ class NodeAskAiBar extends StatefulWidget {
   final ValueChanged<String> onSend;
   final VoidCallback onClear;
   final ValueChanged<String>? onUpdateNote;
+  final VoidCallback? onAnswerCopied;
 
   const NodeAskAiBar({
     super.key,
@@ -27,6 +28,7 @@ class NodeAskAiBar extends StatefulWidget {
     required this.onSend,
     required this.onClear,
     this.onUpdateNote,
+    this.onAnswerCopied,
   });
 
   @override
@@ -68,6 +70,7 @@ class _NodeAskAiBarState extends State<NodeAskAiBar> {
     if (text.isEmpty) return;
     RecallHaptics.selection();
     await Clipboard.setData(ClipboardData(text: text));
+    widget.onAnswerCopied?.call();
     if (!mounted) return;
     setState(() => _copied = true);
   }

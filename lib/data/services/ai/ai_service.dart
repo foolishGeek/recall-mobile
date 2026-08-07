@@ -32,12 +32,15 @@ class AiService extends GetxService {
   /// default call yields a 429 `ai_cooldown` so the UI can show the interstitial.
   /// Pass [spendCredit] = true on an explicit "Continue with 1 credit" retry to
   /// authorise the credit deduction (or a 403 `insufficient_credits`) [D-AI-1].
+  /// [replacesInteractionId] marks this call as a regenerate: the server drops
+  /// the rejected turn from the thread and records the preference pair.
   Future<RagChatResult> ragChat({
     required String question,
     List<String> bucketIds = const [],
     List<String> nodeIds = const [],
     bool spendCredit = false,
     String? conversationId,
+    String? replacesInteractionId,
   }) async {
     final body = await invokeForge('rag_chat', payload: {
       'question': question,
@@ -45,6 +48,8 @@ class AiService extends GetxService {
       if (nodeIds.isNotEmpty) 'node_ids': nodeIds,
       if (spendCredit) 'spend_credit': true,
       if (conversationId != null) 'conversation_id': conversationId,
+      if (replacesInteractionId != null)
+        'replaces_interaction_id': replacesInteractionId,
     });
     return RagChatResult.fromJson(body);
   }

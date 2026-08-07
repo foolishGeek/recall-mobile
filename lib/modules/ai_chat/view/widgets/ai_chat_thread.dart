@@ -30,8 +30,8 @@ class AiChatThread extends StatefulWidget {
   final VoidCallback onRegenerate;
   final VoidCallback onRetry;
   final ValueChanged<String> onSuggested;
-  final ValueChanged<String> onCopy;
-  final ValueChanged<RagCitation> onSourceTap;
+  final void Function(String text, String? interactionId) onCopy;
+  final void Function(RagCitation citation, String? interactionId) onSourceTap;
   final void Function(AiChatTurn turn, int rating)? onRate;
 
   const AiChatThread({
@@ -114,7 +114,7 @@ class _AiChatThreadState extends State<AiChatThread> {
             onStop: widget.onStop,
             onCopy: () {},
             onRegenerate: () {},
-            onSourceTap: widget.onSourceTap,
+            onSourceTap: (c) => widget.onSourceTap(c, null),
           ),
         if (widget.answerError != null) _ErrorRow(
           message: widget.answerError!,
@@ -132,9 +132,9 @@ class _AiChatThreadState extends State<AiChatThread> {
       model: turn.model,
       streaming: false,
       onStop: widget.onStop,
-      onCopy: () => widget.onCopy(turn.text),
+      onCopy: () => widget.onCopy(turn.text, turn.interactionId),
       onRegenerate: widget.onRegenerate,
-      onSourceTap: widget.onSourceTap,
+      onSourceTap: (c) => widget.onSourceTap(c, turn.interactionId),
       rating: turn.rating,
       onRate: (turn.interactionId != null && widget.onRate != null)
           ? (r) => widget.onRate!(turn, r)

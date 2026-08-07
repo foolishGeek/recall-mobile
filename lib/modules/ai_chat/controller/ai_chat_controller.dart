@@ -174,10 +174,9 @@ class AiChatController extends BaseController {
       final res = await _aiRepo.suggestPrompts(bucketIds: _scopeBucketIds);
       if (res.suggestions.isEmpty) return;
       suggestions.assignAll(res.suggestions);
+      // Keyed by scope, not by the server's fingerprint: on a cold start we know
+      // which bucket we are opening, never which fingerprint it will hash to.
       await _local.cacheSuggestions(scopeKey, res.suggestions);
-      if (res.fingerprint.isNotEmpty) {
-        await _local.cacheSuggestions(res.fingerprint, res.suggestions);
-      }
     } on RepoException {
       // Keep whatever we already showed from LocalStore.
     }
@@ -255,33 +254,54 @@ class AiChatController extends BaseController {
     _tierService.openPaywall();
   }
 
+  /// Ask again for a better answer. The id of the rejected answer goes with the
+  /// request so the server drops that turn from the thread — otherwise the retry
+  /// reads the answer it is replacing as conversation history — and records the
+  /// pair as preference data.
   Future<void> regenerate() async {
     if (answering || turns.isEmpty) return;
-    if (turns.last.role == AiTurnRole.ai) turns.removeLast();
+    String? replaced;
+    if (turns.last.role == AiTurnRole.ai) {
+      replaced = turns.last.interactionId;
+      turns.removeLast();
+    }
     RecallHaptics.selection();
-    await _ask(spendCredit: false);
+    await _ask(spendCredit: false, replacesInteractionId: replaced);
   }
 
   void stop() {
     if (phase.value != AnswerPhase.streaming) return;
     _typeTimer?.cancel();
+    // Stopping early is a real signal about the answer, not just a UI event.
+    _signal(liveInteractionId.value, AiFeedbackKind.streamAbandoned);
     _finishAnswer(streamText.value);
   }
 
-  void copyAnswer(String text) {
+  void copyAnswer(String text, {String? interactionId}) {
     Clipboard.setData(ClipboardData(text: text));
     RecallHaptics.selection();
+    _signal(interactionId, AiFeedbackKind.answerCopied);
   }
 
-  void onSourceTap(RagCitation citation) {
+  void onSourceTap(RagCitation citation, {String? interactionId}) {
     if (citation.nodeId.isEmpty) return;
     RecallHaptics.selection();
+    _signal(interactionId, AiFeedbackKind.citationOpened, ref: citation.nodeId);
     Get.toNamed(Routes.node, arguments: {'node_id': citation.nodeId});
+  }
+
+  /// Passive feedback, never awaited: it must not delay the tap it came from.
+  void _signal(String? interactionId, AiFeedbackKind kind, {String? ref}) {
+    if (interactionId == null) return;
+    unawaited(_aiRepo.submitSignal(interactionId, kind, ref: ref));
   }
 
   // --------------------------------------------------------------- network --
 
-  Future<void> _ask({required bool spendCredit}) async {
+  Future<void> _ask({
+    required bool spendCredit,
+    String? replacesInteractionId,
+  }) async {
     answerError.value = null;
     offline.value = false;
     phase.value = AnswerPhase.searching;
@@ -292,6 +312,7 @@ class AiChatController extends BaseController {
         bucketIds: _scopeBucketIds,
         spendCredit: spendCredit,
         conversationId: _conversationId,
+        replacesInteractionId: replacesInteractionId,
       );
       if (res.conversationId != null) _conversationId = res.conversationId;
       liveCitations.assignAll(res.citations);

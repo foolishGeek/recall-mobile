@@ -70,7 +70,7 @@ class SyncService {
     }
   }
 
-  /// Replays queued AI feedback (thumbs / suggestions). These are non-critical
+  /// Replays queued AI feedback (thumbs / suggestions / weak signals). These are non-critical
   /// structured signals: a permanent failure is dropped, an offline failure
   /// keeps the remaining backlog for the next reconnect [D-AI-8].
   Future<void> _flushAiFeedback() async {
@@ -95,6 +95,13 @@ class SyncService {
             'p_suggestion': op['suggestion'],
             'p_rating': op['rating'] ?? 0,
             'p_interaction': op['interaction_id'],
+          });
+        } else if (op['type'] == 'signal') {
+          await _supabase.rpc('ai_record_feedback', params: {
+            'p_interaction': op['interaction_id'],
+            'p_kind': op['kind'],
+            'p_value': 1,
+            'p_text': op['ref'],
           });
         }
       } catch (e, st) {

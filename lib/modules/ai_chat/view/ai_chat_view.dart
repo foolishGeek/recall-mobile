@@ -72,8 +72,10 @@ class _Thread extends StatelessWidget {
           onRegenerate: controller.regenerate,
           onRetry: controller.retryLast,
           onSuggested: controller.onSuggestedPrompt,
-          onCopy: controller.copyAnswer,
-          onSourceTap: controller.onSourceTap,
+          onCopy: (text, id) =>
+              controller.copyAnswer(text, interactionId: id),
+          onSourceTap: (citation, id) =>
+              controller.onSourceTap(citation, interactionId: id),
           onRate: controller.rateTurn,
         ));
   }
