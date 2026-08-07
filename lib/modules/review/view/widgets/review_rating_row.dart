@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../data/models/enums.dart';
+import '../../../../data/models/shared/enums.dart';
+import '../../../../core/utils/recall_insets.dart';
 
 /// Two primary actions (Forgot / Got it) plus an expandable More for Hard & Easy.
 class ReviewRatingRow extends StatefulWidget {
@@ -75,7 +76,8 @@ class _ReviewRatingRowState extends State<ReviewRatingRow>
     final dark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.only(left: 18, right: 18, bottom: 28),
+      padding: const EdgeInsets.only(left: 18, right: 18, bottom: 28)
+          .bottomSafe(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -315,9 +317,7 @@ class _GradeButton extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(
-                  alpha: filled
-                      ? (dark ? 0.45 : 0.18)
-                      : (dark ? 0.3 : 0.04),
+                  alpha: filled ? (dark ? 0.45 : 0.18) : (dark ? 0.3 : 0.04),
                 ),
                 offset: Offset(0, filled ? 8 : 4),
                 blurRadius: filled ? 18 : 12,

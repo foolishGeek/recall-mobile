@@ -6,23 +6,24 @@ import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
-import '../../../core/config/limits_config.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/utils/coach_keys.dart';
+import '../../../core/utils/drop_readiness.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/repositories/stack_repository.dart';
-import '../../../data/repositories/today_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/metrics_service.dart';
-import '../../../data/services/notification_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/repositories/stack/stack_repository.dart';
+import '../../../data/repositories/today/today_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/metrics/metrics_service.dart';
+import '../../../data/services/platform/notification_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 import '../../shell/controller/shell_controller.dart';
 
 class TodayController extends BaseController with GetTickerProviderStateMixin {
@@ -36,9 +37,6 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final _syncStatus = Get.find<SyncStatusService>();
   final _metrics = Get.find<MetricsService>();
   final _local = Get.find<LocalStore>();
-  final _limits = Get.isRegistered<LimitsConfig>()
-      ? Get.find<LimitsConfig>()
-      : null;
 
   final Rxn<Profile> profile = Rxn<Profile>();
   final RxInt dueCount = 0.obs;
@@ -49,6 +47,11 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final RxList<DuePreviewNode> peekingNodes = <DuePreviewNode>[].obs;
   final RxInt stacksUsed = 0.obs;
   final RxBool isStarting = false.obs;
+
+  // Active-stack progress backing the "7/8 Cards" hero. Zero when no stack is
+  // in flight — the hero then falls back to what today's session would hold.
+  final RxInt _activeTotal = 0.obs;
+  final RxInt _activeReviewed = 0.obs;
 
   /// One-time tip explaining what "due" means (seen via [CoachKeys.todayDue]).
   final RxBool showDueCoachTip = false.obs;
@@ -64,11 +67,32 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   final RxBool relearnDismissed = false.obs;
   final RxBool isRelearnStarting = false.obs;
 
-  bool get showRelearn =>
-      relearnSkills.isNotEmpty && !relearnDismissed.value;
+  bool get showRelearn => relearnSkills.isNotEmpty && !relearnDismissed.value;
   int get relearnCount => relearnSkills.length;
 
   int get currentStreak => profile.value?.currentStreak ?? 0;
+
+  /// A stack was generated and still has unreviewed cards — resume it instead
+  /// of generating a new one.
+  bool get hasActiveSession =>
+      _activeTotal.value > 0 && _activeReviewed.value < _activeTotal.value;
+
+  int get sessionTotal {
+    if (hasActiveSession) return _activeTotal.value;
+    final cap = _tierService.gate.cardsPerStack;
+    return dueCount.value < cap ? dueCount.value : cap;
+  }
+
+  int get cardsRemaining =>
+      sessionTotal - (hasActiveSession ? _activeReviewed.value : 0);
+
+  /// Whether a Drop can actually reach this user. Mirrors the backend gate so
+  /// the caught-up screen explains an absent next-drop time honestly.
+  bool get pushEnabled => profile.value?.pushOptIn ?? false;
+
+  /// Account-wide Cards-before-a-Drop setting (profiles.drop_frequency).
+  String get dropFrequency =>
+      profile.value?.dropFrequency ?? kDefaultDropFrequency;
 
   bool get isAllCaughtUp => dueCount.value == 0 && bucketCount.value > 0;
   bool get isNoBuckets => bucketCount.value == 0;
@@ -81,22 +105,37 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   }
 
   bool get isFree => !_tierService.gate.isPremium;
-  int get stacksCap =>
-      _limits?.stacksFreeMonthly ?? LimitsConfig.canonStacks;
-  bool get isAtStackLimit => isFree && stacksUsed.value >= stacksCap;
+  int get stacksCap => _tierService.gate.capFor(Feature.reviewStack);
+  bool get isAtStackLimit => !_tierService.gate
+      .access(Feature.reviewStack, used: stacksUsed.value)
+      .allowed;
   bool get showStacksMeter =>
-      isFree && (_limits?.showStacksMeter ?? true);
+      !_tierService.gate.suppressPaywall &&
+      isFree &&
+      _tierService.gate.limits.showStacksMeter;
 
   void openPaywall() => _tierService.openPaywall();
+
+  /// Resuming a stack is never a new stack, so the monthly cap can't block it.
+  String get reviewCtaLabel {
+    if (hasActiveSession) return 'Continue review';
+    return isAtStackLimit ? 'Unlock unlimited reviews' : 'Start review';
+  }
+
+  Future<void> onReviewCta() async {
+    if (hasActiveSession) return continueReview();
+    if (isAtStackLimit) {
+      openPaywall();
+      return;
+    }
+    await startReview();
+  }
 
   static const _cardFanDuration = Duration(milliseconds: 1500);
   static const _cardNestDuration = Duration(milliseconds: 360);
   static const _cardIdleRest = Duration(seconds: 10);
 
-  late final AnimationController ringController;
   late final AnimationController cardController;
-  late final Animation<double> ringProgress;
-  late final Animation<double> haloOpacity;
   Worker? _tabWorker;
   Worker? _sessionWorker;
   Timer? _cardIdleTimer;
@@ -115,21 +154,9 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   }
 
   void _initAnimations() {
-    ringController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 760),
-    );
     cardController = AnimationController(
       vsync: this,
       duration: _cardFanDuration,
-    );
-    ringProgress = CurvedAnimation(
-      parent: ringController,
-      curve: Curves.easeInOut,
-    );
-    haloOpacity = CurvedAnimation(
-      parent: ringController,
-      curve: const Interval(0.74, 1.0),
     );
   }
 
@@ -168,10 +195,12 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       nodeCount.value = results[5] as int;
 
       if (dueCount.value == 0 && bucketCount.value > 0) {
+        _clearActiveSession();
         await _loadCaughtUpExtras();
       } else {
         nextDropAt.value = null;
         doneFastBanner.value = null;
+        await _loadActiveSession(userId);
       }
 
       _syncStatus.setOffline(false);
@@ -208,6 +237,28 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     });
   }
 
+  /// Best-effort: the hero falls back to the session-size view if the active
+  /// stack can't be read, so a failure here must never break Today.
+  Future<void> _loadActiveSession(String userId) async {
+    try {
+      final stack = await _stackRepo.fetchActive(userId);
+      if (stack == null || stack.status != StackStatus.active) {
+        _clearActiveSession();
+        return;
+      }
+      final items = await _stackRepo.fetchItems(stack.id);
+      _activeTotal.value = items.length;
+      _activeReviewed.value = items.where((i) => i.reviewed).length;
+    } catch (_) {
+      _clearActiveSession();
+    }
+  }
+
+  void _clearActiveSession() {
+    _activeTotal.value = 0;
+    _activeReviewed.value = 0;
+  }
+
   Future<void> _loadCaughtUpExtras() async {
     try {
       final results = await Future.wait([
@@ -239,12 +290,10 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     final reduceMotion =
         PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
     if (reduceMotion) {
-      ringController.value = 1.0;
       cardController.value = 1.0;
       return;
     }
 
-    ringController.forward(from: 0);
     unawaited(_playCardFanThenScheduleIdle(fromZero: true));
   }
 
@@ -300,10 +349,30 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
   Future<void> reload() async {
     if (isClosed) return;
     _cancelCardIdleLoop();
-    ringController.reset();
     cardController.duration = _cardFanDuration;
     cardController.reset();
     await _loadData();
+  }
+
+  /// Updates Reminder style from the Today caught-up explainer, then refreshes
+  /// the next-cards ETA so the clock matches the new intensity.
+  Future<void> setDropFrequency(String value) async {
+    if (value == dropFrequency) return;
+    final prev = profile.value;
+    if (prev == null) return;
+    RecallHaptics.selection();
+    profile.value = prev.copyWith(dropFrequency: value);
+    try {
+      profile.value = await _profileRepo.updatePreferences(
+        prev.id,
+        {'drop_frequency': value},
+      );
+      if (dueCount.value == 0 && bucketCount.value > 0) {
+        await _loadCaughtUpExtras();
+      }
+    } on RepoException {
+      profile.value = prev;
+    }
   }
 
   bool _pushEnsured = false;
@@ -353,6 +422,22 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     }
   }
 
+  /// Resumes the stack already in flight — no `generate`, so the cards and
+  /// their order stay exactly where the user left them.
+  Future<void> continueReview() async {
+    if (isStarting.value) return;
+    isStarting.value = true;
+    unawaited(dismissDueCoachTip());
+
+    try {
+      RecallHaptics.light();
+      await Get.toNamed(Routes.review);
+      await reload();
+    } finally {
+      isStarting.value = false;
+    }
+  }
+
   Future<void> startReview() async {
     if (isStarting.value) return;
     isStarting.value = true;
@@ -373,7 +458,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       }
     } on RepoException catch (e) {
       if (e.code == RepoErrorCode.freeTierStackLimit) {
-        _tierService.openPaywall();
+        _tierService.enforce(Feature.reviewStack, used: stacksUsed.value);
       } else {
         setError(e.message);
       }
@@ -401,7 +486,6 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
     _cancelCardIdleLoop();
     _tabWorker?.dispose();
     _sessionWorker?.dispose();
-    ringController.dispose();
     cardController.dispose();
     super.onClose();
   }

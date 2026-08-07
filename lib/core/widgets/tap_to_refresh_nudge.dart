@@ -7,7 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../data/services/sync_status_service.dart';
+import '../../data/services/sync/sync_status_service.dart';
 import '../theme/recall_colors.dart';
 import '../theme/recall_motion.dart';
 import '../theme/recall_shape.dart';
@@ -40,9 +40,8 @@ class TapToRefreshNudge extends StatelessWidget {
       return AnimatedSize(
         duration: RecallMotion.normal,
         curve: RecallMotion.easeOut,
-        child: child is SizedBox
-            ? child
-            : Padding(padding: margin, child: child),
+        child:
+            child is SizedBox ? child : Padding(padding: margin, child: child),
       );
     });
   }

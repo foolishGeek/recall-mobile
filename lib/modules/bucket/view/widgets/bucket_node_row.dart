@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/widgets/neo_chip.dart';
-import '../../../../data/models/node.dart';
+import '../../../../data/models/node/node.dart';
 
 class BucketNodeRow extends StatelessWidget {
   final Node node;

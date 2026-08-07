@@ -1,39 +1,46 @@
 // Recall · models barrel. Import this to pull in every data model + enum.
 
-export 'enums.dart';
-export 'json_utils.dart';
+export 'shared/enums.dart';
+export 'shared/json_utils.dart';
 
-export 'heat_summary.dart';
-export 'link_preview.dart';
-export 'quiz_question.dart';
+export 'ai/ai_credit_ledger_entry.dart';
+export 'ai/ai_evaluation.dart';
+export 'ai/ai_results.dart';
+export 'ai/ai_user_preferences.dart';
+export 'ai/link_suggestion.dart';
 
-export 'profile.dart';
-export 'subscription.dart';
-export 'export_status.dart';
-export 'bucket.dart';
-export 'node.dart';
-export 'node_asset.dart';
-export 'tag.dart';
-export 'stack.dart';
-export 'stack_item.dart';
-export 'review.dart';
-export 'quiz_config.dart';
-export 'quiz_attempt.dart';
-export 'quiz_generation.dart';
-export 'quiz_question_attempt.dart';
-export 'quiz_submit_result.dart';
-export 'quiz_result.dart';
-export 'achievement.dart';
-export 'user_achievement.dart';
-export 'daily_activity.dart';
-export 'notification_event.dart';
-export 'notification_stats.dart';
-export 'retention_simulation.dart';
-export 'ai_evaluation.dart';
-export 'link_suggestion.dart';
-export 'ai_credit_ledger_entry.dart';
-export 'ai_results.dart';
-export 'ai_user_preferences.dart';
-export 'relearn_skill.dart';
-export 'due_preview_node.dart';
-export 'scheduling_prefs.dart';
+export 'bucket/bucket.dart';
+
+export 'node/link_preview.dart';
+export 'node/node.dart';
+export 'node/node_asset.dart';
+export 'node/tag.dart';
+
+export 'profile/achievement.dart';
+export 'profile/export_status.dart';
+export 'profile/profile.dart';
+export 'profile/scheduling_prefs.dart';
+export 'profile/subscription.dart';
+export 'profile/user_achievement.dart';
+
+export 'quiz/quiz_attempt.dart';
+export 'quiz/quiz_config.dart';
+export 'quiz/quiz_generation.dart';
+export 'quiz/quiz_question.dart';
+export 'quiz/quiz_question_attempt.dart';
+export 'quiz/quiz_result.dart';
+export 'quiz/quiz_submit_result.dart';
+
+export 'review/due_preview_node.dart';
+export 'review/review.dart';
+export 'review/stack.dart';
+export 'review/stack_item.dart';
+
+export 'insights/daily_activity.dart';
+export 'insights/heat_summary.dart';
+export 'insights/relearn_skill.dart';
+export 'insights/retention_simulation.dart';
+
+export 'notification/drop_debug.dart';
+export 'notification/notification_event.dart';
+export 'notification/notification_stats.dart';

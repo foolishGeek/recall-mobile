@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
-import '../../../../data/models/bucket.dart';
+import '../../../../data/models/bucket/bucket.dart';
 import '../../controller/buckets_controller.dart';
 import 'bucket_card.dart';
 

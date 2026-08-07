@@ -9,11 +9,11 @@ import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/quiz_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/metrics_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/quiz/quiz_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/metrics/metrics_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import '../../shell/controller/shell_controller.dart';
 import '../view/widgets/quiz_in_progress_sheet.dart';
 

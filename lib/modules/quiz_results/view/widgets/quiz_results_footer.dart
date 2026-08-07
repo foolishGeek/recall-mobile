@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
+import '../../../../core/utils/recall_insets.dart';
 
 /// Sticky footer over a canvas-fade gradient: a compact "Review missed cards"
 /// button (hidden when nothing was missed) + the solid "Save & finish" anchor.
@@ -22,15 +25,21 @@ class QuizResultsFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
-    final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(22, 22, 22, 16 + (bottomPad > 0 ? bottomPad : 12)),
+      // Floor of 12 keeps the anchor off the screen edge on devices that
+      // report no bottom inset at all.
+      padding: EdgeInsets.fromLTRB(
+          22, 22, 22, 16 + math.max(context.bottomInset, 12)),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [c.canvas.withValues(alpha: 0), c.canvas.withValues(alpha: 0.94), c.canvas],
+          colors: [
+            c.canvas.withValues(alpha: 0),
+            c.canvas.withValues(alpha: 0.94),
+            c.canvas
+          ],
           stops: const [0, 0.36, 0.7],
         ),
       ),

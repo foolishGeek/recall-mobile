@@ -8,10 +8,10 @@ import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/quiz_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/quiz/quiz_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import '../../quiz_home/view/widgets/quiz_in_progress_sheet.dart';
 import '../view/widgets/quiz_feedback_sheet.dart';
 
@@ -122,7 +122,8 @@ class QuizResultsController extends BaseController {
     buildingStack.value = true;
     RecallHaptics.selection();
     try {
-      final payload = await _quizRepo.buildMissedStack(data.reviewMissedNodeIds);
+      final payload =
+          await _quizRepo.buildMissedStack(data.reviewMissedNodeIds);
       final hasStack = payload['stack'] != null;
       if (!hasStack) {
         buildingStack.value = false;

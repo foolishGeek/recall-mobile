@@ -15,18 +15,18 @@ import 'package:get/get.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
 import '../../../core/brand/aura_prefs.dart';
-import '../../../core/config/limits_config.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/metrics_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/metrics/metrics_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
 import '../view/widgets/ai_cooldown_sheet.dart';
 import '../view/widgets/aura_rating_sheet.dart';
 import 'ai_chat_turn.dart';
@@ -55,11 +55,7 @@ class AiChatController extends BaseController {
   final _metrics = Get.find<MetricsService>();
   final LocalStore _local = Get.find<LocalStore>();
 
-  LimitsConfig? get _limitsOrNull =>
-      Get.isRegistered<LimitsConfig>() ? Get.find<LimitsConfig>() : null;
-
-  int get _aiQuotaLimit =>
-      _limitsOrNull?.aiQuotaFreeMonthly ?? LimitsConfig.canonAiQuota;
+  int get _aiQuotaLimit => _tierService.gate.capFor(Feature.aiChat);
 
   // Rating nudge tuning [feedback-nudges]. After this many answers we may show
   // a soft, frequency-capped rating sheet.
@@ -111,6 +107,15 @@ class AiChatController extends BaseController {
         ..addAll((args['bucket_ids'] as List).map((e) => e.toString()));
     }
     composer.addListener(() => hasText.value = composer.text.trim().isNotEmpty);
+    // Pre-seed the composer when opened from a "What is it? → Ask Aura" footer,
+    // so the user only has to send. They can still edit or clear first.
+    if (args is Map && args['seed_prompt'] is String) {
+      final seed = (args['seed_prompt'] as String).trim();
+      if (seed.isNotEmpty) {
+        composer.text = seed;
+        hasText.value = true;
+      }
+    }
     _hydrate();
   }
 
@@ -146,7 +151,6 @@ class AiChatController extends BaseController {
     }
   }
 
-
   // ----------------------------------------------------------- gating UI --
 
   /// Free monthly AI requests used this period [D-AI-4].
@@ -159,18 +163,19 @@ class AiChatController extends BaseController {
   String get quotaLabel {
     return '$requestsUsed/$_aiQuotaLimit';
   }
+
   int get creditBalance => profile.value?.aiCreditBalance ?? 0;
 
   /// Non-null → composer is locked with this reason; null → composer is open.
   String? get composerLockReason {
-    if (gate.aiDisabled) return 'AI unavailable — resubscribe to continue';
-    if (gate.aiQuotaExhausted(requestsUsed: requestsUsed)) {
-      return 'Monthly AI limit reached';
-    }
-    return null;
+    final access = gate.access(Feature.aiChat, used: requestsUsed);
+    if (access.allowed) return null;
+    return access.message;
   }
 
-  bool get freeQuotaLock => gate.aiQuotaExhausted(requestsUsed: requestsUsed);
+  bool get freeQuotaLock =>
+      gate.access(Feature.aiChat, used: requestsUsed).denial ==
+      AccessDenial.quota;
 
   // --------------------------------------------------------------- intents --
 
@@ -393,8 +398,8 @@ class AiChatController extends BaseController {
       {int rating = 0, String? interactionId}) async {
     final text = suggestion.trim();
     if (text.isEmpty) return null;
-    final directives =
-        await _aiRepo.submitSuggestion(text, rating: rating, interactionId: interactionId);
+    final directives = await _aiRepo.submitSuggestion(text,
+        rating: rating, interactionId: interactionId);
     if (directives == null) return null;
     // Server saved the raw note (and any mapped directives). Refresh the full
     // learned list so free-text tunes show up too — not just keyword matches.

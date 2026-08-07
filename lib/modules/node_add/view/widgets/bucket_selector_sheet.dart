@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/utils/recall_haptics.dart';
+import '../../../../core/widgets/recall_sheet.dart';
 import '../../../../data/models/models.dart';
 
 class BucketSelectorSheet extends StatelessWidget {
@@ -27,13 +28,9 @@ class BucketSelectorSheet extends StatelessWidget {
     required ValueChanged<Bucket> onSelected,
     ValueChanged<String>? onCreateBucket,
   }) {
-    final c = RecallColors.of(context);
-    return showModalBottomSheet(
+    return showRecallSheet(
       context: context,
-      backgroundColor: c.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      isScrollControlled: false,
       builder: (_) => BucketSelectorSheet(
         buckets: buckets,
         selected: selected,
@@ -244,8 +241,7 @@ class _BucketTile extends StatelessWidget {
                 ),
               ),
             ),
-            if (isSelected)
-              Icon(Icons.check, size: 20, color: colors.ink),
+            if (isSelected) Icon(Icons.check, size: 20, color: colors.ink),
           ],
         ),
       ),

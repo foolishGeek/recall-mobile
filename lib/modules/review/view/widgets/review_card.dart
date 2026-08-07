@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_motion.dart';
 import '../../../../core/utils/recall_haptics.dart';
-import '../../../../data/models/enums.dart';
+import '../../../../data/models/shared/enums.dart';
 import 'review_direction_stamp.dart';
 
 class ReviewCard extends StatefulWidget {
@@ -163,7 +163,8 @@ class ReviewCardState extends State<ReviewCard>
     final grade = _inferredGrade;
 
     final shouldThrow = grade != null &&
-        (_dragOffset.dx.abs() >= _throwThreshold || speed >= _velocityThreshold);
+        (_dragOffset.dx.abs() >= _throwThreshold ||
+            speed >= _velocityThreshold);
 
     if (shouldThrow) {
       _startThrow(grade);

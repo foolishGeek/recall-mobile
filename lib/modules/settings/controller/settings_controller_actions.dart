@@ -11,8 +11,9 @@ const _kIosManageSubscriptions =
 const _kAndroidManageSubscriptions =
     'https://play.google.com/store/account/subscriptions';
 
-const _kPrivacyUrl = 'https://recall.app/privacy';
-const _kTermsUrl = 'https://recall.app/terms';
+const _kPrivacyUrl = 'https://ripplelabs.in/recall/privacy';
+const _kTermsUrl = 'https://ripplelabs.in/recall/tos';
+const _kHelpUrl = 'https://ripplelabs.in/recall/help';
 
 extension SettingsActions on SettingsController {
   // ── Data export (server-built zip → short-lived signed URL) ───────────────
@@ -171,6 +172,7 @@ extension SettingsActions on SettingsController {
 
   Future<void> onOpenPrivacy() => _launch(_kPrivacyUrl, 'privacy');
   Future<void> onOpenTerms() => _launch(_kTermsUrl, 'terms');
+  Future<void> onOpenHelp() => _launch(_kHelpUrl, 'help');
 
   // ── Internals ─────────────────────────────────────────────────────────────
   Future<void> _refreshEntitlement() async {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/recall_colors.dart';
-import '../../../../data/models/link_preview.dart';
+import '../../../../data/models/node/link_preview.dart';
 
 class NodeBodyLinkCard extends StatelessWidget {
   final LinkPreview preview;
@@ -209,7 +209,8 @@ class _HatchPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     const step = 12.0;
     for (double d = -size.height; d < size.width + size.height; d += step) {
-      canvas.drawLine(Offset(d, 0), Offset(d + size.height, size.height), stripe);
+      canvas.drawLine(
+          Offset(d, 0), Offset(d + size.height, size.height), stripe);
     }
   }
 

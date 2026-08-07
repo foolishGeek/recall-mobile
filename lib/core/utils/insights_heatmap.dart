@@ -3,7 +3,7 @@
 // renders (levels 0..4 on the 5-stop monochrome scale). No business metrics are
 // computed here — only fixed display thresholds on review_count.
 
-import '../../data/models/daily_activity.dart';
+import '../../data/models/insights/daily_activity.dart';
 
 class InsightsHeatmap {
   const InsightsHeatmap._();
@@ -24,7 +24,8 @@ class InsightsHeatmap {
   /// Build a `weeks × 7` grid of intensity levels ending today. Columns are
   /// weeks (oldest → newest, left → right); rows are weekdays (Mon → Sun top →
   /// bottom). Missing days render as level 0.
-  static List<List<int>> build(List<DailyActivity> activity, {DateTime? today}) {
+  static List<List<int>> build(List<DailyActivity> activity,
+      {DateTime? today}) {
     final now = (today ?? DateTime.now()).toUtc();
     final todayDate = DateTime.utc(now.year, now.month, now.day);
 

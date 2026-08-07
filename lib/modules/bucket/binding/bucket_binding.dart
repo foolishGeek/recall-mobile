@@ -1,11 +1,11 @@
 import 'package:get/get.dart';
 
 import '../../../data/local/local_store.dart';
-import '../../../data/repositories/ai_repository.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/node_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/ai/ai_repository.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/node/node_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
 import '../controller/bucket_controller.dart';
 
 class BucketBinding extends Bindings {

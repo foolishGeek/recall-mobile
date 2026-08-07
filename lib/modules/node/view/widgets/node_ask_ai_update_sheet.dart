@@ -10,6 +10,7 @@ import '../../../../core/theme/recall_shape.dart';
 import '../../../../core/utils/answer_segments.dart';
 import '../../../../core/utils/recall_haptics.dart';
 import '../../../../core/widgets/aura_mark.dart';
+import '../../../../core/widgets/recall_sheet.dart';
 
 class NodeAskAiUpdateSheet extends StatefulWidget {
   final String answer;
@@ -18,14 +19,8 @@ class NodeAskAiUpdateSheet extends StatefulWidget {
 
   /// Returns the joined excerpt the user kept, or null if cancelled.
   static Future<String?> show(BuildContext context, {required String answer}) {
-    final c = RecallColors.of(context);
-    return showModalBottomSheet<String>(
+    return showRecallSheet<String>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: c.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (_) => NodeAskAiUpdateSheet(answer: answer),
     );
   }

@@ -5,6 +5,7 @@ import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_typography.dart';
 import '../../../../core/widgets/list_row.dart';
 import '../../../../core/widgets/recall_button.dart';
+import '../../../../core/utils/recall_insets.dart';
 import '../../controller/quiz_config_controller.dart';
 
 class QuizConfigFooter extends StatelessWidget {
@@ -21,7 +22,7 @@ class QuizConfigFooter extends StatelessWidget {
       right: 0,
       bottom: 0,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(24, 14, 24, 30),
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 30).bottomSafe(context),
         decoration: BoxDecoration(
           color: c.canvas.withValues(alpha: 0.94),
           border: Border(top: BorderSide(color: c.grey200)),

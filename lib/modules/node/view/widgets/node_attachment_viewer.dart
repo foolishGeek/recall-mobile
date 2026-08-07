@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:pdfx/pdfx.dart';
 
 import '../../../../core/widgets/recall_skeleton.dart';
-import '../../../../data/models/node_asset.dart';
+import '../../../../data/models/node/node_asset.dart';
 
 /// Low-cortisol scrim: the dark-canvas tone, not a harsh pure black.
 const Color _kScrim = Color(0xFF0E0E11);
@@ -86,7 +86,8 @@ class _NodeAttachmentViewerState extends State<NodeAttachmentViewer> {
   PdfControllerPinch _pdfControllerFor(NodeAsset asset, String url) {
     return _pdfControllers.putIfAbsent(
       asset.id,
-      () => PdfControllerPinch(document: PdfDocument.openData(_fetchBytes(url))),
+      () =>
+          PdfControllerPinch(document: PdfDocument.openData(_fetchBytes(url))),
     );
   }
 

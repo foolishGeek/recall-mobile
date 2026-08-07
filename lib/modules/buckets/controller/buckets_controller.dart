@@ -6,18 +6,20 @@ import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/utils/coach_keys.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
-import '../../../data/services/metrics_service.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/metrics/metrics_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 import '../../shell/controller/shell_controller.dart';
 
 enum BucketFilter { all, active, cooling, aToZ }
@@ -26,6 +28,7 @@ class BucketsController extends BaseController
     with GetTickerProviderStateMixin {
   final _auth = Get.find<AuthService>();
   final _bucketRepo = Get.find<BucketRepository>();
+  final _profileRepo = Get.find<ProfileRepository>();
   final _tierService = Get.find<TierService>();
   final _syncStatus = Get.find<SyncStatusService>();
   final _metrics = Get.find<MetricsService>();
@@ -39,6 +42,9 @@ class BucketsController extends BaseController
       <String, BucketHeatStats>{}.obs;
   final RxMap<String, double> masteryMap = <String, double>{}.obs;
   final RxMap<String, DateTime> nextDropMap = <String, DateTime>{}.obs;
+  // Account-wide reminders switch (profiles.push_opt_in). Drives honest
+  // next-drop labels — a bucket can't drop if reminders are off.
+  final RxBool pushEnabled = false.obs;
   final RxString searchQuery = ''.obs;
   final Rx<BucketFilter> activeFilter = BucketFilter.all.obs;
   final RxBool isSearchVisible = false.obs;
@@ -80,7 +86,9 @@ class BucketsController extends BaseController
   }
 
   bool isReadOnly(Bucket b) =>
-      _tierService.gate.isDowngraded && !activeBucketIds.contains(b.id);
+      !_tierService.gate.isRelaxed &&
+      _tierService.gate.isDowngraded &&
+      !activeBucketIds.contains(b.id);
 
   bool isCooling(Bucket b) =>
       b.cooldownUntil != null && b.cooldownUntil!.isAfter(DateTime.now());
@@ -113,7 +121,13 @@ class BucketsController extends BaseController
   // Always relative + dated so it reads with context (never a bare "02:00").
   String nextDropValue(Bucket b) {
     final dt = nextDropMap[b.id] ?? (isCooling(b) ? b.cooldownUntil : null);
-    if (dt == null) return 'Scheduling…';
+    if (dt == null) {
+      // No deliverable ETA — say why, calmly, instead of a vague "Scheduling…".
+      if (isReadOnly(b)) return 'Paused';
+      if (nodeCountFor(b) == 0) return 'No notes yet';
+      if (!pushEnabled.value) return 'Reminders off';
+      return 'Preparing…';
+    }
 
     final now = DateTime.now();
     final local = dt.toLocal();
@@ -184,6 +198,7 @@ class BucketsController extends BaseController
       unawaited(_maybeShowRevisionCoachTip());
 
       _loadNextDropTimes(loadedBuckets);
+      _loadPushOptIn(userId);
     } on RepoException catch (e) {
       if (e.isOffline) {
         _syncStatus.setOffline(true);
@@ -214,6 +229,15 @@ class BucketsController extends BaseController
       nextDropMap.assignAll(drops);
     } on RepoException catch (_) {
       // non-critical; cards render without next-drop when unavailable
+    }
+  }
+
+  Future<void> _loadPushOptIn(String userId) async {
+    try {
+      final profile = await _profileRepo.fetchProfile(userId);
+      pushEnabled.value = profile?.pushOptIn ?? false;
+    } catch (_) {
+      // non-critical; labels fall back to a neutral "Preparing…"/"Reminders off"
     }
   }
 
@@ -307,6 +331,10 @@ class BucketsController extends BaseController
       RecallHaptics.medium();
       await reload(forceRemote: true);
     } on RepoException catch (e) {
+      if (e.code == RepoErrorCode.freeTierBucketLimit) {
+        _tierService.enforce(Feature.bucketCreate, used: buckets.length);
+        return;
+      }
       setError(e.isOffline
           ? 'You\'re offline. Check your connection and try again.'
           : e.message);

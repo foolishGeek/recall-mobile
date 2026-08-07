@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_typography.dart';
 import '../../../../core/widgets/mono_label.dart';
+import '../../../../core/utils/recall_insets.dart';
 
 class AiLockedComposer extends StatelessWidget {
   final String reason;
@@ -28,7 +29,7 @@ class AiLockedComposer extends StatelessWidget {
     final t = RecallType.of(context);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 22),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 22).bottomSafe(context),
       decoration: BoxDecoration(
         color: c.canvas,
         border: Border(top: BorderSide(color: c.grey200)),
@@ -63,7 +64,8 @@ class AiLockedComposer extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           MonoLabel(
-            quotaLabel == null ? 'Grounded in your notes, enriched by Aura'
+            quotaLabel == null
+                ? 'Grounded in your notes, enriched by Aura'
                 : '$quotaLabel requests used this month',
             color: c.grey400,
             size: 9.5,

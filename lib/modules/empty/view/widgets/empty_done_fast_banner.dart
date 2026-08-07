@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_typography.dart';
-import '../../../../data/services/metrics_service.dart';
+import '../../../../data/services/metrics/metrics_service.dart';
 
 class EmptyDoneFastBanner extends StatefulWidget {
   final DoneFastBanner banner;

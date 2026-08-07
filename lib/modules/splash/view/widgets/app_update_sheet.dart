@@ -7,22 +7,26 @@ import 'package:get/get.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/theme/recall_typography.dart';
 import '../../../../core/widgets/mono_label.dart';
-import '../../../../data/services/play_update_service.dart';
-import '../../../../data/services/remote_config_service.dart';
+import '../../../../data/services/platform/remote_config_service.dart';
 
 class AppUpdateSheet extends StatelessWidget {
   final AppUpdateCopy copy;
   final bool force;
+  final Future<void> Function({required bool force}) onUpdate;
 
   const AppUpdateSheet({
     super.key,
     required this.copy,
     required this.force,
+    required this.onUpdate,
   });
 
-  static Future<void> showForce(AppUpdateCopy copy) {
+  static Future<void> showForce(
+    AppUpdateCopy copy, {
+    required Future<void> Function({required bool force}) onUpdate,
+  }) {
     return Get.bottomSheet(
-      AppUpdateSheet(copy: copy, force: true),
+      AppUpdateSheet(copy: copy, force: true, onUpdate: onUpdate),
       isScrollControlled: true,
       isDismissible: false,
       enableDrag: false,
@@ -30,9 +34,12 @@ class AppUpdateSheet extends StatelessWidget {
     );
   }
 
-  static Future<void> showSoft(AppUpdateCopy copy) {
+  static Future<void> showSoft(
+    AppUpdateCopy copy, {
+    required Future<void> Function({required bool force}) onUpdate,
+  }) {
     return Get.bottomSheet(
-      AppUpdateSheet(copy: copy, force: false),
+      AppUpdateSheet(copy: copy, force: false, onUpdate: onUpdate),
       isScrollControlled: true,
       isDismissible: true,
       enableDrag: true,
@@ -41,12 +48,7 @@ class AppUpdateSheet extends StatelessWidget {
     );
   }
 
-  Future<void> _onUpdate() async {
-    final play = Get.isRegistered<PlayUpdateService>()
-        ? Get.find<PlayUpdateService>()
-        : PlayUpdateService();
-    await play.startUpdate(force: force);
-  }
+  Future<void> _onUpdate() => onUpdate(force: force);
 
   void _onClose() {
     if (force) return;
@@ -101,7 +103,10 @@ class AppUpdateSheet extends StatelessWidget {
                     ),
                 ],
               ),
-              if (force) const SizedBox(height: 12) else const SizedBox(height: 4),
+              if (force)
+                const SizedBox(height: 12)
+              else
+                const SizedBox(height: 4),
               Text(copy.title, style: t.headingMd.copyWith(color: c.ink)),
               const SizedBox(height: 8),
               Text(

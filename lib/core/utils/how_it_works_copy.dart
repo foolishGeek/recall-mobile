@@ -90,7 +90,7 @@ abstract final class HowItWorksCopy {
 
   static const settingsTitle = 'Review preferences';
   static const settingsTip =
-      'Memory strength and Reminder style shape how often notes return — and how insistently Drop nudges.';
+      'Memory strength and Reminder style shape how notes return — and how insistently Drop nudges.';
   static const settingsSections = <HowItWorksSection>[
     HowItWorksSection(
       heading: 'Memory strength',
@@ -100,7 +100,7 @@ abstract final class HowItWorksCopy {
     HowItWorksSection(
       heading: 'Reminder style',
       body:
-          'Gentle / Standard / Persistent — how often Recall Drop knocks when due notes wait unseen.',
+          'Gentle / Standard / Persistent / ASAO — how insistently a Drop nudges. Standard is the Default. ASAO means as soon as one note is ready.',
     ),
     HowItWorksSection(
       heading: 'Quiet hours',
@@ -125,12 +125,58 @@ abstract final class HowItWorksCopy {
   static const reminderStyleSections = <HowItWorksSection>[
     HowItWorksSection(
       body:
-          'Controls how insistently a Recall Drop nudges you when notes are due and still unseen.',
+          'How insistently Recall Drop nudges you when notes are due and still unseen — a nudge pattern, not a single number.',
     ),
     HowItWorksSection(
-      heading: 'Gentle · Standard · Persistent',
+      heading: 'Gentle · Standard · Persistent · ASAO',
       body:
-          'Gentle waits for a larger set. Standard is balanced. Persistent re-nudges about every two hours until you look.',
+          'Gentle waits for a larger batch and never re-nudges. Standard (Default) is balanced and re-nudges about every two hours. Persistent uses smaller batches and keeps knocking. ASAO drops as soon as even one note is ready.',
+    ),
+    HowItWorksSection(
+      heading: 'One setting for the whole app',
+      body:
+          'Reminder style is account-wide — it applies to every bucket. Change it once in Settings.',
+    ),
+  ];
+
+  static const coolingPeriodTitle = 'Cooling period';
+  static const coolingPeriodSections = <HowItWorksSection>[
+    HowItWorksSection(
+      body:
+          'After you finish this bucket\'s cards, Recall rests the whole topic for a set time before bringing it back — so you\'re not drilling the same set every day.',
+    ),
+    HowItWorksSection(
+      heading: 'A quick example',
+      body:
+          'Rest 14 days = once you\'ve worked through the bucket, the topic returns roughly every couple of weeks instead of tomorrow.',
+    ),
+    HowItWorksSection(
+      heading: 'It\'s per bucket',
+      body:
+          'Fast-moving topics can rest less; slow-burn ones can rest more. Each bucket keeps its own pace.',
+    ),
+  ];
+
+  static const bucketConfigTitle = 'What is Bucket config?';
+  static const bucketConfigSections = <HowItWorksSection>[
+    HowItWorksSection(
+      body:
+          'Three small dials that shape how this bucket comes back to you. You can read the effect of each in plain words — no need to guess.',
+    ),
+    HowItWorksSection(
+      heading: 'Cooling period',
+      body:
+          'How long the topic rests after a session before it returns. Per bucket.',
+    ),
+    HowItWorksSection(
+      heading: 'Memory strength',
+      body:
+          'How sure you want to be when it matters. Stronger means reviews come back sooner. Per bucket.',
+    ),
+    HowItWorksSection(
+      heading: 'Reminder style',
+      body:
+          'How insistently Drops nudge you (batch size, re-nudge, daily cap). Account-wide — set once in Settings.',
     ),
   ];
 }

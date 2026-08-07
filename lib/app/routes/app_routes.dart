@@ -21,6 +21,7 @@ abstract class Routes {
 
   // Buckets / nodes
   static const bucket = '/bucket';
+  static const bucketConfig = '/bucket/config';
   static const node = '/node';
   static const nodeAdd = '/node/add';
 
@@ -33,9 +34,4 @@ abstract class Routes {
   static const settings = '/settings';
   static const paywall = '/paywall';
   static const aiChat = '/ai/chat';
-
-  // Empty states
-  static const emptyBuckets = '/empty/buckets';
-  static const emptyToday = '/empty/today';
-  static const emptyInsights = '/empty/insights';
 }

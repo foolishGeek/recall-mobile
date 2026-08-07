@@ -11,12 +11,12 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/gates/auth_gate.dart';
-import '../../../data/repositories/auth_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/sync_service.dart';
-import '../../../data/services/tier_service.dart';
-import '../../../data/services/repo_exception.dart';
+import '../../../data/repositories/auth/auth_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_service.dart';
 
 enum SigninState { idle, loading, sent, error }
 
@@ -143,13 +143,13 @@ class SigninController extends GetxController {
   }
 
   Future<void> onOpenTerms() async {
-    const url = 'https://recall.app/terms';
+    const url = 'https://ripplelabs.in/recall/tos';
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   Future<void> onOpenPrivacy() async {
-    const url = 'https://recall.app/privacy';
+    const url = 'https://ripplelabs.in/recall/privacy';
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
@@ -175,8 +175,7 @@ class SigninController extends GetxController {
     try {
       await _profileRepo.ensureProfile();
       await Get.find<SyncService>().flushProfilePrefs();
-      final onboardingDone =
-          await _profileRepo.resolveOnboardingDone(userId);
+      final onboardingDone = await _profileRepo.resolveOnboardingDone(userId);
       _auth.setOnboardingDone(onboardingDone);
       await Get.find<TierService>().refreshFromServer(_profileRepo, userId);
 
@@ -231,7 +230,8 @@ class SigninController extends GetxController {
 
   void _handleAuthError(RepoException e, StackTrace st, String provider) {
     // TODO(analytics): signin_failed { provider, error_code } [D-OBS-2]
-    debugPrint('[signin] RepoException ($provider): ${e.code.wire} — ${e.message}');
+    debugPrint(
+        '[signin] RepoException ($provider): ${e.code.wire} — ${e.message}');
     if (e.isOffline) {
       errorText.value = 'Couldn\'t reach the server — try again';
     } else {

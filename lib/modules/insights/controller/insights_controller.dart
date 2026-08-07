@@ -16,26 +16,27 @@ import 'package:get/get.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../core/base/base_controller.dart';
-import '../../../core/config/limits_config.dart';
+import '../../../core/gates/feature.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/insights_heatmap.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/bucket_repository.dart';
-import '../../../data/repositories/insights_repository.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/metrics_service.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/insights/insights_repository.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/metrics/metrics_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 import '../../shell/controller/shell_controller.dart';
 
 /// One bucket's mastery ring (premium mastery card).
 typedef MasteryRing = ({String label, double progress, double heat});
 
-class InsightsController extends BaseController with GetTickerProviderStateMixin {
+class InsightsController extends BaseController
+    with GetTickerProviderStateMixin {
   final InsightsRepository _insights = Get.find();
   final BucketRepository _buckets = Get.find();
   final ProfileRepository _profiles = Get.find();
@@ -53,13 +54,7 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
 
   /// Full Insights ledger (incl. retention simulation) while
   /// `limits_profile=relaxed` or when truly premium.
-  bool get showSimulation {
-    if (isPremium) return true;
-    if (!Get.isRegistered<LimitsConfig>()) return false;
-    // Touch Rx so Obx rebuilds after resume refresh.
-    return Get.find<LimitsConfig>().profileRx.value ==
-        LimitsConfig.profileRelaxed;
-  }
+  bool get showSimulation => gate.access(Feature.insightsFull).allowed;
 
   // ── Gate ──────────────────────────────────────────────────────────────
   /// `< 7` distinct review days → render the InsightsEmpty portrait instead.
@@ -194,11 +189,15 @@ class InsightsController extends BaseController with GetTickerProviderStateMixin
         ...common,
         _safe('retention', () => _loadRetention(userId)),
         _safe('mastery', () => _loadMastery(userId)),
-        _safe('weak', () async => weakTopics.assignAll(
-              (await _insights.fetchWeakTopics()).take(3).toList(),
-            )),
-        _safe('velocity', () async =>
-            velocity.assignAll(await _insights.fetchReviewVelocity(userId))),
+        _safe(
+            'weak',
+            () async => weakTopics.assignAll(
+                  (await _insights.fetchWeakTopics()).take(3).toList(),
+                )),
+        _safe(
+            'velocity',
+            () async => velocity
+                .assignAll(await _insights.fetchReviewVelocity(userId))),
         _safe('drops', () => _loadDrops(userId)),
       ]);
     } else {

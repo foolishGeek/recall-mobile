@@ -1,62 +1,54 @@
 // Free-tier numeric limits mirrored from `app_config`. Server remains truth;
-// this drives gate UX only. Fetch-fail falls back to canon (safe).
+// this drives gate UX only. Fetch-fail keeps the last known snapshot (canon is
+// only the cold-start default before any successful fetch).
 // Flip relaxed↔canon via SQL (`rollback_limits_to_canon`) — no app release.
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import '../../data/services/supabase_service.dart';
+import '../../data/services/platform/supabase_service.dart';
+import 'app_limits.dart';
 
 class LimitsConfig extends GetxService {
-  /// Today's canon free caps ([D-PAY] / [D-AI] / [D-ENG-3]).
-  static const String profileCanon = 'canon';
-  static const String profileRelaxed = 'relaxed';
+  /// Reactive snapshot — Obx rebuilds when the whole [AppLimits] is replaced.
+  final Rx<AppLimits> snapshot = AppLimits.canon.obs;
 
-  static const int canonStacks = 2;
-  static const int canonBuckets = 2;
-  static const int canonAiQuota = 50;
-  static const int canonAiOverviews = 2;
-  static const int canonSessionSize = 8;
+  AppLimits get current => snapshot.value;
 
-  static const int relaxedStacks = 999;
-  static const int relaxedBuckets = 999;
-  static const int relaxedAiQuota = 500;
-  static const int relaxedAiOverviews = 50;
-  static const int relaxedSessionSize = 12;
+  // Compatibility getters used during migration; prefer [snapshot] / [current].
+  static const String profileCanon = AppLimits.profileCanon;
+  static const String profileRelaxed = AppLimits.profileRelaxed;
+  static const int canonStacks = AppLimits.canonStacks;
+  static const int canonBuckets = AppLimits.canonBuckets;
+  static const int canonAiQuota = AppLimits.canonAiQuota;
+  static const int canonAiOverviews = AppLimits.canonAiOverviews;
+  static const int canonSessionSize = AppLimits.canonSessionSize;
 
-  /// Reactive so Obx screens pick up resume / splash refreshes.
-  final RxString profileRx = profileCanon.obs;
-
-  String get profile => profileRx.value;
-  set profile(String v) => profileRx.value = v;
-
-  int stacksFreeMonthly = canonStacks;
-  int bucketsFreeWritable = canonBuckets;
-  int aiQuotaFreeMonthly = canonAiQuota;
-  int aiOverviewFreeMonthly = canonAiOverviews;
-  int sessionSizeFree = canonSessionSize;
-
-  bool get isRelaxed => profile == profileRelaxed;
-
-  /// Hide discrete stack meters when the free cap is effectively uncapped.
-  bool get showStacksMeter => stacksFreeMonthly <= 12;
-
-  void applyCanon() {
-    profile = profileCanon;
-    stacksFreeMonthly = canonStacks;
-    bucketsFreeWritable = canonBuckets;
-    aiQuotaFreeMonthly = canonAiQuota;
-    aiOverviewFreeMonthly = canonAiOverviews;
-    sessionSizeFree = canonSessionSize;
+  /// Touch [snapshot] so Obx tracks profile flips (You / Insights pattern).
+  RxString get profileRx {
+    // Derived view: reading .value inside Obx still needs a dedicated Rx for
+    // callers that only watch the profile string. Keep in sync with snapshot.
+    return _profileRx;
   }
 
-  void applyRelaxed() {
-    profile = profileRelaxed;
-    stacksFreeMonthly = relaxedStacks;
-    bucketsFreeWritable = relaxedBuckets;
-    aiQuotaFreeMonthly = relaxedAiQuota;
-    aiOverviewFreeMonthly = relaxedAiOverviews;
-    sessionSizeFree = relaxedSessionSize;
+  final RxString _profileRx = AppLimits.profileCanon.obs;
+
+  String get profile => current.profile;
+  bool get isRelaxed => current.isRelaxed;
+  int get stacksFreeMonthly => current.stacksFreeMonthly;
+  int get bucketsFreeWritable => current.bucketsFreeWritable;
+  int get aiQuotaFreeMonthly => current.aiQuotaFreeMonthly;
+  int get aiOverviewFreeMonthly => current.aiOverviewFreeMonthly;
+  int get sessionSizeFree => current.sessionSizeFree;
+  bool get showStacksMeter => current.showStacksMeter;
+
+  void applyCanon() => _set(AppLimits.canon);
+
+  void applyRelaxed() => _set(AppLimits.relaxed);
+
+  void _set(AppLimits next) {
+    snapshot.value = next;
+    _profileRx.value = next.profile;
   }
 
   Future<void> refresh() async {
@@ -84,25 +76,25 @@ class LimitsConfig extends GetxService {
         map[key] = row['value'];
       }
 
-      final p = _asString(map['limits_profile']) ?? profileCanon;
-      if (p == profileRelaxed) {
-        applyRelaxed();
-      } else {
-        applyCanon();
-      }
-      profile = p;
-      stacksFreeMonthly =
-          _asInt(map['stacks_free_monthly']) ?? stacksFreeMonthly;
-      bucketsFreeWritable =
-          _asInt(map['buckets_free_writable']) ?? bucketsFreeWritable;
-      aiQuotaFreeMonthly =
-          _asInt(map['ai_quota_free_monthly']) ?? aiQuotaFreeMonthly;
-      aiOverviewFreeMonthly =
-          _asInt(map['ai_overview_free_monthly']) ?? aiOverviewFreeMonthly;
-      sessionSizeFree = _asInt(map['session_size_free']) ?? sessionSizeFree;
+      final p = _asString(map['limits_profile']) ?? AppLimits.profileCanon;
+      final base =
+          p == AppLimits.profileRelaxed ? AppLimits.relaxed : AppLimits.canon;
+      _set(base.copyWith(
+        profile: p,
+        stacksFreeMonthly:
+            _asInt(map['stacks_free_monthly']) ?? base.stacksFreeMonthly,
+        bucketsFreeWritable:
+            _asInt(map['buckets_free_writable']) ?? base.bucketsFreeWritable,
+        aiQuotaFreeMonthly:
+            _asInt(map['ai_quota_free_monthly']) ?? base.aiQuotaFreeMonthly,
+        aiOverviewFreeMonthly: _asInt(map['ai_overview_free_monthly']) ??
+            base.aiOverviewFreeMonthly,
+        sessionSizeFree:
+            _asInt(map['session_size_free']) ?? base.sessionSizeFree,
+      ));
     } catch (e) {
       if (kDebugMode) debugPrint('[limits_config] $e');
-      applyCanon();
+      // Keep last known snapshot — do not wipe temporary-free on a blip.
     }
   }
 

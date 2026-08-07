@@ -14,7 +14,7 @@ import '../../../../core/widgets/neo_chip.dart';
 import '../../../../core/widgets/retention_curve.dart';
 import '../../../../core/widgets/soft_card.dart';
 import '../../../../data/models/models.dart';
-import '../../../../data/repositories/insights_repository.dart';
+import '../../../../data/repositories/insights/insights_repository.dart';
 import '../../controller/insights_controller.dart';
 
 /// Quiet section header above a card.
@@ -237,8 +237,7 @@ class InsightsMasteryCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  for (final ring in rings)
-                    _MasteryRing(ring: ring),
+                  for (final ring in rings) _MasteryRing(ring: ring),
                 ],
               ),
             ],
@@ -422,7 +421,8 @@ class _VelocityCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('VELOCITY',
-              style: t.monoLabelSm.copyWith(color: c.grey500, letterSpacing: 1.2)),
+              style:
+                  t.monoLabelSm.copyWith(color: c.grey500, letterSpacing: 1.2)),
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -471,7 +471,8 @@ class _DropOpenCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('DROP OPEN',
-              style: t.monoLabelSm.copyWith(color: c.grey500, letterSpacing: 1.2)),
+              style:
+                  t.monoLabelSm.copyWith(color: c.grey500, letterSpacing: 1.2)),
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -524,7 +525,8 @@ class _MiniBars extends StatelessWidget {
               alignment: Alignment.bottomCenter,
               child: Container(
                 decoration: BoxDecoration(
-                  color: c.ink.withValues(alpha: 0.25 + daily[i].openRatio * 0.6),
+                  color:
+                      c.ink.withValues(alpha: 0.25 + daily[i].openRatio * 0.6),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

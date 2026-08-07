@@ -6,27 +6,26 @@
 import 'package:get/get.dart';
 
 import '../../core/theme/theme_service.dart';
-import '../../data/repositories/ai_repository.dart';
-import '../../data/repositories/auth_repository.dart';
-import '../../data/repositories/bucket_repository.dart';
-import '../../data/repositories/insights_repository.dart';
-import '../../data/repositories/node_repository.dart';
-import '../../data/repositories/notification_repository.dart';
-import '../../data/repositories/profile_repository.dart';
-import '../../data/repositories/quiz_repository.dart';
-import '../../data/repositories/review_repository.dart';
-import '../../data/repositories/stack_repository.dart';
-import '../../data/repositories/today_repository.dart';
 import '../../data/local/local_store.dart';
-import '../../data/services/ai_service.dart';
-import '../../data/services/app_session_service.dart';
-import '../../data/services/auth_service.dart';
-import '../../data/services/heat_service.dart';
-import '../../data/services/metrics_service.dart';
-import '../../data/services/supabase_service.dart';
-import '../../data/services/sync_service.dart';
-import '../../data/services/sync_status_service.dart';
-import '../../data/services/tier_service.dart';
+import '../../data/repositories/ai/ai_repository.dart';
+import '../../data/repositories/auth/auth_repository.dart';
+import '../../data/repositories/bucket/bucket_repository.dart';
+import '../../data/repositories/insights/insights_repository.dart';
+import '../../data/repositories/node/node_repository.dart';
+import '../../data/repositories/notification/notification_repository.dart';
+import '../../data/repositories/profile/profile_repository.dart';
+import '../../data/repositories/quiz/quiz_repository.dart';
+import '../../data/repositories/review/review_repository.dart';
+import '../../data/repositories/stack/stack_repository.dart';
+import '../../data/repositories/today/today_repository.dart';
+import '../../data/services/ai/ai_service.dart';
+import '../../data/services/auth/auth_service.dart';
+import '../../data/services/billing/tier_service.dart';
+import '../../data/services/metrics/metrics_service.dart';
+import '../../data/services/platform/supabase_service.dart';
+import '../../data/services/sync/app_session_service.dart';
+import '../../data/services/sync/sync_service.dart';
+import '../../data/services/sync/sync_status_service.dart';
 
 class InitialBinding extends Bindings {
   @override
@@ -44,7 +43,8 @@ class InitialBinding extends Bindings {
 
     // Theme: eager + permanent so the cached appearance choice (S24) applies on
     // boot before any route builds; reconciled with profiles.theme on Settings.
-    Get.put<ThemeService>(ThemeService(Get.find<LocalStore>()), permanent: true);
+    Get.put<ThemeService>(ThemeService(Get.find<LocalStore>()),
+        permanent: true);
 
     // Service stubs (filled in S04/S06/S16).
     Get.lazyPut<AiService>(() => AiService(Get.find()), fenix: true);
@@ -56,7 +56,6 @@ class InitialBinding extends Bindings {
               Get.find(),
             ),
         fenix: true);
-    Get.lazyPut<HeatService>(() => HeatService(), fenix: true);
     // NotificationService is registered as an eager permanent singleton in main()
     // (it self-wires FCM streams on init); not lazy here.
 

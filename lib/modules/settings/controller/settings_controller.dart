@@ -19,42 +19,56 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
-import '../../../core/config/limits_config.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../core/utils/coach_keys.dart';
+import '../../../core/utils/drop_readiness.dart';
 import '../../../core/utils/memory_strength.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/notification_service.dart';
-import '../../../data/services/repo_exception.dart';
-import '../../../data/services/revenuecat_service.dart';
-import '../../../data/services/sync_status_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/revenuecat_service.dart';
+import '../../../data/services/billing/tier_service.dart';
+import '../../../data/services/platform/notification_service.dart';
+import '../../../data/services/shared/repo_exception.dart';
+import '../../../data/services/sync/sync_status_service.dart';
 
 part 'settings_controller_actions.dart';
+
+enum SubscriptionCardMode { premium, relaxedFree, downgraded, free }
 
 /// Selectable cooling-period durations (days) for the Review default [S24].
 const List<int> kCoolingDayOptions = [1, 3, 7, 14, 30];
 
-/// Daily review-limit range (writes session_size_override). Free clamps to 8 in
+/// Cards-per-session range (writes session_size_override). Free clamps to 8 in
 /// the engine [D-ENG-3]; the editor still lets premium pick up to 30.
 const int kDailyLimitMin = 4;
 const int kDailyLimitMax = 30;
 const int kDailyLimitStep = 2;
 
-/// Reminder-style wire values + human readout. The wire values are unchanged
-/// (daily/3xwk/weekly) but now express *intensity* — they map to drop_intensity()
-/// on the backend (00050): weekly=Gentle, 3xwk=Standard, daily=Persistent.
-/// Ordered gentle → persistent for the picker.
+/// Reminder-style wire values + human readout. Wire values map to
+/// drop_intensity() (D-ENG-9): an intensity / nudge pattern — batch size to
+/// fire, min gap, daily cap, and whether to re-nudge. Ordered gentle → persistent.
 const List<(String, String, String)> kFrequencyOptions = [
-  ('weekly', 'Gentle', 'An occasional nudge'),
-  ('3xwk', 'Standard', 'A balanced reminder rhythm'),
-  ('daily', 'Persistent', 'Keeps nudging until you review'),
+  (
+    'weekly',
+    'Gentle',
+    'Occasional nudge · waits for a larger batch · no re-nudge'
+  ),
+  (
+    '3xwk',
+    'Standard',
+    'Balanced nudge · Default · re-nudges every ~2h if still unseen'
+  ),
+  (
+    'daily',
+    'Persistent',
+    'Keeps nudging · smaller batches · re-nudges every ~2h'
+  ),
+  ('asap', 'ASAO', 'As soon as one · Drop when even a single note is ready'),
 ];
 
 class SettingsController extends BaseController {
@@ -101,30 +115,43 @@ class SettingsController extends BaseController {
   /// One-time tip for Memory strength + Reminder style.
   final RxBool showReviewCoachTip = false.obs;
 
+  // ── Reminders diagnostic (drop_debug_rpc) ────────────────────────────────
+  final Rxn<DropDebug> dropDebug = Rxn<DropDebug>();
+  final RxBool dropDebugLoading = false.obs;
+  final RxBool repairingReminders = false.obs;
+
   // ── Tier ──────────────────────────────────────────────────────────────────
-  TierGate get gate => TierGate(tier.value);
-  bool get isPremium => tier.value == SubscriptionTier.premium;
+  TierGate get gate => _tier.gate;
+  bool get isPremium =>
+      _tier.tierRx.value == SubscriptionTier.premium ||
+      tier.value == SubscriptionTier.premium;
   bool get isDowngraded => tier.value == SubscriptionTier.downgraded;
   bool get isFree => tier.value == SubscriptionTier.free;
 
   /// Config-driven temporary free (`limits_profile=relaxed`).
-  bool get suppressPaywall =>
-      Get.isRegistered<LimitsConfig>() && Get.find<LimitsConfig>().isRelaxed;
+  bool get suppressPaywall => gate.suppressPaywall;
+
+  /// Single view-mode for the subscription card (avoids multi-branch in the view).
+  SubscriptionCardMode get subscriptionMode {
+    if (isPremium) return SubscriptionCardMode.premium;
+    if (suppressPaywall) return SubscriptionCardMode.relaxedFree;
+    if (isDowngraded) return SubscriptionCardMode.downgraded;
+    return SubscriptionCardMode.free;
+  }
 
   bool get isOffline => _syncStatus.isOffline.value;
 
   // ── Derived pref values / labels (presentation only) ──────────────────────
   bool get pushOptIn => profile.value?.pushOptIn ?? false;
 
-  String get dropFrequency => profile.value?.dropFrequency ?? 'daily';
+  String get dropFrequency =>
+      profile.value?.dropFrequency ?? kDefaultDropFrequency;
 
-  /// Short name (e.g. "Persistent") for the collapsed Settings row.
-  String get frequencyLabel {
-    for (final o in kFrequencyOptions) {
-      if (o.$1 == dropFrequency) return o.$2;
-    }
-    return 'Standard';
-  }
+  /// Collapsed Settings row: Default for Standard; style name otherwise.
+  String get frequencyLabel => dropStyleShortLabel(dropFrequency);
+
+  /// Batch size before a fresh Drop for the current Reminder style (supporting detail).
+  int get dropThreshold => dropThresholdFor(dropFrequency);
 
   String? get quietHoursStart => profile.value?.quietHoursStart;
   String? get quietHoursEnd => profile.value?.quietHoursEnd;
@@ -147,12 +174,23 @@ class SettingsController extends BaseController {
     return days < 1 ? 1 : days;
   }
 
-  String get coolingLabel =>
-      coolingDays == 1 ? '1 day' : '$coolingDays days';
+  String get coolingLabel => coolingDays == 1 ? '1 day' : '$coolingDays days';
 
   int? get sessionSizeOverride => profile.value?.sessionSizeOverride;
-  String get dailyLimitLabel =>
-      sessionSizeOverride == null ? 'Default' : '$sessionSizeOverride cards';
+
+  /// Tier default when override is unset (free 8 / premium 12).
+  int get cardsPerSessionDefault => gate.cardsPerStack;
+
+  /// Effective session size (override or tier default).
+  int get cardsPerSessionEffective =>
+      sessionSizeOverride ?? cardsPerSessionDefault;
+
+  /// `Default(8)` / `Default(12)` when unset; bare number when manually set.
+  String get dailyLimitLabel {
+    final n = sessionSizeOverride;
+    if (n == null) return 'Default($cardsPerSessionDefault)';
+    return '$n';
+  }
 
   String get theme => _theme.current;
   String get themeLabel => theme.toUpperCase();
@@ -274,8 +312,41 @@ class SettingsController extends BaseController {
       }
       await _notifications.registerDeviceToken();
     }
-    await _patch({'push_opt_in': value},
-        profile.value?.copyWith(pushOptIn: value));
+    await _patch(
+        {'push_opt_in': value}, profile.value?.copyWith(pushOptIn: value));
+  }
+
+  /// Loads the honest Drop eligibility breakdown for the Reminders diagnostic.
+  /// Best-effort — a failure leaves the prior value and the sheet offers retry.
+  Future<void> loadDropDebug() async {
+    dropDebugLoading.value = true;
+    try {
+      dropDebug.value = await _notifications.fetchDropDebug();
+    } on RepoException catch (_) {
+      // leave null; the sheet shows a gentle retry
+    } finally {
+      dropDebugLoading.value = false;
+    }
+  }
+
+  /// Repair action from the diagnostic: request permission, register a token,
+  /// and flip the master switch on — together. Refreshes the breakdown after.
+  Future<bool> repairReminders() async {
+    if (repairingReminders.value) return false;
+    repairingReminders.value = true;
+    RecallHaptics.selection();
+    try {
+      final ok = await _notifications.enableDrops();
+      if (ok) {
+        profile.value = profile.value?.copyWith(pushOptIn: true);
+        await loadDropDebug();
+      } else {
+        _notify('Turn on notifications in system settings to get Drops.');
+      }
+      return ok;
+    } finally {
+      repairingReminders.value = false;
+    }
   }
 
   /// Sets the user's default memory strength (desired retention). Optimistic;
@@ -327,10 +398,16 @@ class SettingsController extends BaseController {
         profile.value?.copyWith(defaultCoolingPeriod: interval));
   }
 
-  Future<void> setDailyLimit(int value) async {
+  /// `null` clears the override and restores the tier Default(N).
+  Future<void> setDailyLimit(int? value) async {
     if (value == sessionSizeOverride) return;
-    await _patch({'session_size_override': value},
-        profile.value?.copyWith(sessionSizeOverride: value));
+    final prev = profile.value;
+    // Optimistic: only apply when setting a concrete override. Clearing null
+    // cannot go through copyWith; server `select()` after patch is truth.
+    await _patch(
+      {'session_size_override': value},
+      value == null ? prev : prev?.copyWith(sessionSizeOverride: value),
+    );
   }
 
   Future<void> toggleHaptics(bool value) async {
@@ -349,7 +426,8 @@ class SettingsController extends BaseController {
     final userId = _auth.currentUserId;
     if (userId == null) return;
     try {
-      profile.value = await _profiles.updatePreferences(userId, {'theme': value});
+      profile.value =
+          await _profiles.updatePreferences(userId, {'theme': value});
     } on RepoException catch (e, st) {
       await _theme.apply(prevTheme);
       profile.value = prev;
@@ -367,8 +445,8 @@ class SettingsController extends BaseController {
     final userId = _auth.currentUserId;
     if (userId == null) return;
     try {
-      profile.value =
-          await _profiles.updatePreferences(userId, {'analytics_opt_in': value});
+      profile.value = await _profiles
+          .updatePreferences(userId, {'analytics_opt_in': value});
     } on RepoException catch (e, st) {
       _auth.setAnalyticsOptIn(prev?.analyticsOptIn ?? true);
       profile.value = prev;
@@ -439,6 +517,16 @@ class SettingsController extends BaseController {
 }
 
 const _kMonthAbbr = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];

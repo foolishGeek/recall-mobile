@@ -3,7 +3,10 @@
 // controllers extend this and call the helpers from their intent methods.
 
 import 'package:get/get.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../../data/services/shared/repo_exception.dart';
+import '../../data/services/sync/sync_status_service.dart';
 import 'view_state.dart';
 
 abstract class BaseController extends GetxController {
@@ -32,5 +35,36 @@ abstract class BaseController extends GetxController {
   void setError([String? message]) {
     _errorMessage.value = message;
     _viewState.value = ViewState.error;
+  }
+
+  /// Shared offline / load error mapping used by shell tab controllers.
+  void handleLoadError(RepoException e, SyncStatusService sync) {
+    if (e.isOffline) {
+      sync.setOffline(true);
+      setError('You\'re offline. Check your connection and try again.');
+    } else {
+      setError(e.message);
+    }
+  }
+
+  /// Per-card soft failure — never breaks the whole screen.
+  Future<void> runCardSafe(
+    String card,
+    RxMap<String, bool> flags,
+    Future<void> Function() body, {
+    required String feature,
+  }) async {
+    try {
+      await body();
+      flags[card] = false;
+    } on RepoException catch (e) {
+      flags[card] = true;
+      Sentry.addBreadcrumb(Breadcrumb(
+        category: feature,
+        message: 'card "$card" load failed (non-fatal)',
+        data: {'code': e.code.wire},
+        level: SentryLevel.warning,
+      ));
+    }
   }
 }

@@ -15,6 +15,7 @@ import '../../../core/widgets/recall_button.dart';
 import '../../../core/widgets/recall_scaffold.dart';
 import '../../../core/widgets/recall_state_view.dart';
 import '../../../core/widgets/staggered_reveal.dart';
+import '../../../core/utils/recall_insets.dart';
 import '../controller/paywall_controller.dart';
 import 'widgets/paywall_hero.dart';
 import 'widgets/paywall_ledger.dart';
@@ -29,7 +30,7 @@ class PaywallView extends GetView<PaywallController> {
   Widget build(BuildContext context) {
     return RecallScaffold.bare(
       body: Padding(
-        padding: const EdgeInsets.fromLTRB(26, 0, 26, 8),
+        padding: const EdgeInsets.fromLTRB(26, 0, 26, 8).bottomSafe(context),
         child: Obx(
           () => RecallStateView(
             state: controller.viewState,
@@ -192,8 +193,7 @@ class _FreeLayout extends StatelessWidget {
               ),
               TextLinkButton(
                 label: 'Restore purchases',
-                onPressed:
-                    controller.busy.value ? null : controller.onRestore,
+                onPressed: controller.busy.value ? null : controller.onRestore,
               ),
               _NoticeLine(msg: controller.notice.value, c: c),
             ],

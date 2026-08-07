@@ -16,19 +16,28 @@ import '../../../core/base/base_controller.dart';
 import '../../../core/gates/tier_gate.dart';
 import '../../../core/utils/recall_haptics.dart';
 import '../../../data/models/models.dart';
-import '../../../data/repositories/profile_repository.dart';
-import '../../../data/services/auth_service.dart';
-import '../../../data/services/revenuecat_service.dart';
-import '../../../data/services/tier_service.dart';
+import '../../../data/repositories/profile/profile_repository.dart';
+import '../../../data/services/auth/auth_service.dart';
+import '../../../data/services/billing/revenuecat_service.dart';
+import '../../../data/services/billing/tier_service.dart';
 
 const _kMonthAbbr = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 /// Native OS subscription-management deep links (mirrors `you_controller`).
-const _kIosManageSubscriptions =
-    'https://apps.apple.com/account/subscriptions';
+const _kIosManageSubscriptions = 'https://apps.apple.com/account/subscriptions';
 const _kAndroidManageSubscriptions =
     'https://play.google.com/store/account/subscriptions';
 
@@ -61,8 +70,10 @@ class PaywallController extends BaseController {
   /// Quiet, transient line under the CTAs ("Nothing to restore", errors).
   final RxnString notice = RxnString();
 
-  TierGate get gate => TierGate(tier.value);
-  bool get isPremium => tier.value == SubscriptionTier.premium;
+  TierGate get gate => _tierService.gate;
+  bool get isPremium =>
+      _tierService.tierRx.value == SubscriptionTier.premium ||
+      tier.value == SubscriptionTier.premium;
 
   Package? get monthlyPackage => _packageFor(
         RevenueCatService.monthlyProductId,
@@ -137,7 +148,8 @@ class PaywallController extends BaseController {
       final r = await _profiles.refreshEntitlement(userId);
       subscription.value = r.subscription;
       profile.value = r.profile;
-      _tierService.applyEntitlement(subscription: r.subscription, profile: r.profile);
+      _tierService.applyEntitlement(
+          subscription: r.subscription, profile: r.profile);
       tier.value = _tierService.tier;
     } catch (_) {
       // Keep the last known tier; the screen still renders.
