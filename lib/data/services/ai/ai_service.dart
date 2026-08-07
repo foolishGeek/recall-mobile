@@ -95,6 +95,16 @@ class AiService extends GetxService {
     return QuizGradeResult.fromJson(body);
   }
 
+  /// Bucket-aware starter questions for the Ask Aura empty state.
+  Future<SuggestPromptsResult> suggestPrompts({
+    List<String> bucketIds = const [],
+  }) async {
+    final body = await invokeForge('suggest_prompts', payload: {
+      if (bucketIds.isNotEmpty) 'bucket_ids': bucketIds,
+    });
+    return SuggestPromptsResult.fromJson(body);
+  }
+
   /// Fetch a link preview (7-field) via the standalone `link-preview` function.
   Future<LinkPreview> linkPreview(String url) async {
     final body =

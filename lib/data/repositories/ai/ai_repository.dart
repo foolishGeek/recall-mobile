@@ -78,6 +78,12 @@ class AiRepository extends BaseRepository {
   Future<EvaluateResult> evaluate(String nodeId, {bool forceRefresh = false}) =>
       guard(() => _ai.evaluate(nodeId: nodeId, forceRefresh: forceRefresh));
 
+  /// Bucket-aware starter questions for Ask Aura (server-cached by fingerprint).
+  Future<SuggestPromptsResult> suggestPrompts({
+    List<String> bucketIds = const [],
+  }) =>
+      guard(() => _ai.suggestPrompts(bucketIds: bucketIds));
+
   /// Grade a short answer (premium).
   Future<QuizGradeResult> quizGrade({
     required String nodeId,

@@ -153,3 +153,35 @@ class QuizGradeResult {
         model: asStringOrNull(json['model']),
       );
 }
+
+/// `suggest_prompts` response — three short starter questions for Ask Aura.
+class SuggestPromptsResult {
+  final List<String> suggestions;
+  final String fingerprint;
+  final bool cached;
+  final String? model;
+  final bool fallback;
+
+  const SuggestPromptsResult({
+    this.suggestions = const [],
+    this.fingerprint = '',
+    this.cached = false,
+    this.model,
+    this.fallback = false,
+  });
+
+  factory SuggestPromptsResult.fromJson(Map<String, dynamic> json) =>
+      SuggestPromptsResult(
+        suggestions: (json['suggestions'] is List)
+            ? (json['suggestions'] as List)
+                .whereType<String>()
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList()
+            : const [],
+        fingerprint: asString(json['fingerprint']),
+        cached: json['cached'] == true,
+        model: asStringOrNull(json['model']),
+        fallback: json['fallback'] == true,
+      );
+}

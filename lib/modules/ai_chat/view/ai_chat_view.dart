@@ -66,6 +66,8 @@ class _Thread extends StatelessWidget {
           liveModel: controller.liveModel.value,
           answerError: controller.answerError.value,
           showSuggestions: controller.showSuggestions,
+          suggestions: controller.suggestions.toList(),
+          suggestionsHeader: controller.suggestionsHeader.value,
           onStop: controller.stop,
           onRegenerate: controller.regenerate,
           onRetry: controller.retryLast,

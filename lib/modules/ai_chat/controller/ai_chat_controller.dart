@@ -69,6 +69,10 @@ class AiChatController extends BaseController {
   final RxInt nodeCount = 0.obs;
   final Rxn<Profile> profile = Rxn<Profile>();
 
+  /// Bucket-aware starter questions for the empty state.
+  final RxList<String> suggestions = <String>[].obs;
+  final RxnString suggestionsHeader = RxnString();
+
   // Optional bucket scope passed from a bucket's "Ask AI" entry point. Empty =>
   // the whole active-bucket scope (resolved server-side).
   final List<String> _scopeBucketIds = <String>[];
@@ -131,24 +135,58 @@ class AiChatController extends BaseController {
         _profileRepo.fetchSubscription(userId),
         _profileRepo.fetchProfile(userId),
         _bucketRepo.fetchActiveBuckets(userId),
-        _bucketRepo.fetchAllHeatStats(userId),
+        _bucketRepo.fetchTotalNodeCount(userId),
       ]);
       final sub = results[0] as Subscription?;
       final p = results[1] as Profile?;
       final active = results[2] as List<Bucket>;
-      final heat = results[3] as Map<String, BucketHeatStats>;
+      final totalNodes = results[3] as int;
 
       profile.value = p;
       _tierService.applyEntitlement(subscription: sub, profile: p);
-      nodeCount.value = active.fold<int>(
-        0,
-        (sum, b) => sum + (heat[b.id]?.nodeCount ?? 0),
-      );
+      nodeCount.value = totalNodes;
+
+      if (_scopeBucketIds.isNotEmpty) {
+        final scoped = active.where((b) => _scopeBucketIds.contains(b.id));
+        final names = scoped.map((b) => b.name).where((n) => n.trim().isNotEmpty);
+        if (names.isNotEmpty) {
+          suggestionsHeader.value = 'Ask about ${names.first}';
+        }
+      }
+
       setSuccess();
+      unawaited(_loadSuggestions());
     } on RepoException catch (e) {
       offline.value = e.isOffline;
       setSuccess(); // the thread is usable even if scope/profile failed to load
+      unawaited(_loadSuggestions());
     }
+  }
+
+  Future<void> _loadSuggestions() async {
+    final scopeKey = _suggestionsScopeKey();
+    final cached = await _local.cachedSuggestions(scopeKey);
+    if (cached != null && cached.isNotEmpty && suggestions.isEmpty) {
+      suggestions.assignAll(cached);
+    }
+    try {
+      final res = await _aiRepo.suggestPrompts(bucketIds: _scopeBucketIds);
+      if (res.suggestions.isEmpty) return;
+      suggestions.assignAll(res.suggestions);
+      await _local.cacheSuggestions(scopeKey, res.suggestions);
+      if (res.fingerprint.isNotEmpty) {
+        await _local.cacheSuggestions(res.fingerprint, res.suggestions);
+      }
+    } on RepoException {
+      // Keep whatever we already showed from LocalStore.
+    }
+  }
+
+  String _suggestionsScopeKey() {
+    if (_scopeBucketIds.length == 1) {
+      return 'ai_suggestions_scope:bucket:${_scopeBucketIds.first}';
+    }
+    return 'ai_suggestions_scope:active';
   }
 
   // ----------------------------------------------------------- gating UI --

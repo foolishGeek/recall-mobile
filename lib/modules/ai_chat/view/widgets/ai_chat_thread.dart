@@ -24,6 +24,8 @@ class AiChatThread extends StatefulWidget {
   final String? liveModel;
   final String? answerError;
   final bool showSuggestions;
+  final List<String> suggestions;
+  final String? suggestionsHeader;
   final VoidCallback onStop;
   final VoidCallback onRegenerate;
   final VoidCallback onRetry;
@@ -41,6 +43,8 @@ class AiChatThread extends StatefulWidget {
     required this.liveModel,
     required this.answerError,
     required this.showSuggestions,
+    this.suggestions = const [],
+    this.suggestionsHeader,
     required this.onStop,
     required this.onRegenerate,
     required this.onRetry,
@@ -91,7 +95,11 @@ class _AiChatThreadState extends State<AiChatThread> {
         ),
         const SizedBox(height: 18),
         if (widget.showSuggestions)
-          AiSuggestedPrompts(onTap: widget.onSuggested),
+          AiSuggestedPrompts(
+            onTap: widget.onSuggested,
+            suggestions: widget.suggestions,
+            header: widget.suggestionsHeader,
+          ),
         for (final turn in widget.turns) ...[
           _turn(turn),
           const SizedBox(height: 26),
