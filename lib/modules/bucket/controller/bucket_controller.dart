@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:get/get.dart' hide Node;
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
@@ -257,11 +256,8 @@ class BucketController extends BaseController {
         bucketId: bucketId,
         targetRetention: retention,
       );
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       schedulingPrefs.value = prev;
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
 
@@ -275,11 +271,8 @@ class BucketController extends BaseController {
         bucketId: bucketId,
         targetRetention: null,
       );
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       schedulingPrefs.value = prev;
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
 
@@ -360,13 +353,10 @@ class BucketController extends BaseController {
 
       // Notify the buckets list so it reflects the change on back-navigation
       _refreshBucketsList();
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       // Revert draft to server state on failure
       if (bucket.value != null) _syncDraftFromBucket(bucket.value!);
       hasPendingChanges.value = false;
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     } finally {
       isSavingConfig.value = false;
     }
@@ -393,11 +383,8 @@ class BucketController extends BaseController {
         scope: 'bucket',
         bucketId: bucketId,
       );
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       summaryError.value = e.message;
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     } finally {
       isSummarizing.value = false;
     }
@@ -428,11 +415,8 @@ class BucketController extends BaseController {
       });
       bucket.value = updated;
       _refreshBucketsList();
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       bucket.value = prev;
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
 
@@ -449,11 +433,8 @@ class BucketController extends BaseController {
       final updated =
           await _bucketRepo.update(bucketId, {'description': trimmed});
       bucket.value = updated;
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       bucket.value = prev;
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
 
@@ -487,12 +468,9 @@ class BucketController extends BaseController {
       }
       await _reloadNodes();
       _refreshBucketsList();
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       bucket.value = prev;
       await _reloadNodes();
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
     }
   }
 
@@ -531,12 +509,9 @@ class BucketController extends BaseController {
     try {
       await _nodeRepo.softDelete(node.id);
       return true;
-    } on RepoException catch (e, st) {
+    } on RepoException catch (_) {
       // Restore on failure so the note never silently vanishes.
       nodes.insert(index.clamp(0, nodes.length), removed);
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
       return false;
     }
   }
@@ -548,11 +523,7 @@ class BucketController extends BaseController {
     try {
       await _bucketRepo.softDelete(bucketId);
       Get.back();
-    } on RepoException catch (e, st) {
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
-    }
+    } on RepoException catch (_) {}
   }
 
   // ── Navigation ──
@@ -589,11 +560,7 @@ class BucketController extends BaseController {
       nodes.assignAll(results[0] as List<Node>);
       _applySorting();
       mastery.value = (results[1] as double?) ?? mastery.value;
-    } on RepoException catch (e, st) {
-      Sentry.captureException(e,
-          stackTrace: st,
-          withScope: (s) => s.setTag('feature', 'bucket_detail'));
-    }
+    } on RepoException catch (_) {}
   }
 
   // ── Helpers ──

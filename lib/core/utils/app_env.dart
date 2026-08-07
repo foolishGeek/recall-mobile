@@ -9,11 +9,10 @@ class AppEnv {
   static const env = String.fromEnvironment('ENV', defaultValue: 'staging');
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-  static const sentryDsn = String.fromEnvironment('SENTRY_DSN');
   static const revenueCatApiKey =
       String.fromEnvironment('REVENUECAT_API_KEY');
 
-  /// Sentry release tag — hydrated from PackageInfo at boot.
+  /// App version string for session / diagnostics — hydrated from PackageInfo at boot.
   static String release = 'recall@1.0.0+2';
 
   static bool get isProd => env == 'prod';

@@ -2,6 +2,8 @@
 // Best-effort: never blocks boot; defaults keep the app usable offline.
 //
 // Single RC key: `app_update_config` (String = JSON object).
+// Every fetch uses minimumFetchInterval = 0 so console publishes apply on the
+// next refresh (splash / resume), not after a throttle window.
 //
 // Gate rules (build = PackageInfo.buildNumber):
 //   force.enabled + build < force.version_code → force (blocks app)
@@ -63,12 +65,13 @@ class RemoteConfigService extends GetxService {
   FirebaseRemoteConfig? _rc;
   Map<String, dynamic> _cfg = _parseDefault();
   Future<void>? _boot;
+  Future<void>? _inflightRefresh;
 
   static Map<String, dynamic> _parseDefault() {
     return jsonDecode(_kDefaultJson) as Map<String, dynamic>;
   }
 
-  /// Idempotent — splash and main can both call this safely.
+  /// Idempotent setup — splash and main can both call this safely.
   Future<void> bootstrap() {
     return _boot ??= _bootstrapOnce();
   }
@@ -82,34 +85,54 @@ class RemoteConfigService extends GetxService {
     }
     try {
       final rc = FirebaseRemoteConfig.instance;
-      // Staging/debug: always fetch fresh so RC publishes are testable immediately.
-      // Prod: short throttle (not 1h) so a mid-day publish still lands within a session.
-      final fetchInterval = (!AppEnv.isProd || kDebugMode)
-          ? Duration.zero
-          : const Duration(minutes: 15);
       await rc.setConfigSettings(RemoteConfigSettings(
         fetchTimeout: const Duration(seconds: 8),
-        minimumFetchInterval: fetchInterval,
+        // Always fetch from network — no client throttle.
+        minimumFetchInterval: Duration.zero,
       ));
       await rc.setDefaults(<String, dynamic>{
         kAppUpdateConfigKey: _kDefaultJson,
       });
+      _rc = rc;
+      await _fetchAndApply();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[remote_config] $e');
+      _cfg = _parseDefault();
+    }
+  }
+
+  /// Hits the network and reloads in-memory config. Coalesces concurrent calls.
+  Future<void> refresh() {
+    return _inflightRefresh ??= _refreshOnce().whenComplete(() {
+      _inflightRefresh = null;
+    });
+  }
+
+  Future<void> _refreshOnce() async {
+    await bootstrap();
+    if (_rc == null) return;
+    await _fetchAndApply();
+  }
+
+  Future<void> _fetchAndApply() async {
+    final rc = _rc;
+    if (rc == null) return;
+    try {
       final activated = await rc.fetchAndActivate().timeout(
             const Duration(seconds: 10),
           );
-      _rc = rc;
       _cfg = _readConfig();
       if (kDebugMode || !AppEnv.isProd) {
         debugPrint(
           '[remote_config] activated=$activated '
           'raw=${rc.getString(kAppUpdateConfigKey).length}c '
-          'force=${_boolForce}/$forceUpdateVersionCode '
-          'soft=${_boolSoft}/$softUpdateVersionCode',
+          'force=$_boolForce/$forceUpdateVersionCode '
+          'soft=$_boolSoft/$softUpdateVersionCode',
         );
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('[remote_config] $e');
-      _cfg = _parseDefault();
+      if (kDebugMode) debugPrint('[remote_config] fetch $e');
+      // Keep last good _cfg (or defaults from bootstrap failure).
     }
   }
 
@@ -172,10 +195,10 @@ class RemoteConfigService extends GetxService {
     );
   }
 
+  /// Refreshes from network, then evaluates force / soft / none.
   Future<AppUpdateGate> resolveGate() async {
     try {
-      // Ensure fetch finished before deciding (splash awaits this path).
-      await bootstrap();
+      await refresh();
       final info = await PackageInfo.fromPlatform();
       final build = int.tryParse(info.buildNumber) ?? 0;
 

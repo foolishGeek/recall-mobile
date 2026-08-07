@@ -1,8 +1,8 @@
 // Recall · JSON helpers for models. Null-safe coercion from PostgREST maps plus
 // a generic enum parser that falls back to a safe default. Unknown enum values
-// invoke [onModelParseWarning] when set (wired to Sentry from main.dart).
+// invoke [onModelParseWarning] when set.
 
-/// Optional hook for unknown enum wire values (set from main after Sentry init).
+/// Optional hook for unknown enum wire values.
 void Function(String message)? onModelParseWarning;
 
 /// Parse a wire string into an enum value, falling back to [fallback] (and

@@ -16,7 +16,6 @@ dependencies:
   supabase_flutter: ^2.15.0
   google_fonts: ^6.3.2
   flutter_svg: ^2.2.3
-  sentry_flutter: ^9.22.0
   drift: ^2.31.0
   drift_flutter: ^0.2.8
   connectivity_plus: ^7.1.1

@@ -1,6 +1,6 @@
 // Recall · SettingsController. Every row is schema-backed: prefs PATCH the
 // granted `profiles` columns (00003), subscription/credits are server truth, and
-// analytics opt-in is the master switch for Sentry [D-OBS-1]. No product logic
+// analytics opt-in is persisted on profiles [D-OBS-1]. No product logic
 // here — writes are optimistic with revert-on-failure (scope=settings). Account
 // export/delete + subscription I/O live in settings_controller_actions.dart.
 
@@ -13,7 +13,6 @@ import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -364,9 +363,9 @@ class SettingsController extends BaseController {
     try {
       schedulingPrefs.value =
           await _profiles.setSchedulingPrefs(targetRetention: retention);
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       schedulingPrefs.value = prev;
-      _onWriteFailed(e, st);
+      _onWriteFailed(e);
     }
   }
 
@@ -428,15 +427,14 @@ class SettingsController extends BaseController {
     try {
       profile.value =
           await _profiles.updatePreferences(userId, {'theme': value});
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       await _theme.apply(prevTheme);
       profile.value = prev;
-      _onWriteFailed(e, st);
+      _onWriteFailed(e);
     }
   }
 
-  /// Analytics opt-in is the master Sentry switch — flip the gate immediately so
-  /// opt-out drops events at once [D-OBS-1], then persist.
+  /// Flip the analytics opt-in gate immediately, then persist [D-OBS-1].
   Future<void> toggleAnalytics(bool value) async {
     final prev = profile.value;
     _auth.setAnalyticsOptIn(value);
@@ -447,10 +445,10 @@ class SettingsController extends BaseController {
     try {
       profile.value = await _profiles
           .updatePreferences(userId, {'analytics_opt_in': value});
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       _auth.setAnalyticsOptIn(prev?.analyticsOptIn ?? true);
       profile.value = prev;
-      _onWriteFailed(e, st);
+      _onWriteFailed(e);
     }
   }
 
@@ -461,17 +459,16 @@ class SettingsController extends BaseController {
     profile.value = optimistic;
     try {
       profile.value = await _profiles.updatePreferences(userId, changes);
-    } on RepoException catch (e, st) {
+    } on RepoException catch (e) {
       profile.value = prev;
-      _onWriteFailed(e, st);
+      _onWriteFailed(e);
     }
   }
 
-  void _onWriteFailed(RepoException e, StackTrace st) {
+  void _onWriteFailed(RepoException e) {
     _notify(e.isOffline
         ? "You're offline — that change wasn't saved."
         : "Couldn't save that change — try again.");
-    _capture(e, st, 'pref_write');
   }
 
   // ── Shared helpers (used here + in the actions part) ──────────────────────
@@ -497,22 +494,9 @@ class SettingsController extends BaseController {
     });
   }
 
-  void _capture(Object e, StackTrace st, String op) {
-    Sentry.captureException(
-      e,
-      stackTrace: st,
-      withScope: (s) {
-        s.setTag('feature', 'settings');
-        s.setTag('op', op);
-      },
-    );
-  }
 
   void _track(String name, Map<String, dynamic> params) {
     if (!_auth.analyticsOptIn) return;
-    Sentry.addBreadcrumb(
-      Breadcrumb(category: 'analytics', message: name, data: params),
-    );
   }
 }
 

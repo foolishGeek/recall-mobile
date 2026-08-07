@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
@@ -83,13 +82,7 @@ class OnboardingController extends BaseController {
     try {
       _pushGranted = await _notifications.requestPushPermission();
       if (_pushGranted) await _notifications.registerDeviceToken();
-    } catch (e, st) {
-      await Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) => scope.setTag('feature', 'onboarding'),
-      );
-    }
+    } catch (_) {}
   }
 
   void goToPage(int index) {
@@ -183,13 +176,7 @@ class OnboardingController extends BaseController {
           'drop_frequency': dropFrequency,
         },
       );
-    } catch (e, st) {
-      await Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) => scope.setTag('feature', 'onboarding'),
-      );
-    }
+    } catch (_) {}
 
     _auth.setOnboardingDone(true);
     // TODO(analytics): onboarding_completed, push_opt_in_set { value: pushOptIn } [D-OBS-2]

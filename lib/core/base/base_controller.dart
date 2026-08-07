@@ -3,7 +3,6 @@
 // controllers extend this and call the helpers from their intent methods.
 
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../data/services/shared/repo_exception.dart';
 import '../../data/services/sync/sync_status_service.dart';
@@ -51,20 +50,13 @@ abstract class BaseController extends GetxController {
   Future<void> runCardSafe(
     String card,
     RxMap<String, bool> flags,
-    Future<void> Function() body, {
-    required String feature,
-  }) async {
+    Future<void> Function() body,
+  ) async {
     try {
       await body();
       flags[card] = false;
-    } on RepoException catch (e) {
+    } on RepoException {
       flags[card] = true;
-      Sentry.addBreadcrumb(Breadcrumb(
-        category: feature,
-        message: 'card "$card" load failed (non-fatal)',
-        data: {'code': e.code.wire},
-        level: SentryLevel.warning,
-      ));
     }
   }
 }

@@ -9,7 +9,6 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/base/base_controller.dart';
@@ -135,9 +134,8 @@ class PaywallController extends BaseController {
       if (isPremium) {
         creditProducts.assignAll(await _revenueCat.fetchCreditProducts());
       }
-    } catch (e, st) {
+    } catch (_) {
       storeReachable.value = false;
-      _capture(e, st, 'load_store');
     }
   }
 
@@ -184,10 +182,10 @@ class PaywallController extends BaseController {
       }
       _track('purchase_succeeded', {'product': pkg.storeProduct.identifier});
       if (!isClosed) Get.back<bool>(result: true);
-    } on PlatformException catch (e, st) {
-      _handlePurchaseError(e, st, kind: 'purchase');
-    } catch (e, st) {
-      _handlePurchaseError(e, st, kind: 'purchase');
+    } on PlatformException catch (e) {
+      _handlePurchaseError(e, kind: 'purchase');
+    } catch (e) {
+      _handlePurchaseError(e, kind: 'purchase');
     } finally {
       busy.value = false;
     }
@@ -209,10 +207,10 @@ class PaywallController extends BaseController {
         notice.value = 'Nothing to restore.';
         _scheduleNoticeClear();
       }
-    } on PlatformException catch (e, st) {
-      _handlePurchaseError(e, st, kind: 'restore');
-    } catch (e, st) {
-      _handlePurchaseError(e, st, kind: 'restore');
+    } on PlatformException catch (e) {
+      _handlePurchaseError(e, kind: 'restore');
+    } catch (e) {
+      _handlePurchaseError(e, kind: 'restore');
     } finally {
       busy.value = false;
     }
@@ -229,10 +227,10 @@ class PaywallController extends BaseController {
       await _revenueCat.purchaseProduct(product);
       await _waitForCredits();
       _track('credits_purchased', {'product': product.identifier});
-    } on PlatformException catch (e, st) {
-      _handlePurchaseError(e, st, kind: 'credits');
-    } catch (e, st) {
-      _handlePurchaseError(e, st, kind: 'credits');
+    } on PlatformException catch (e) {
+      _handlePurchaseError(e, kind: 'credits');
+    } catch (e) {
+      _handlePurchaseError(e, kind: 'credits');
     } finally {
       busy.value = false;
     }
@@ -246,9 +244,7 @@ class PaywallController extends BaseController {
         : _kAndroidManageSubscriptions;
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (e, st) {
-      _capture(e, st, 'manage_store');
-    }
+    } catch (_) {}
   }
 
   void onCloseTapped() => Get.back<bool>(result: isPremium);
@@ -292,7 +288,7 @@ class PaywallController extends BaseController {
   }
 
   // ── Errors / analytics ──────────────────────────────────────────────────────
-  void _handlePurchaseError(Object e, StackTrace st, {required String kind}) {
+  void _handlePurchaseError(Object e, {required String kind}) {
     if (e is PlatformException &&
         PurchasesErrorHelper.getErrorCode(e) ==
             PurchasesErrorCode.purchaseCancelledError) {
@@ -301,7 +297,6 @@ class PaywallController extends BaseController {
     notice.value = 'Something went wrong — please try again.';
     _scheduleNoticeClear();
     _track('purchase_failed', {'kind': kind});
-    _capture(e, st, kind);
   }
 
   void _scheduleNoticeClear() {
@@ -310,22 +305,9 @@ class PaywallController extends BaseController {
     });
   }
 
-  void _capture(Object e, StackTrace st, String op) {
-    Sentry.captureException(
-      e,
-      stackTrace: st,
-      withScope: (s) {
-        s.setTag('feature', 'paywall');
-        s.setTag('op', op);
-      },
-    );
-  }
 
   void _track(String name, Map<String, dynamic> params) {
     if (!_auth.analyticsOptIn) return;
-    Sentry.addBreadcrumb(
-      Breadcrumb(category: 'analytics', message: name, data: params),
-    );
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────

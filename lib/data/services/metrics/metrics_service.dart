@@ -4,7 +4,6 @@
 // except [D-UI-3] done-fast banner (cosmetic, client-only presentation).
 
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../models/models.dart';
 import '../../repositories/insights/insights_repository.dart';
@@ -42,16 +41,13 @@ class MetricsService extends GetxService {
     _lastCompletedAt = null;
   }
 
-  /// Opt-in analytics breadcrumb (gated by analytics_opt_in).
+  /// Opt-in analytics stub (gated by analytics_opt_in). Reserved for product analytics.
   void trackBreadcrumb(String name, [Map<String, dynamic>? params]) {
     if (!Get.isRegistered<AuthService>()) return;
     if (!Get.find<AuthService>().analyticsOptIn) return;
-    Sentry.addBreadcrumb(
-      Breadcrumb(category: 'analytics', message: name, data: params),
-    );
   }
 
-  /// S26 §7 — breadcrumb when a downgraded user hits a gated surface.
+  /// S26 §7 — stub when a downgraded user hits a gated surface.
   void downgradedGateHit(String screen, {Map<String, String>? params}) {
     if (!Get.isRegistered<AuthService>() || !Get.isRegistered<TierService>()) {
       return;
@@ -60,13 +56,6 @@ class MetricsService extends GetxService {
     if (!auth.analyticsOptIn) return;
     final tier = Get.find<TierService>();
     if (!tier.isDowngraded) return;
-    Sentry.addBreadcrumb(
-      Breadcrumb(
-        category: 'analytics',
-        message: 'downgraded_gate_hit',
-        data: {'screen': screen, ...?params},
-      ),
-    );
   }
 
   /// Returns a done-fast banner when the last stack finished ≤5 min ago and
@@ -106,13 +95,7 @@ class MetricsService extends GetxService {
 
       clearDoneFastCache();
       return banner;
-    } catch (e, st) {
-      Sentry.addBreadcrumb(Breadcrumb(
-        category: 'metrics',
-        message: 'consumeDoneFastBanner failed (non-fatal)',
-        level: SentryLevel.warning,
-      ));
-      await Sentry.captureException(e, stackTrace: st);
+    } catch (_) {
       clearDoneFastCache();
       return null;
     }
@@ -163,45 +146,31 @@ class MetricsService extends GetxService {
   }
 
   Future<void> onReviewRecorded(Review review, Profile profile) async {
-    await _nonFatal('onReviewRecorded', () async {
+    await _nonFatal(() async {
       await _profiles.fetchProfile(review.userId);
       await _insights.fetchSummary(review.userId);
     });
   }
 
   Future<void> onStackStarted(Stack stack, Profile profile) async {
-    await _nonFatal('onStackStarted', () async {
+    await _nonFatal(() async {
       await _profiles.fetchStacksCreatedThisMonth(profile.id);
     });
   }
 
   Future<void> onStackCompleted(Stack stack, Profile profile) async {
     markStackCompleted(stack.id);
-    await _nonFatal('onStackCompleted', () async {
+    await _nonFatal(() async {
       await _profiles.fetchProfile(stack.userId);
       await _insights.fetchSummary(stack.userId);
     });
   }
 
-  Future<void> _nonFatal(
-    String hook,
-    Future<void> Function() action,
-  ) async {
+  Future<void> _nonFatal(Future<void> Function() action) async {
     try {
       await action();
-    } catch (e, st) {
-      Sentry.addBreadcrumb(
-        Breadcrumb(
-          message: 'MetricsService.$hook refresh failed (non-fatal)',
-          category: 'metrics',
-          level: SentryLevel.warning,
-        ),
-      );
-      await Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) => scope.setTag('feature', 'metrics'),
-      );
+    } catch (_) {
+      // Refresh hooks are best-effort; never break the caller.
     }
   }
 }

@@ -7,7 +7,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/gates/auth_gate.dart';
@@ -65,8 +64,8 @@ class SigninController extends GetxController {
         state.value = SigninState.idle;
         return;
       }
-    } on RepoException catch (e, st) {
-      _handleAuthError(e, st, 'apple');
+    } on RepoException catch (e) {
+      _handleAuthError(e, 'apple');
     } catch (e, st) {
       _handleUnexpectedError(e, st, 'apple');
     }
@@ -84,8 +83,8 @@ class SigninController extends GetxController {
         state.value = SigninState.idle;
         return;
       }
-    } on RepoException catch (e, st) {
-      _handleAuthError(e, st, 'google');
+    } on RepoException catch (e) {
+      _handleAuthError(e, 'google');
     } catch (e, st) {
       _handleUnexpectedError(e, st, 'google');
     }
@@ -108,8 +107,8 @@ class SigninController extends GetxController {
       sentEmail.value = email;
       state.value = SigninState.sent;
       _startResendCooldown();
-    } on RepoException catch (e, st) {
-      _handleAuthError(e, st, 'magic_link');
+    } on RepoException catch (e) {
+      _handleAuthError(e, 'magic_link');
     } catch (e, st) {
       _handleUnexpectedError(e, st, 'magic_link');
     }
@@ -127,8 +126,8 @@ class SigninController extends GetxController {
       await _authRepo.signInWithMagicLink(email);
       state.value = SigninState.sent;
       _startResendCooldown();
-    } on RepoException catch (e, st) {
-      _handleAuthError(e, st, 'magic_link');
+    } on RepoException catch (e) {
+      _handleAuthError(e, 'magic_link');
     } catch (e, st) {
       _handleUnexpectedError(e, st, 'magic_link');
     }
@@ -182,13 +181,7 @@ class SigninController extends GetxController {
       // Fire-and-forget: update timezone/locale from device if defaults.
       final profile = await _profileRepo.fetchProfile(userId);
       _patchDeviceMetadata(userId, profile?.timezone);
-    } catch (e, st) {
-      Sentry.captureException(
-        e,
-        stackTrace: st,
-        withScope: (scope) => scope.setTag('feature', 'signin'),
-      );
-    }
+    } catch (_) {}
 
     final gate = AuthGate(
       hasSession: _auth.hasSession,
@@ -228,7 +221,7 @@ class SigninController extends GetxController {
   // Error handling
   // ---------------------------------------------------------------------------
 
-  void _handleAuthError(RepoException e, StackTrace st, String provider) {
+  void _handleAuthError(RepoException e, String provider) {
     // TODO(analytics): signin_failed { provider, error_code } [D-OBS-2]
     debugPrint(
         '[signin] RepoException ($provider): ${e.code.wire} — ${e.message}');
@@ -238,30 +231,12 @@ class SigninController extends GetxController {
       errorText.value = _friendlyMessage(e.message);
     }
     state.value = SigninState.error;
-
-    Sentry.captureException(
-      e.cause ?? e,
-      stackTrace: e.causeStackTrace ?? st,
-      withScope: (scope) {
-        scope.setTag('feature', 'signin');
-        scope.setTag('provider', provider);
-      },
-    );
   }
 
   void _handleUnexpectedError(Object e, StackTrace st, String provider) {
     debugPrint('[signin] unexpected error ($provider): $e\n$st');
     errorText.value = _friendlyMessage(e.toString());
     state.value = SigninState.error;
-
-    Sentry.captureException(
-      e,
-      stackTrace: st,
-      withScope: (scope) {
-        scope.setTag('feature', 'signin');
-        scope.setTag('provider', provider);
-      },
-    );
   }
 
   String _friendlyMessage(String raw) {
