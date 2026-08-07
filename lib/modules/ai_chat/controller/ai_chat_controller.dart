@@ -279,8 +279,17 @@ class AiChatController extends BaseController {
       case RepoErrorCode.offline:
         offline.value = true;
         answerError.value = "You're offline — connect to ask your notes.";
+      case RepoErrorCode.emptyContext:
+        answerError.value =
+            'These notes have no readable text yet — add some and ask again.';
+      case RepoErrorCode.maintenance:
+        answerError.value = 'Aura is briefly unavailable — try again shortly. '
+            'This didn\u2019t use any of your requests.';
       default:
-        answerError.value = 'Couldn\u2019t reach the model — try again';
+        // The server releases the reservation on any failure, so saying so is
+        // accurate and stops users worrying that retrying costs them twice.
+        answerError.value = 'Couldn\u2019t reach the model — try again. '
+            'This didn\u2019t use any of your requests.';
     }
   }
 
