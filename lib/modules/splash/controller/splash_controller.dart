@@ -230,6 +230,8 @@ class SplashController extends GetxController with GetTickerProviderStateMixin {
       await AppUpdateSheet.showForce(
         rc.forceCopy(),
         onUpdate: _startPlayUpdate,
+        onForceCleared: () async =>
+            await rc.resolveGate() != AppUpdateGate.force,
       );
       // Sheet closed via resume recheck or update attempt — re-evaluate.
     }

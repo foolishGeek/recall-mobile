@@ -17,19 +17,31 @@ class AppUpdateSheet extends StatefulWidget {
   final bool force;
   final Future<void> Function({required bool force}) onUpdate;
 
+  /// Asked on resume: true once the block has lifted, so a user who updated in
+  /// the store isn't left staring at a wall. Supplied by the controller — the
+  /// sheet does not know where the gate comes from.
+  final Future<bool> Function()? onForceCleared;
+
   const AppUpdateSheet({
     super.key,
     required this.copy,
     required this.force,
     required this.onUpdate,
+    this.onForceCleared,
   });
 
   static Future<void> showForce(
     AppUpdateCopy copy, {
     required Future<void> Function({required bool force}) onUpdate,
+    required Future<bool> Function() onForceCleared,
   }) {
     return Get.bottomSheet(
-      AppUpdateSheet(copy: copy, force: true, onUpdate: onUpdate),
+      AppUpdateSheet(
+        copy: copy,
+        force: true,
+        onUpdate: onUpdate,
+        onForceCleared: onForceCleared,
+      ),
       isScrollControlled: true,
       isDismissible: false,
       enableDrag: false,
@@ -84,15 +96,12 @@ class _AppUpdateSheetState extends State<AppUpdateSheet>
   }
 
   Future<void> _recheckForceCleared() async {
-    if (_rechecking || !mounted) return;
-    if (!Get.isRegistered<RemoteConfigService>()) return;
+    final recheck = widget.onForceCleared;
+    if (_rechecking || !mounted || recheck == null) return;
     _rechecking = true;
     try {
-      final gate = await Get.find<RemoteConfigService>().resolveGate();
-      if (!mounted) return;
-      if (gate != AppUpdateGate.force) {
-        Get.back();
-      }
+      final cleared = await recheck();
+      if (mounted && cleared) Get.back();
     } finally {
       _rechecking = false;
     }
