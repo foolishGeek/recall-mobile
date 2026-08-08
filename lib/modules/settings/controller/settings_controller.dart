@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:get/get.dart';
@@ -27,6 +28,7 @@ import '../../../core/utils/recall_haptics.dart';
 import '../../../core/utils/recall_time.dart';
 import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
+import '../../../data/repositories/insights/insights_repository.dart';
 import '../../../data/repositories/profile/profile_repository.dart';
 import '../../../data/services/auth/auth_service.dart';
 import '../../../data/services/billing/revenuecat_service.dart';
@@ -220,26 +222,55 @@ class SettingsController extends BaseController {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool forceNetwork = false}) async {
     final userId = _auth.currentUserId;
-    if (userId == null) return;
+    if (userId == null) {
+      setError('Sign in to open Settings.');
+      return;
+    }
 
-    setLoading();
+    final sw = kDebugMode ? (Stopwatch()..start()) : null;
+
+    final snap = forceNetwork ? null : _tier.freshEntitlement;
+    if (snap != null && snap.profile != null) {
+      _applyEntitlement(snap.profile, snap.subscription, touchCache: false);
+      setSuccess();
+      _loadAux();
+      unawaited(_maybeShowReviewCoachTip());
+      _track('settings_viewed', {'tier': tier.value.name});
+      unawaited(_quietRefreshEntitlement(userId));
+      if (sw != null) {
+        debugPrint('[perf] settings_load cache-hit ${sw.elapsedMilliseconds}ms');
+      }
+      return;
+    }
+
+    if (profile.value == null) setLoading();
     try {
       final r = await _profiles.refreshEntitlement(userId);
       _syncStatus.setOffline(false);
-      profile.value = r.profile;
-      subscription.value = r.subscription;
-      _tier.applyEntitlement(subscription: r.subscription, profile: r.profile);
-      tier.value = _tier.tier;
+      _applyEntitlement(r.profile, r.subscription);
 
       final p = r.profile;
       if (p != null) {
-        // Sync the analytics gate + theme with server truth on load.
         _auth.setAnalyticsOptIn(p.analyticsOptIn);
-        if (p.theme != _theme.current) await _theme.apply(p.theme);
+        if (p.theme != _theme.current) {
+          unawaited(_theme.apply(p.theme));
+        }
       }
     } on RepoException catch (e) {
+      final cached = _tier.entitlementSnapshot;
+      if (cached?.profile != null) {
+        _applyEntitlement(
+          cached!.profile,
+          cached.subscription,
+          touchCache: false,
+        );
+        if (e.isOffline) _syncStatus.setOffline(true);
+        setSuccess();
+        _loadAux();
+        return;
+      }
       if (e.isOffline) {
         _syncStatus.setOffline(true);
         setError("You're offline. Check your connection and try again.");
@@ -250,9 +281,43 @@ class SettingsController extends BaseController {
     }
 
     setSuccess();
-    _loadAux(); // version + export status + credit products (best-effort)
+    _loadAux();
     unawaited(_maybeShowReviewCoachTip());
     _track('settings_viewed', {'tier': tier.value.name});
+    if (sw != null) {
+      debugPrint('[perf] settings_load ${sw.elapsedMilliseconds}ms');
+    }
+  }
+
+  void _applyEntitlement(
+    Profile? p,
+    Subscription? s, {
+    bool touchCache = true,
+  }) {
+    profile.value = p;
+    subscription.value = s;
+    _tier.applyEntitlement(
+      subscription: s,
+      profile: p,
+      touchCache: touchCache,
+    );
+    tier.value = _tier.tier;
+  }
+
+  Future<void> _quietRefreshEntitlement(String userId) async {
+    try {
+      final r = await _profiles.refreshEntitlement(userId);
+      if (isClosed) return;
+      _syncStatus.setOffline(false);
+      _applyEntitlement(r.profile, r.subscription);
+      final p = r.profile;
+      if (p != null) {
+        _auth.setAnalyticsOptIn(p.analyticsOptIn);
+        if (p.theme != _theme.current) unawaited(_theme.apply(p.theme));
+      }
+    } on RepoException catch (e) {
+      if (e.isOffline) _syncStatus.setOffline(true);
+    }
   }
 
   Future<void> _maybeShowReviewCoachTip() async {
@@ -293,7 +358,7 @@ class SettingsController extends BaseController {
     }
   }
 
-  Future<void> reload() async => _load();
+  Future<void> reload() async => _load(forceNetwork: true);
 
   // ── Preference intents (optimistic write + revert on failure) ─────────────
 
@@ -427,6 +492,7 @@ class SettingsController extends BaseController {
     try {
       profile.value =
           await _profiles.updatePreferences(userId, {'theme': value});
+      _tier.updateCachedProfile(profile.value!);
     } on RepoException catch (e) {
       await _theme.apply(prevTheme);
       profile.value = prev;
@@ -445,6 +511,7 @@ class SettingsController extends BaseController {
     try {
       profile.value = await _profiles
           .updatePreferences(userId, {'analytics_opt_in': value});
+      _tier.updateCachedProfile(profile.value!);
     } on RepoException catch (e) {
       _auth.setAnalyticsOptIn(prev?.analyticsOptIn ?? true);
       profile.value = prev;
@@ -458,7 +525,9 @@ class SettingsController extends BaseController {
     final prev = profile.value;
     profile.value = optimistic;
     try {
-      profile.value = await _profiles.updatePreferences(userId, changes);
+      final updated = await _profiles.updatePreferences(userId, changes);
+      profile.value = updated;
+      _tier.updateCachedProfile(updated);
     } on RepoException catch (e) {
       profile.value = prev;
       _onWriteFailed(e);

@@ -8,6 +8,8 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../repositories/insights/insights_repository.dart';
+import '../billing/tier_service.dart';
 import '../platform/supabase_service.dart';
 
 class AuthService extends GetxService {
@@ -26,7 +28,11 @@ class AuthService extends GetxService {
     super.onInit();
     _session.value = _supabase.client.auth.currentSession;
     _authSub = _supabase.client.auth.onAuthStateChange.listen((state) {
+      final prev = _session.value;
       _session.value = state.session;
+      if (prev != null && state.session == null) {
+        _clearSessionCaches();
+      }
     });
   }
 
@@ -58,8 +64,18 @@ class AuthService extends GetxService {
   /// Called after profile fetch to sync the analytics flag.
   void setAnalyticsOptIn(bool value) => _analyticsOptIn.value = value;
 
+  void _clearSessionCaches() {
+    if (Get.isRegistered<TierService>()) {
+      Get.find<TierService>().clearEntitlementCache();
+    }
+    if (Get.isRegistered<InsightsRepository>()) {
+      Get.find<InsightsRepository>().clearMemoryCache();
+    }
+  }
+
   Future<void> signOut() async {
     await _supabase.client.auth.signOut();
     setOnboardingDone(false);
+    _clearSessionCaches();
   }
 }

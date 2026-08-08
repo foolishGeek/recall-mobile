@@ -2,7 +2,9 @@
 // TierGate for per-screen gating. Resolved from server `subscriptions` +
 // `profiles.had_premium` on boot and after entitlement refresh.
 // Paywall / WIP / quota denial routing is centralized in [enforce].
+// Cache 3: last Profile + Subscription snapshot for fast Settings paint.
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 import '../../../app/routes/app_routes.dart';
@@ -13,17 +15,45 @@ import '../../../core/config/limits_config.dart';
 import '../../../core/gates/feature.dart';
 import '../../../core/gates/resolve_tier.dart';
 import '../../../core/gates/tier_gate.dart';
+import '../../../core/utils/load_cache_ttl.dart';
 import '../../../modules/quiz_home/view/widgets/quiz_in_progress_sheet.dart';
 import '../../models/models.dart';
 import '../../repositories/profile/profile_repository.dart';
 
 export '../../../core/gates/resolve_tier.dart' show resolveSubscriptionTier;
 
+/// Last entitlement objects kept in RAM for Settings (and similar) fast paint.
+class EntitlementSnapshot {
+  final Profile? profile;
+  final Subscription? subscription;
+  final DateTime fetchedAt;
+
+  const EntitlementSnapshot({
+    required this.profile,
+    required this.subscription,
+    required this.fetchedAt,
+  });
+
+  bool get isFresh =>
+      DateTime.now().difference(fetchedAt) <= kEntitlementMemoryTtl;
+}
+
 class TierService extends GetxService {
   final Rx<SubscriptionTier> _tier = SubscriptionTier.free.obs;
 
+  EntitlementSnapshot? _entitlement;
+
   SubscriptionTier get tier => _tier.value;
   Rx<SubscriptionTier> get tierRx => _tier;
+
+  /// Cache 3 — last profile/subscription from splash / refresh / Settings.
+  EntitlementSnapshot? get entitlementSnapshot => _entitlement;
+
+  EntitlementSnapshot? get freshEntitlement {
+    final snap = _entitlement;
+    if (snap == null || !snap.isFresh) return null;
+    return snap;
+  }
 
   /// Touches tier, limits and AI-policy Rx so Obx rebuilds on any flip.
   TierGate get gate {
@@ -42,8 +72,38 @@ class TierService extends GetxService {
 
   void setTier(SubscriptionTier tier) => _tier.value = tier;
 
-  void applyEntitlement({Subscription? subscription, Profile? profile}) {
+  void applyEntitlement({
+    Subscription? subscription,
+    Profile? profile,
+    bool touchCache = true,
+  }) {
     setTier(resolveSubscriptionTier(subscription, profile));
+    if (touchCache) {
+      _entitlement = EntitlementSnapshot(
+        profile: profile,
+        subscription: subscription,
+        fetchedAt: DateTime.now(),
+      );
+    }
+  }
+
+  /// Keep Cache 3 aligned after a successful prefs write without re-fetching
+  /// subscription.
+  void updateCachedProfile(Profile profile) {
+    final prev = _entitlement;
+    _entitlement = EntitlementSnapshot(
+      profile: profile,
+      subscription: prev?.subscription,
+      fetchedAt: DateTime.now(),
+    );
+    // Tier may depend on had_premium / etc. — re-resolve if we have both.
+    if (prev?.subscription != null || profile.hadPremium) {
+      setTier(resolveSubscriptionTier(prev?.subscription, profile));
+    }
+  }
+
+  void clearEntitlementCache() {
+    _entitlement = null;
   }
 
   /// Opens the paywall unless `limits_profile=relaxed` (temporary free).
@@ -74,8 +134,14 @@ class TierService extends GetxService {
     ProfileRepository profiles,
     String userId,
   ) async {
+    final sw = kDebugMode ? (Stopwatch()..start()) : null;
     final r = await profiles.refreshEntitlement(userId);
     applyEntitlement(subscription: r.subscription, profile: r.profile);
+    if (sw != null) {
+      debugPrint(
+        '[perf] refreshEntitlement ${sw.elapsedMilliseconds}ms',
+      );
+    }
     return _tier.value;
   }
 }

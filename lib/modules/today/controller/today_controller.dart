@@ -15,6 +15,7 @@ import '../../../data/local/local_store.dart';
 import '../../../data/models/models.dart';
 import '../../../data/repositories/ai/ai_repository.dart';
 import '../../../data/repositories/bucket/bucket_repository.dart';
+import '../../../data/repositories/insights/insights_repository.dart';
 import '../../../data/repositories/profile/profile_repository.dart';
 import '../../../data/repositories/stack/stack_repository.dart';
 import '../../../data/repositories/today/today_repository.dart';
@@ -211,6 +212,7 @@ class TodayController extends BaseController with GetTickerProviderStateMixin {
       }
       _loadRelearn();
       _ensurePushPermission();
+      unawaited(Get.find<InsightsRepository>().prefetchDashboard());
     } on RepoException catch (e) {
       if (e.isOffline) {
         _syncStatus.setOffline(true);

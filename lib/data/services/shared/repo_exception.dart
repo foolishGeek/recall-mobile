@@ -107,6 +107,18 @@ RepoException _mapPostgrest(PostgrestException e, StackTrace? st) {
         'Monthly review limit reached for your plan.',
         cause: e, causeStackTrace: st);
   }
+  if (lower.contains('premium_required')) {
+    return RepoException(RepoErrorCode.premiumRequired, msg,
+        cause: e, causeStackTrace: st);
+  }
+  if (lower.contains('maintenance')) {
+    return RepoException(RepoErrorCode.maintenance, msg,
+        cause: e, causeStackTrace: st);
+  }
+  if (lower.contains('unauthorized')) {
+    return RepoException(RepoErrorCode.unauthorized, msg,
+        cause: e, causeStackTrace: st);
+  }
 
   switch (e.code) {
     case '23505': // unique_violation (e.g. idempotency replay)

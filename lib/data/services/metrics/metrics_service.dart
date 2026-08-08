@@ -147,8 +147,8 @@ class MetricsService extends GetxService {
 
   Future<void> onReviewRecorded(Review review, Profile profile) async {
     await _nonFatal(() async {
+      _insights.clearMemoryCache();
       await _profiles.fetchProfile(review.userId);
-      await _insights.fetchSummary(review.userId);
     });
   }
 
@@ -161,8 +161,8 @@ class MetricsService extends GetxService {
   Future<void> onStackCompleted(Stack stack, Profile profile) async {
     markStackCompleted(stack.id);
     await _nonFatal(() async {
+      _insights.clearMemoryCache();
       await _profiles.fetchProfile(stack.userId);
-      await _insights.fetchSummary(stack.userId);
     });
   }
 
