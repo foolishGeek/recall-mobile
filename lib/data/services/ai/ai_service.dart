@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/app_env.dart';
 import '../../models/models.dart';
@@ -18,6 +19,7 @@ class AiService extends GetxService {
   AiService(this._supabase);
 
   final SupabaseService _supabase;
+  static const _uuid = Uuid();
 
   /// Calls the `ai-forge` router with `{ feature, payload }` and returns the raw
   /// JSON body. Feature-typed helpers below build on this.
@@ -38,6 +40,7 @@ class AiService extends GetxService {
     bool spendCredit = false,
     String? conversationId,
     String? replacesInteractionId,
+    String? clientRequestId,
   }) =>
       {
         'question': question,
@@ -47,6 +50,7 @@ class AiService extends GetxService {
         if (conversationId != null) 'conversation_id': conversationId,
         if (replacesInteractionId != null)
           'replaces_interaction_id': replacesInteractionId,
+        if (clientRequestId != null) 'client_request_id': clientRequestId,
       };
 
   /// Buffered RAG chat (fallback / non-Ask-Aura callers). Prefer [ragChatStream]
@@ -68,6 +72,7 @@ class AiService extends GetxService {
         spendCredit: spendCredit,
         conversationId: conversationId,
         replacesInteractionId: replacesInteractionId,
+        clientRequestId: _uuid.v4(),
       ),
     );
     return RagChatResult.fromJson(body);
@@ -76,8 +81,9 @@ class AiService extends GetxService {
   /// Streaming RAG chat via SSE (`rag_chat_stream`).
   ///
   /// Denials before the first byte are JSON errors (same RepoException codes as
-  /// [ragChat]). Once open, [onDelta] receives each visible token; the Future
-  /// completes with the closing `done` frame. Close [client] to cancel.
+  /// [ragChat]). Once open, [onOpen] may receive the conversation id, [onDelta]
+  /// receives each visible token; the Future completes with the closing `done`
+  /// frame. Close [client] to cancel.
   Future<RagChatResult> ragChatStream({
     required String question,
     List<String> bucketIds = const [],
@@ -85,6 +91,7 @@ class AiService extends GetxService {
     bool spendCredit = false,
     String? conversationId,
     String? replacesInteractionId,
+    void Function(String? conversationId)? onOpen,
     required void Function(String delta) onDelta,
     http.Client? client,
   }) async {
@@ -117,6 +124,7 @@ class AiService extends GetxService {
             spendCredit: spendCredit,
             conversationId: conversationId,
             replacesInteractionId: replacesInteractionId,
+            clientRequestId: _uuid.v4(),
           ),
         });
 
@@ -150,7 +158,7 @@ class AiService extends GetxService {
         );
       }
 
-      return await _readSse(streamed.stream, onDelta);
+      return await _readSse(streamed.stream, onDelta, onOpen);
     } finally {
       if (ownsClient) httpClient.close();
     }
@@ -159,6 +167,7 @@ class AiService extends GetxService {
   Future<RagChatResult> _readSse(
     Stream<List<int>> byteStream,
     void Function(String delta) onDelta,
+    void Function(String? conversationId)? onOpen,
   ) async {
     RagChatResult? done;
     String? midError;
@@ -182,7 +191,10 @@ class AiService extends GetxService {
             final name = event;
             event = '';
             final parsed = _parseJsonMap(payload);
-            if (name == 'delta') {
+            if (name == 'open') {
+              final id = parsed['conversation_id']?.toString();
+              onOpen?.call(id != null && id.isNotEmpty ? id : null);
+            } else if (name == 'delta') {
               final t = parsed['t']?.toString() ?? '';
               if (t.isNotEmpty) onDelta(t);
             } else if (name == 'done') {

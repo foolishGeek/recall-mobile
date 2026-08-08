@@ -153,6 +153,15 @@ class AiChatController extends BaseController {
         if (names.isNotEmpty) {
           suggestionsHeader.value = 'Ask about ${names.first}';
           scopeLabel.value = names.first;
+        } else {
+          // Bucket may be cooling / outside the active set — still owned, still
+          // searchable. Resolve the name directly so the header stays honest.
+          final bucket = await _bucketRepo.fetchById(_scopeBucketIds.first);
+          final name = bucket?.name;
+          if (name != null && name.trim().isNotEmpty) {
+            suggestionsHeader.value = 'Ask about $name';
+            scopeLabel.value = name;
+          }
         }
       }
 
@@ -332,6 +341,9 @@ class AiChatController extends BaseController {
         conversationId: _conversationId,
         replacesInteractionId: replacesInteractionId,
         client: client,
+        onOpen: (id) {
+          if (id != null) _conversationId = id;
+        },
         onDelta: (delta) {
           if (phase.value == AnswerPhase.searching) {
             phase.value = AnswerPhase.streaming;

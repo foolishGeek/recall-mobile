@@ -79,6 +79,7 @@ class AiRepository extends BaseRepository {
     bool spendCredit = false,
     String? conversationId,
     String? replacesInteractionId,
+    void Function(String? conversationId)? onOpen,
     required void Function(String delta) onDelta,
     http.Client? client,
   }) =>
@@ -89,6 +90,7 @@ class AiRepository extends BaseRepository {
             spendCredit: spendCredit,
             conversationId: conversationId,
             replacesInteractionId: replacesInteractionId,
+            onOpen: onOpen,
             onDelta: onDelta,
             client: client,
           ));
