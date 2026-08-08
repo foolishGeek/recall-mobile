@@ -1,16 +1,14 @@
-// Recall · AiChatController. Ephemeral RAG chat over the user's active-bucket
-// notes. All decisioning (retrieval scope, model routing, quota/credit/cooldown)
-// is backend-authoritative via `ai-forge` `rag_chat`; this controller only holds
-// the in-memory thread, simulates the answer typing, and maps the canonical
-// error codes to the right UI (locked composer / cooldown interstitial / retry).
+// Recall · AiChatController. Ephemeral RAG chat over the user's notes.
+// Decisioning (retrieval scope, model routing, quota) is backend-authoritative
+// via `ai-forge` `rag_chat_stream`; this controller holds the in-memory thread,
+// paints tokens as they arrive, and maps canonical error codes to UI.
 
 import 'dart:async';
-import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
@@ -32,11 +30,8 @@ import '../view/widgets/aura_rating_sheet.dart';
 import 'ai_chat_turn.dart';
 
 /// Answer lifecycle: idle (no in-flight answer), searching (waiting on the EF),
-/// streaming (simulated typing of the returned answer).
+/// streaming (tokens arriving from the server).
 enum AnswerPhase { idle, searching, streaming }
-
-/// ~28 characters per second simulated typing [S20 §9].
-const Duration _kTypeStep = Duration(milliseconds: 36);
 
 class AiChatController extends BaseController {
   AiChatController(
@@ -98,7 +93,7 @@ class AiChatController extends BaseController {
 
   String _lastQuestion = '';
   String? _conversationId;
-  Timer? _typeTimer;
+  http.Client? _streamClient;
 
   TierGate get gate => _tierService.gate;
   bool get answering => phase.value != AnswerPhase.idle;
@@ -276,11 +271,20 @@ class AiChatController extends BaseController {
   }
 
   void stop() {
-    if (phase.value != AnswerPhase.streaming) return;
-    _typeTimer?.cancel();
+    if (phase.value != AnswerPhase.streaming &&
+        phase.value != AnswerPhase.searching) {
+      return;
+    }
+    _streamClient?.close();
+    _streamClient = null;
     // Stopping early is a real signal about the answer, not just a UI event.
     _signal(liveInteractionId.value, AiFeedbackKind.streamAbandoned);
-    _finishAnswer(streamText.value);
+    if (streamText.value.trim().isNotEmpty) {
+      _finishAnswer(streamText.value);
+    } else {
+      phase.value = AnswerPhase.idle;
+      answerError.value = null;
+    }
   }
 
   void copyAnswer(String text, {String? interactionId}) {
@@ -312,23 +316,49 @@ class AiChatController extends BaseController {
     offline.value = false;
     phase.value = AnswerPhase.searching;
     streamText.value = '';
+    liveCitations.clear();
+    liveModel.value = null;
+    liveInteractionId.value = null;
+
+    _streamClient?.close();
+    final client = http.Client();
+    _streamClient = client;
+
     try {
-      final res = await _aiRepo.ragChat(
+      final res = await _aiRepo.ragChatStream(
         question: _lastQuestion,
         bucketIds: _scopeBucketIds,
         spendCredit: spendCredit,
         conversationId: _conversationId,
         replacesInteractionId: replacesInteractionId,
+        client: client,
+        onDelta: (delta) {
+          if (phase.value == AnswerPhase.searching) {
+            phase.value = AnswerPhase.streaming;
+          }
+          streamText.value = '${streamText.value}$delta';
+        },
       );
+      if (_streamClient != client) return; // stopped / superseded
       if (res.conversationId != null) _conversationId = res.conversationId;
       liveCitations.assignAll(res.citations);
       liveModel.value = res.model;
       liveInteractionId.value = res.interactionId;
-      phase.value = AnswerPhase.streaming;
-      _startTyping(res.answer);
+      _finishAnswer(res.answer.isNotEmpty ? res.answer : streamText.value);
     } on RepoException catch (e) {
-      phase.value = AnswerPhase.idle;
-      _handleError(e);
+      if (_streamClient != client) return;
+      // Keep a partial answer the user already saw rather than wiping it.
+      if (streamText.value.trim().isNotEmpty) {
+        _finishAnswer(streamText.value);
+      } else {
+        phase.value = AnswerPhase.idle;
+        _handleError(e);
+      }
+    } finally {
+      if (identical(_streamClient, client)) {
+        _streamClient = null;
+        client.close();
+      }
     }
   }
 
@@ -359,26 +389,6 @@ class AiChatController extends BaseController {
         answerError.value = 'Couldn\u2019t reach the model — try again. '
             'This didn\u2019t use any of your requests.';
     }
-  }
-
-  void _startTyping(String full) {
-    _typeTimer?.cancel();
-    if (_reduceMotion || full.isEmpty) {
-      _finishAnswer(full);
-      return;
-    }
-    streamText.value = '';
-    var i = 0;
-    _typeTimer = Timer.periodic(_kTypeStep, (t) {
-      i++;
-      if (i >= full.length) {
-        streamText.value = full;
-        t.cancel();
-        _finishAnswer(full);
-      } else {
-        streamText.value = full.substring(0, i);
-      }
-    });
   }
 
   void _finishAnswer(String text) {
@@ -576,9 +586,6 @@ class AiChatController extends BaseController {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}';
   }
 
-  bool get _reduceMotion =>
-      PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
-
   void _track(String event) {
     if (!_auth.analyticsOptIn) return;
     debugPrint('analytics:$event'); // provider-agnostic stub [D-OBS-2]
@@ -586,7 +593,7 @@ class AiChatController extends BaseController {
 
   @override
   void onClose() {
-    _typeTimer?.cancel();
+    _streamClient?.close();
     composer.dispose();
     super.onClose();
   }
