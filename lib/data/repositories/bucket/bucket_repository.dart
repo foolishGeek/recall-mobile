@@ -6,6 +6,8 @@
 
 import 'dart:async';
 
+import 'package:supabase_flutter/supabase_flutter.dart' show CountOption;
+
 import '../../local/local_store.dart';
 import '../../models/models.dart';
 import '../../services/platform/supabase_service.dart';
@@ -224,16 +226,23 @@ class BucketRepository extends BaseRepository {
       );
 
   /// Total node count across all user buckets from `v_bucket_heat`.
-  Future<int> fetchTotalNodeCount(String userId) => guard(() async {
-        final rows = await supabase
-            .from('v_bucket_heat')
-            .select('node_count')
-            .eq('user_id', userId);
-        var total = 0;
-        for (final r in rows) {
-          total += asInt(r['node_count']);
-        }
-        return total;
+  /// Notes the user has, optionally restricted to [bucketIds].
+  ///
+  /// Counted on nodes rather than summed across buckets, so a note that belongs
+  /// to no bucket still counts as something Aura can read. Pass [bucketIds] when
+  /// the count describes a scope — Ask Aura inside a bucket must report that
+  /// bucket's notes, not the whole account's.
+  Future<int> fetchTotalNodeCount(String userId,
+          {List<String> bucketIds = const []}) =>
+      guard(() async {
+        var q = supabase
+            .from('nodes')
+            .select('id')
+            .eq('user_id', userId)
+            .isFilter('deleted_at', null);
+        if (bucketIds.isNotEmpty) q = q.inFilter('bucket_id', bucketIds);
+        final res = await q.count(CountOption.exact);
+        return res.count;
       });
 
   /// Next drop time per bucket via `next_drop_time_rpc`. When [bucketIds] is

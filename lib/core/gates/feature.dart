@@ -12,6 +12,27 @@ enum Feature {
   quiz,
 }
 
+extension FeaturePolicyKey on Feature {
+  /// `ai_feature_policy.feature` for server-governed features; null when the
+  /// rules live in [AppLimits] instead.
+  String? get policyKey {
+    switch (this) {
+      case Feature.aiChat:
+        return 'rag_chat';
+      case Feature.aiOverview:
+        return 'evaluate';
+      case Feature.quiz:
+        return 'quiz_generate';
+      case Feature.reviewStack:
+      case Feature.bucketCreate:
+      case Feature.insightsFull:
+      case Feature.youLedger:
+      case Feature.sessionSize:
+        return null;
+    }
+  }
+}
+
 enum AccessDenial { paywall, quota, wip }
 
 class Access {

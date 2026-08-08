@@ -370,6 +370,40 @@ class LocalStore extends GetxService {
         );
   }
 
+  /// Last good Ask Aura starter prompts for a scope fingerprint.
+  Future<List<String>?> cachedSuggestions(String fingerprint) async {
+    final db = _db;
+    if (db == null || fingerprint.isEmpty) return null;
+    final row = await (db.select(db.syncMeta)
+          ..where((t) => t.key.equals(_suggestionsKey(fingerprint))))
+        .getSingleOrNull();
+    if (row == null) return null;
+    try {
+      final decoded = jsonDecode(row.value);
+      if (decoded is! List) return null;
+      return decoded
+          .whereType<String>()
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList(growable: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> cacheSuggestions(String fingerprint, List<String> prompts) async {
+    final db = _db;
+    if (db == null || fingerprint.isEmpty || prompts.isEmpty) return;
+    await db.into(db.syncMeta).insertOnConflictUpdate(
+          SyncMetaCompanion.insert(
+            key: _suggestionsKey(fingerprint),
+            value: jsonEncode(prompts),
+          ),
+        );
+  }
+
+  String _suggestionsKey(String fingerprint) => 'ai_suggestions:$fingerprint';
+
   Future<bool> hasPendingOnboardingDone(String userId) async {
     final pending = await pendingProfilePrefs();
     return pending.any(

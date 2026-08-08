@@ -24,12 +24,14 @@ class AiChatThread extends StatefulWidget {
   final String? liveModel;
   final String? answerError;
   final bool showSuggestions;
+  final List<String> suggestions;
+  final String? suggestionsHeader;
   final VoidCallback onStop;
   final VoidCallback onRegenerate;
   final VoidCallback onRetry;
   final ValueChanged<String> onSuggested;
-  final ValueChanged<String> onCopy;
-  final ValueChanged<RagCitation> onSourceTap;
+  final void Function(String text, String? interactionId) onCopy;
+  final void Function(RagCitation citation, String? interactionId) onSourceTap;
   final void Function(AiChatTurn turn, int rating)? onRate;
 
   const AiChatThread({
@@ -41,6 +43,8 @@ class AiChatThread extends StatefulWidget {
     required this.liveModel,
     required this.answerError,
     required this.showSuggestions,
+    this.suggestions = const [],
+    this.suggestionsHeader,
     required this.onStop,
     required this.onRegenerate,
     required this.onRetry,
@@ -91,7 +95,11 @@ class _AiChatThreadState extends State<AiChatThread> {
         ),
         const SizedBox(height: 18),
         if (widget.showSuggestions)
-          AiSuggestedPrompts(onTap: widget.onSuggested),
+          AiSuggestedPrompts(
+            onTap: widget.onSuggested,
+            suggestions: widget.suggestions,
+            header: widget.suggestionsHeader,
+          ),
         for (final turn in widget.turns) ...[
           _turn(turn),
           const SizedBox(height: 26),
@@ -106,7 +114,7 @@ class _AiChatThreadState extends State<AiChatThread> {
             onStop: widget.onStop,
             onCopy: () {},
             onRegenerate: () {},
-            onSourceTap: widget.onSourceTap,
+            onSourceTap: (c) => widget.onSourceTap(c, null),
           ),
         if (widget.answerError != null) _ErrorRow(
           message: widget.answerError!,
@@ -124,9 +132,9 @@ class _AiChatThreadState extends State<AiChatThread> {
       model: turn.model,
       streaming: false,
       onStop: widget.onStop,
-      onCopy: () => widget.onCopy(turn.text),
+      onCopy: () => widget.onCopy(turn.text, turn.interactionId),
       onRegenerate: widget.onRegenerate,
-      onSourceTap: widget.onSourceTap,
+      onSourceTap: (c) => widget.onSourceTap(c, turn.interactionId),
       rating: turn.rating,
       onRate: (turn.interactionId != null && widget.onRate != null)
           ? (r) => widget.onRate!(turn, r)

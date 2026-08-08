@@ -30,6 +30,7 @@ class AiChatView extends GetView<AiChatController> {
           SizedBox(height: MediaQuery.of(context).padding.top + 10),
           Obx(() => AiChatTopBar(
                 nodeCount: controller.nodeCount.value,
+                scopeLabel: controller.scopeLabel.value,
                 onBack: Get.back,
                 onMenu: () => AuraTuneSheet.show(controller),
               )),
@@ -66,12 +67,16 @@ class _Thread extends StatelessWidget {
           liveModel: controller.liveModel.value,
           answerError: controller.answerError.value,
           showSuggestions: controller.showSuggestions,
+          suggestions: controller.suggestions.toList(),
+          suggestionsHeader: controller.suggestionsHeader.value,
           onStop: controller.stop,
           onRegenerate: controller.regenerate,
           onRetry: controller.retryLast,
           onSuggested: controller.onSuggestedPrompt,
-          onCopy: controller.copyAnswer,
-          onSourceTap: controller.onSourceTap,
+          onCopy: (text, id) =>
+              controller.copyAnswer(text, interactionId: id),
+          onSourceTap: (citation, id) =>
+              controller.onSourceTap(citation, interactionId: id),
           onRate: controller.rateTurn,
         ));
   }

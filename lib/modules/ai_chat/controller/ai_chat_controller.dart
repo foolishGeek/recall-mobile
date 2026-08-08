@@ -1,16 +1,14 @@
-// Recall · AiChatController. Ephemeral RAG chat over the user's active-bucket
-// notes. All decisioning (retrieval scope, model routing, quota/credit/cooldown)
-// is backend-authoritative via `ai-forge` `rag_chat`; this controller only holds
-// the in-memory thread, simulates the answer typing, and maps the canonical
-// error codes to the right UI (locked composer / cooldown interstitial / retry).
+// Recall · AiChatController. Ephemeral RAG chat over the user's notes.
+// Decisioning (retrieval scope, model routing, quota) is backend-authoritative
+// via `ai-forge` `rag_chat_stream`; this controller holds the in-memory thread,
+// paints tokens as they arrive, and maps canonical error codes to UI.
 
 import 'dart:async';
-import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/base/base_controller.dart';
@@ -32,11 +30,8 @@ import '../view/widgets/aura_rating_sheet.dart';
 import 'ai_chat_turn.dart';
 
 /// Answer lifecycle: idle (no in-flight answer), searching (waiting on the EF),
-/// streaming (simulated typing of the returned answer).
+/// streaming (tokens arriving from the server).
 enum AnswerPhase { idle, searching, streaming }
-
-/// ~28 characters per second simulated typing [S20 §9].
-const Duration _kTypeStep = Duration(milliseconds: 36);
 
 class AiChatController extends BaseController {
   AiChatController(
@@ -69,6 +64,13 @@ class AiChatController extends BaseController {
   final RxInt nodeCount = 0.obs;
   final Rxn<Profile> profile = Rxn<Profile>();
 
+  /// Bucket-aware starter questions for the empty state.
+  final RxList<String> suggestions = <String>[].obs;
+  final RxnString suggestionsHeader = RxnString();
+
+  /// Bucket name when this chat is scoped to one — labels the note count.
+  final RxnString scopeLabel = RxnString();
+
   // Optional bucket scope passed from a bucket's "Ask AI" entry point. Empty =>
   // the whole active-bucket scope (resolved server-side).
   final List<String> _scopeBucketIds = <String>[];
@@ -90,7 +92,8 @@ class AiChatController extends BaseController {
   final RxBool prefsLoading = false.obs;
 
   String _lastQuestion = '';
-  Timer? _typeTimer;
+  String? _conversationId;
+  http.Client? _streamClient;
 
   TierGate get gate => _tierService.gate;
   bool get answering => phase.value != AnswerPhase.idle;
@@ -131,24 +134,69 @@ class AiChatController extends BaseController {
         _profileRepo.fetchSubscription(userId),
         _profileRepo.fetchProfile(userId),
         _bucketRepo.fetchActiveBuckets(userId),
-        _bucketRepo.fetchAllHeatStats(userId),
+        // Scoped to the bucket when opened from one: the header promises what
+        // Aura can read, so it has to match what retrieval will actually see.
+        _bucketRepo.fetchTotalNodeCount(userId, bucketIds: _scopeBucketIds),
       ]);
       final sub = results[0] as Subscription?;
       final p = results[1] as Profile?;
       final active = results[2] as List<Bucket>;
-      final heat = results[3] as Map<String, BucketHeatStats>;
+      final notesInScope = results[3] as int;
 
       profile.value = p;
       _tierService.applyEntitlement(subscription: sub, profile: p);
-      nodeCount.value = active.fold<int>(
-        0,
-        (sum, b) => sum + (heat[b.id]?.nodeCount ?? 0),
-      );
+      nodeCount.value = notesInScope;
+
+      if (_scopeBucketIds.isNotEmpty) {
+        final scoped = active.where((b) => _scopeBucketIds.contains(b.id));
+        final names = scoped.map((b) => b.name).where((n) => n.trim().isNotEmpty);
+        if (names.isNotEmpty) {
+          suggestionsHeader.value = 'Ask about ${names.first}';
+          scopeLabel.value = names.first;
+        } else {
+          // Bucket may be cooling / outside the active set — still owned, still
+          // searchable. Resolve the name directly so the header stays honest.
+          final bucket = await _bucketRepo.fetchById(_scopeBucketIds.first);
+          final name = bucket?.name;
+          if (name != null && name.trim().isNotEmpty) {
+            suggestionsHeader.value = 'Ask about $name';
+            scopeLabel.value = name;
+          }
+        }
+      }
+
       setSuccess();
+      unawaited(_loadSuggestions());
     } on RepoException catch (e) {
       offline.value = e.isOffline;
       setSuccess(); // the thread is usable even if scope/profile failed to load
+      unawaited(_loadSuggestions());
     }
+  }
+
+  Future<void> _loadSuggestions() async {
+    final scopeKey = _suggestionsScopeKey();
+    final cached = await _local.cachedSuggestions(scopeKey);
+    if (cached != null && cached.isNotEmpty && suggestions.isEmpty) {
+      suggestions.assignAll(cached);
+    }
+    try {
+      final res = await _aiRepo.suggestPrompts(bucketIds: _scopeBucketIds);
+      if (res.suggestions.isEmpty) return;
+      suggestions.assignAll(res.suggestions);
+      // Keyed by scope, not by the server's fingerprint: on a cold start we know
+      // which bucket we are opening, never which fingerprint it will hash to.
+      await _local.cacheSuggestions(scopeKey, res.suggestions);
+    } on RepoException {
+      // Keep whatever we already showed from LocalStore.
+    }
+  }
+
+  String _suggestionsScopeKey() {
+    if (_scopeBucketIds.length == 1) {
+      return 'ai_suggestions_scope:bucket:${_scopeBucketIds.first}';
+    }
+    return 'ai_suggestions_scope:active';
   }
 
   // ----------------------------------------------------------- gating UI --
@@ -216,51 +264,113 @@ class AiChatController extends BaseController {
     _tierService.openPaywall();
   }
 
+  /// Ask again for a better answer. The id of the rejected answer goes with the
+  /// request so the server drops that turn from the thread — otherwise the retry
+  /// reads the answer it is replacing as conversation history — and records the
+  /// pair as preference data.
   Future<void> regenerate() async {
     if (answering || turns.isEmpty) return;
-    if (turns.last.role == AiTurnRole.ai) turns.removeLast();
+    String? replaced;
+    if (turns.last.role == AiTurnRole.ai) {
+      replaced = turns.last.interactionId;
+      turns.removeLast();
+    }
     RecallHaptics.selection();
-    await _ask(spendCredit: false);
+    await _ask(spendCredit: false, replacesInteractionId: replaced);
   }
 
   void stop() {
-    if (phase.value != AnswerPhase.streaming) return;
-    _typeTimer?.cancel();
-    _finishAnswer(streamText.value);
+    if (phase.value != AnswerPhase.streaming &&
+        phase.value != AnswerPhase.searching) {
+      return;
+    }
+    _streamClient?.close();
+    _streamClient = null;
+    // Stopping early is a real signal about the answer, not just a UI event.
+    _signal(liveInteractionId.value, AiFeedbackKind.streamAbandoned);
+    if (streamText.value.trim().isNotEmpty) {
+      _finishAnswer(streamText.value);
+    } else {
+      phase.value = AnswerPhase.idle;
+      answerError.value = null;
+    }
   }
 
-  void copyAnswer(String text) {
+  void copyAnswer(String text, {String? interactionId}) {
     Clipboard.setData(ClipboardData(text: text));
     RecallHaptics.selection();
+    _signal(interactionId, AiFeedbackKind.answerCopied);
   }
 
-  void onSourceTap(RagCitation citation) {
+  void onSourceTap(RagCitation citation, {String? interactionId}) {
     if (citation.nodeId.isEmpty) return;
     RecallHaptics.selection();
+    _signal(interactionId, AiFeedbackKind.citationOpened, ref: citation.nodeId);
     Get.toNamed(Routes.node, arguments: {'node_id': citation.nodeId});
+  }
+
+  /// Passive feedback, never awaited: it must not delay the tap it came from.
+  void _signal(String? interactionId, AiFeedbackKind kind, {String? ref}) {
+    if (interactionId == null) return;
+    unawaited(_aiRepo.submitSignal(interactionId, kind, ref: ref));
   }
 
   // --------------------------------------------------------------- network --
 
-  Future<void> _ask({required bool spendCredit}) async {
+  Future<void> _ask({
+    required bool spendCredit,
+    String? replacesInteractionId,
+  }) async {
     answerError.value = null;
     offline.value = false;
     phase.value = AnswerPhase.searching;
     streamText.value = '';
+    liveCitations.clear();
+    liveModel.value = null;
+    liveInteractionId.value = null;
+
+    _streamClient?.close();
+    final client = http.Client();
+    _streamClient = client;
+
     try {
-      final res = await _aiRepo.ragChat(
+      final res = await _aiRepo.ragChatStream(
         question: _lastQuestion,
         bucketIds: _scopeBucketIds,
         spendCredit: spendCredit,
+        conversationId: _conversationId,
+        replacesInteractionId: replacesInteractionId,
+        client: client,
+        onOpen: (id) {
+          if (id != null) _conversationId = id;
+        },
+        onDelta: (delta) {
+          if (phase.value == AnswerPhase.searching) {
+            phase.value = AnswerPhase.streaming;
+          }
+          streamText.value = '${streamText.value}$delta';
+        },
       );
+      if (_streamClient != client) return; // stopped / superseded
+      if (res.conversationId != null) _conversationId = res.conversationId;
       liveCitations.assignAll(res.citations);
       liveModel.value = res.model;
       liveInteractionId.value = res.interactionId;
-      phase.value = AnswerPhase.streaming;
-      _startTyping(res.answer);
+      _finishAnswer(res.answer.isNotEmpty ? res.answer : streamText.value);
     } on RepoException catch (e) {
-      phase.value = AnswerPhase.idle;
-      _handleError(e);
+      if (_streamClient != client) return;
+      // Keep a partial answer the user already saw rather than wiping it.
+      if (streamText.value.trim().isNotEmpty) {
+        _finishAnswer(streamText.value);
+      } else {
+        phase.value = AnswerPhase.idle;
+        _handleError(e);
+      }
+    } finally {
+      if (identical(_streamClient, client)) {
+        _streamClient = null;
+        client.close();
+      }
     }
   }
 
@@ -279,29 +389,18 @@ class AiChatController extends BaseController {
       case RepoErrorCode.offline:
         offline.value = true;
         answerError.value = "You're offline — connect to ask your notes.";
+      case RepoErrorCode.emptyContext:
+        answerError.value =
+            'These notes have no readable text yet — add some and ask again.';
+      case RepoErrorCode.maintenance:
+        answerError.value = 'Aura is briefly unavailable — try again shortly. '
+            'This didn\u2019t use any of your requests.';
       default:
-        answerError.value = 'Couldn\u2019t reach the model — try again';
+        // The server releases the reservation on any failure, so saying so is
+        // accurate and stops users worrying that retrying costs them twice.
+        answerError.value = 'Couldn\u2019t reach the model — try again. '
+            'This didn\u2019t use any of your requests.';
     }
-  }
-
-  void _startTyping(String full) {
-    _typeTimer?.cancel();
-    if (_reduceMotion || full.isEmpty) {
-      _finishAnswer(full);
-      return;
-    }
-    streamText.value = '';
-    var i = 0;
-    _typeTimer = Timer.periodic(_kTypeStep, (t) {
-      i++;
-      if (i >= full.length) {
-        streamText.value = full;
-        t.cancel();
-        _finishAnswer(full);
-      } else {
-        streamText.value = full.substring(0, i);
-      }
-    });
   }
 
   void _finishAnswer(String text) {
@@ -499,9 +598,6 @@ class AiChatController extends BaseController {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}';
   }
 
-  bool get _reduceMotion =>
-      PlatformDispatcher.instance.accessibilityFeatures.disableAnimations;
-
   void _track(String event) {
     if (!_auth.analyticsOptIn) return;
     debugPrint('analytics:$event'); // provider-agnostic stub [D-OBS-2]
@@ -509,7 +605,7 @@ class AiChatController extends BaseController {
 
   @override
   void onClose() {
-    _typeTimer?.cancel();
+    _streamClient?.close();
     composer.dispose();
     super.onClose();
   }

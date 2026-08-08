@@ -2,6 +2,8 @@
 // server-side) and wraps AiService for `ai-forge` calls. Feature-typed returns
 // land in S06; the invoke seam returns the raw EF body for now.
 
+import 'package:http/http.dart' as http;
+
 import '../../local/local_store.dart';
 import '../../models/models.dart';
 import '../../services/ai/ai_service.dart';
@@ -56,12 +58,41 @@ class AiRepository extends BaseRepository {
     List<String> bucketIds = const [],
     List<String> nodeIds = const [],
     bool spendCredit = false,
+    String? conversationId,
+    String? replacesInteractionId,
   }) =>
       guard(() => _ai.ragChat(
             question: question,
             bucketIds: bucketIds,
             nodeIds: nodeIds,
             spendCredit: spendCredit,
+            conversationId: conversationId,
+            replacesInteractionId: replacesInteractionId,
+          ));
+
+  /// Streaming Ask Aura. [onDelta] fires for each visible token; close
+  /// [client] to cancel. Same payload and errors as [ragChat].
+  Future<RagChatResult> ragChatStream({
+    required String question,
+    List<String> bucketIds = const [],
+    List<String> nodeIds = const [],
+    bool spendCredit = false,
+    String? conversationId,
+    String? replacesInteractionId,
+    void Function(String? conversationId)? onOpen,
+    required void Function(String delta) onDelta,
+    http.Client? client,
+  }) =>
+      guard(() => _ai.ragChatStream(
+            question: question,
+            bucketIds: bucketIds,
+            nodeIds: nodeIds,
+            spendCredit: spendCredit,
+            conversationId: conversationId,
+            replacesInteractionId: replacesInteractionId,
+            onOpen: onOpen,
+            onDelta: onDelta,
+            client: client,
           ));
 
   /// Summarize a node or bucket.
@@ -77,6 +108,12 @@ class AiRepository extends BaseRepository {
   /// Pass [forceRefresh] from Regenerate so stale cached suggestions refresh.
   Future<EvaluateResult> evaluate(String nodeId, {bool forceRefresh = false}) =>
       guard(() => _ai.evaluate(nodeId: nodeId, forceRefresh: forceRefresh));
+
+  /// Bucket-aware starter questions for Ask Aura (server-cached by fingerprint).
+  Future<SuggestPromptsResult> suggestPrompts({
+    List<String> bucketIds = const [],
+  }) =>
+      guard(() => _ai.suggestPrompts(bucketIds: bucketIds));
 
   /// Grade a short answer (premium).
   Future<QuizGradeResult> quizGrade({
@@ -125,6 +162,35 @@ class AiRepository extends BaseRepository {
         });
       }
       return false;
+    }
+  }
+
+  /// Weak feedback signals on an AI answer — a citation opened, an answer
+  /// copied, a stream abandoned [D-AI-6]. These are the cheapest relevance
+  /// labels we get: they need no prompt from us and cost the user nothing.
+  /// Fire-and-forget; offline-queued for replay like ratings [D-OFF-1].
+  /// [ref] carries the note id for a citation open — which source was worth
+  /// opening is the label, so the answer id alone is not enough.
+  Future<void> submitSignal(String interactionId, AiFeedbackKind kind,
+      {String? ref}) async {
+    try {
+      await guard(() async {
+        await supabase.rpc('ai_record_feedback', params: {
+          'p_interaction': interactionId,
+          'p_kind': kind.wireName,
+          'p_value': 1,
+          'p_text': ref,
+        });
+      });
+    } on RepoException catch (e) {
+      if (e.isOffline) {
+        await _local.enqueueAiFeedback({
+          'type': 'signal',
+          'interaction_id': interactionId,
+          'kind': kind.wireName,
+          'ref': ref,
+        });
+      }
     }
   }
 

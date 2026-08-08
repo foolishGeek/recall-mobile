@@ -1,5 +1,6 @@
-// Empty-thread state: a quiet question and two static suggested prompts. Static
-// copy only — no backend [D-UI-4].
+// Empty-thread state: a quiet question and suggested prompts from the
+// controller (bucket-aware when a scope is set). Static copy is only the
+// final offline fallback.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,28 +8,33 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/widgets/mono_label.dart';
 
-const _suggestions = <String>[
-  'What did I learn yesterday?',
-  'Summarize my Spanish notes',
-];
+const kFallbackSuggestions = <String>[];
 
 class AiSuggestedPrompts extends StatelessWidget {
   final ValueChanged<String> onTap;
+  final List<String> suggestions;
+  final String? header;
 
-  const AiSuggestedPrompts({super.key, required this.onTap});
+  const AiSuggestedPrompts({
+    super.key,
+    required this.onTap,
+    this.suggestions = const [],
+    this.header,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = RecallColors.of(context);
+    final prompts = suggestions.isNotEmpty ? suggestions : kFallbackSuggestions;
+    final label = header ?? 'What do you want to remember?';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        MonoLabel('What do you want to remember?',
-            color: c.grey500, size: 11, tracking: 0.16),
+        MonoLabel(label, color: c.grey500, size: 11, tracking: 0.16),
         const SizedBox(height: 16),
-        for (final prompt in _suggestions) ...[
+        for (final prompt in prompts) ...[
           _PromptChip(text: prompt, onTap: () => onTap(prompt)),
           const SizedBox(height: 8),
         ],

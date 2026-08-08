@@ -50,6 +50,7 @@ class NodeView extends GetView<NodeController> {
               onSend: controller.onAskAiSend,
               onClear: controller.clearRagResult,
               onUpdateNote: controller.onUpdateNoteFromAskAi,
+              onAnswerCopied: controller.onAskAiAnswerCopied,
             );
           }),
         ],

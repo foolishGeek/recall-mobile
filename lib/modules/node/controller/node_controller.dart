@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart' hide Node;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -684,6 +686,15 @@ class NodeController extends BaseController {
     ragError.value = null;
   }
 
+  /// Copying the reply out is a weak positive on that answer [D-AI-6].
+  void onAskAiAnswerCopied() =>
+      _signalAskAi(AiFeedbackKind.answerCopied, ragResult.value?.interactionId);
+
+  void _signalAskAi(AiFeedbackKind kind, String? interactionId) {
+    if (interactionId == null) return;
+    unawaited(_aiRepo.submitSignal(interactionId, kind));
+  }
+
   /// Opens the keep/leave sheet, then appends the chosen excerpt to the note
   /// body (and keeps extracted_text + embeddings in sync).
   Future<void> onUpdateNoteFromAskAi(String answer) async {
@@ -693,6 +704,8 @@ class NodeController extends BaseController {
 
     final excerpt = await NodeAskAiUpdateSheet.show(ctx, answer: answer);
     if (excerpt == null || excerpt.trim().isEmpty) return;
+    // Keeping AI text in your own note is the strongest positive we ever get.
+    final acceptedId = ragResult.value?.interactionId;
 
     final existing = n.markdown?.trim() ?? '';
     final after =
@@ -705,6 +718,7 @@ class NodeController extends BaseController {
       n.copyWith(markdown: after, extractedText: after, contentHash: hash),
     );
 
+    _signalAskAi(AiFeedbackKind.editAccepted, acceptedId);
     clearRagResult();
     final current = node.value;
     if (current != null) _loadContentLinks(current);

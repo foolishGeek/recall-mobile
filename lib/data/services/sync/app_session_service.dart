@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/ai_policy_config.dart';
 import '../../../core/config/limits_config.dart';
 import '../../../core/utils/app_env.dart';
 import '../platform/supabase_service.dart';
@@ -55,6 +56,9 @@ class AppSessionService extends GetxService with WidgetsBindingObserver {
       // Pick up SQL flips of limits_profile without force-quit / app release.
       if (Get.isRegistered<LimitsConfig>()) {
         unawaited(Get.find<LimitsConfig>().refresh());
+      }
+      if (Get.isRegistered<AiPolicyConfig>()) {
+        unawaited(Get.find<AiPolicyConfig>().refresh());
       }
     }
   }
