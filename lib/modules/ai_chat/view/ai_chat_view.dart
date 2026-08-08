@@ -30,6 +30,7 @@ class AiChatView extends GetView<AiChatController> {
           SizedBox(height: MediaQuery.of(context).padding.top + 10),
           Obx(() => AiChatTopBar(
                 nodeCount: controller.nodeCount.value,
+                scopeLabel: controller.scopeLabel.value,
                 onBack: Get.back,
                 onMenu: () => AuraTuneSheet.show(controller),
               )),

@@ -9,15 +9,27 @@ import '../../../../core/widgets/mono_label.dart';
 
 class AiChatTopBar extends StatelessWidget {
   final int nodeCount;
+
+  /// Bucket name when the chat is scoped to one, so the count reads as a scope
+  /// ("5 notes in Spanish") rather than a claim about the whole account.
+  final String? scopeLabel;
   final VoidCallback onBack;
   final VoidCallback? onMenu;
 
   const AiChatTopBar({
     super.key,
     required this.nodeCount,
+    this.scopeLabel,
     required this.onBack,
     this.onMenu,
   });
+
+  String get _countLabel {
+    final noun = nodeCount == 1 ? 'note' : 'notes';
+    final scope = scopeLabel?.trim();
+    if (scope != null && scope.isNotEmpty) return '$nodeCount $noun in $scope';
+    return 'Your $nodeCount $noun';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +77,7 @@ class AiChatTopBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 5),
-                    MonoLabel('Your $nodeCount ${nodeCount == 1 ? 'note' : 'notes'}',
+                    MonoLabel(_countLabel,
                         color: c.grey500, size: 9.5, tracking: 0.16),
                   ],
                 ),

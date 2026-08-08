@@ -226,15 +226,22 @@ class BucketRepository extends BaseRepository {
       );
 
   /// Total node count across all user buckets from `v_bucket_heat`.
-  Future<int> fetchTotalNodeCount(String userId) => guard(() async {
-        // Counted on nodes, not summed across buckets, so a note that belongs to
-        // no bucket still counts as something Aura can read.
-        final res = await supabase
+  /// Notes the user has, optionally restricted to [bucketIds].
+  ///
+  /// Counted on nodes rather than summed across buckets, so a note that belongs
+  /// to no bucket still counts as something Aura can read. Pass [bucketIds] when
+  /// the count describes a scope — Ask Aura inside a bucket must report that
+  /// bucket's notes, not the whole account's.
+  Future<int> fetchTotalNodeCount(String userId,
+          {List<String> bucketIds = const []}) =>
+      guard(() async {
+        var q = supabase
             .from('nodes')
             .select('id')
             .eq('user_id', userId)
-            .isFilter('deleted_at', null)
-            .count(CountOption.exact);
+            .isFilter('deleted_at', null);
+        if (bucketIds.isNotEmpty) q = q.inFilter('bucket_id', bucketIds);
+        final res = await q.count(CountOption.exact);
         return res.count;
       });
 

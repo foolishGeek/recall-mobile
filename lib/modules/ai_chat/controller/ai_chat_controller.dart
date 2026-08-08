@@ -73,6 +73,9 @@ class AiChatController extends BaseController {
   final RxList<String> suggestions = <String>[].obs;
   final RxnString suggestionsHeader = RxnString();
 
+  /// Bucket name when this chat is scoped to one — labels the note count.
+  final RxnString scopeLabel = RxnString();
+
   // Optional bucket scope passed from a bucket's "Ask AI" entry point. Empty =>
   // the whole active-bucket scope (resolved server-side).
   final List<String> _scopeBucketIds = <String>[];
@@ -136,22 +139,25 @@ class AiChatController extends BaseController {
         _profileRepo.fetchSubscription(userId),
         _profileRepo.fetchProfile(userId),
         _bucketRepo.fetchActiveBuckets(userId),
-        _bucketRepo.fetchTotalNodeCount(userId),
+        // Scoped to the bucket when opened from one: the header promises what
+        // Aura can read, so it has to match what retrieval will actually see.
+        _bucketRepo.fetchTotalNodeCount(userId, bucketIds: _scopeBucketIds),
       ]);
       final sub = results[0] as Subscription?;
       final p = results[1] as Profile?;
       final active = results[2] as List<Bucket>;
-      final totalNodes = results[3] as int;
+      final notesInScope = results[3] as int;
 
       profile.value = p;
       _tierService.applyEntitlement(subscription: sub, profile: p);
-      nodeCount.value = totalNodes;
+      nodeCount.value = notesInScope;
 
       if (_scopeBucketIds.isNotEmpty) {
         final scoped = active.where((b) => _scopeBucketIds.contains(b.id));
         final names = scoped.map((b) => b.name).where((n) => n.trim().isNotEmpty);
         if (names.isNotEmpty) {
           suggestionsHeader.value = 'Ask about ${names.first}';
+          scopeLabel.value = names.first;
         }
       }
 
