@@ -8,10 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/recall_colors.dart';
 import '../../../../core/widgets/mono_label.dart';
 
-const kFallbackSuggestions = <String>[
-  'What should I review first today?',
-  'Summarize what I studied recently',
-];
+const kFallbackSuggestions = <String>[];
 
 class AiSuggestedPrompts extends StatelessWidget {
   final ValueChanged<String> onTap;
