@@ -15,6 +15,7 @@ class SettingsBinding extends Bindings {
         Get.find(), // SyncStatusService
         Get.find(), // NotificationService
       ),
+      fenix: true,
     );
   }
 }

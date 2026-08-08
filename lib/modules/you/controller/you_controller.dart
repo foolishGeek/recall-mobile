@@ -1,6 +1,6 @@
 // Recall · YouController. The profile ledger for the active tier. Read-only:
 // every number is server-authoritative (profiles, v_profile_lifetime,
-// achievements/user_achievements, the `retention-simulate` EF). The controller
+// achievements/user_achievements, retention via `retention_resolve_rpc`). The controller
 // only orchestrates loads, tier branching, offline fallback, the reveal
 // choreography, and the row intents.
 //
@@ -8,6 +8,7 @@
 // Premium          → memory-simulation hero + curve, level ring, achievements
 //                     (12), lifetime stats, Settings + Manage subscription.
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -223,12 +224,25 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
     _diffNewlyUnlocked(unlocked);
   }
 
-  /// Premium retention curve. On EF failure (gate race, maintenance, offline)
-  /// fall back to the cached `profiles.retention_*` numbers with a preview curve
-  /// so the hero still reads (mirrors InsightsController).
+  /// Premium retention: cache-only on the request path; EF refresh in background.
   Future<void> _loadRetention(String userId) async {
     try {
-      retention.value = await _insights.simulateRetention();
+      final cached = await _insights.resolveRetention(force: false);
+      if (cached != null) {
+        retention.value = cached;
+      } else {
+        final p = profile.value;
+        if (p?.retentionWithRecall != null) {
+          retention.value = RetentionSimulation(
+            withRecallPct: p!.retentionWithRecall!,
+            baselinePct: p.retentionBaseline ?? 0,
+            curvePoints: const [],
+            isProjected: true,
+            reviewDaysCount: 0,
+            memoriesSaved: p.memoriesSaved,
+          );
+        }
+      }
     } on RepoException {
       final p = profile.value;
       if (p?.retentionWithRecall != null) {
@@ -243,6 +257,19 @@ class YouController extends BaseController with GetTickerProviderStateMixin {
       } else {
         rethrow;
       }
+    }
+    unawaited(_refreshRetentionInBackground());
+  }
+
+  Future<void> _refreshRetentionInBackground() async {
+    if (!showSimulation || isClosed) return;
+    try {
+      final r = await _insights.resolveRetention(force: true);
+      if (isClosed || r == null) return;
+      retention.value = r;
+      cardError['retention'] = false;
+    } catch (_) {
+      // Keep whatever we already painted.
     }
   }
 

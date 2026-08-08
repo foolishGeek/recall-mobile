@@ -39,6 +39,7 @@ export 'review/stack_item.dart';
 
 export 'insights/daily_activity.dart';
 export 'insights/heat_summary.dart';
+export 'insights/insights_dashboard.dart';
 export 'insights/relearn_skill.dart';
 export 'insights/retention_simulation.dart';
 

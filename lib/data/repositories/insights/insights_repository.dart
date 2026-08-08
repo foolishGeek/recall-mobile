@@ -1,8 +1,13 @@
 // Recall · InsightsRepository. Read-only over the analytics views + activity /
-// achievements tables (all written server-side). Returns models / typed records.
+// achievements tables (all written server-side). Dashboard bootstrap collapses
+// Insights into one RPC; retention uses the shared resolve cache.
 
+import 'package:flutter/foundation.dart';
+
+import '../../../core/utils/load_cache_ttl.dart';
 import '../../models/models.dart';
 import '../../services/platform/supabase_service.dart';
+import '../../services/shared/repo_exception.dart';
 import '../base/base_repository.dart';
 
 /// `v_insights_summary` row.
@@ -35,6 +40,64 @@ typedef WeakTopic = ({
 
 class InsightsRepository extends BaseRepository {
   InsightsRepository(SupabaseService supabase) : super(supabase, 'insights');
+
+  InsightsDashboard? _memoryDashboard;
+  DateTime? _memoryAt;
+
+  /// RAM Cache 2 — last successful dashboard (TTL [kInsightsMemoryTtl]).
+  InsightsDashboard? get memoryDashboard {
+    final cached = _memoryDashboard;
+    final at = _memoryAt;
+    if (cached == null || at == null) return null;
+    if (DateTime.now().difference(at) > kInsightsMemoryTtl) return null;
+    return cached;
+  }
+
+  bool get hasFreshMemoryDashboard => memoryDashboard != null;
+
+  void clearMemoryCache() {
+    _memoryDashboard = null;
+    _memoryAt = null;
+  }
+
+  void _storeMemory(InsightsDashboard dashboard) {
+    _memoryDashboard = dashboard;
+    _memoryAt = DateTime.now();
+  }
+
+  /// Single Insights bootstrap (`insights_dashboard_rpc`).
+  Future<InsightsDashboard> fetchDashboard({
+    bool forceRetention = false,
+    bool bypassMemory = false,
+  }) =>
+      guard(() async {
+        if (!bypassMemory) {
+          final mem = memoryDashboard;
+          if (mem != null) return mem;
+        }
+
+        final sw = kDebugMode ? (Stopwatch()..start()) : null;
+        final result = await supabase.rpc(
+          'insights_dashboard_rpc',
+          params: {'p_force_retention': forceRetention},
+        );
+        final dashboard = InsightsDashboard.fromJson(asJsonMap(result));
+        _storeMemory(dashboard);
+        if (sw != null) {
+          debugPrint(
+            '[perf] insights_dashboard_rpc ${sw.elapsedMilliseconds}ms '
+            '(sim=${dashboard.simulationAllowed})',
+          );
+        }
+        return dashboard;
+      });
+
+  /// Warm Cache 2 after Today settles (best-effort).
+  Future<void> prefetchDashboard() async {
+    try {
+      await fetchDashboard();
+    } catch (_) {/* warm path — ignore */}
+  }
 
   Future<InsightsSummary?> fetchSummary(String userId) => guard(() async {
         final row = await supabase
@@ -135,13 +198,46 @@ class InsightsRepository extends BaseRepository {
         return list.reversed.toList(growable: false);
       });
 
-  /// Premium 90-day forgetting-curve simulation via the `retention-simulate`
-  /// Edge Function. Throws [RepoException] (`premium_required` 403, `maintenance`
-  /// 503, etc.) so the controller can fall back to cached `profiles.retention_*`.
-  Future<RetentionSimulation> simulateRetention() => guard(() async {
-        final data = await supabase.invokeFunction('retention-simulate');
-        return RetentionSimulation.fromJson(data);
+  /// Shared retention path (Insights + You).
+  /// - [force] false: cache-only RPC (never runs the heavy simulate).
+  /// - [force] true: Edge Function `retention-simulate` (longer timeout, background).
+  Future<RetentionSimulation?> resolveRetention({bool force = false}) =>
+      guard(() async {
+        final sw = kDebugMode ? (Stopwatch()..start()) : null;
+        if (force) {
+          final data = await supabase.invokeFunction('retention-simulate');
+          if (sw != null) {
+            debugPrint(
+              '[perf] retention-simulate EF ${sw.elapsedMilliseconds}ms',
+            );
+          }
+          return RetentionSimulation.fromJson(asJsonMap(data));
+        }
+
+        final data = await supabase.rpc(
+          'retention_resolve_rpc',
+          params: {'p_force': false},
+        );
+        if (sw != null) {
+          debugPrint(
+            '[perf] retention_resolve_rpc ${sw.elapsedMilliseconds}ms',
+          );
+        }
+        if (data == null) return null;
+        return RetentionSimulation.fromJson(asJsonMap(data));
       });
+
+  /// Backward-compatible name used by You / Insights — never forces simulate.
+  Future<RetentionSimulation> simulateRetention({bool force = false}) async {
+    final r = await resolveRetention(force: force);
+    if (r == null) {
+      throw RepoException(
+        RepoErrorCode.notFound,
+        'No retention curve cached yet.',
+      );
+    }
+    return r;
+  }
 
   Future<List<Achievement>> fetchAchievements() => guard(() async {
         final rows = await supabase.from('achievements').select();

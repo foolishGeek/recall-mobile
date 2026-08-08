@@ -77,6 +77,10 @@ extension SettingsActions on SettingsController {
   Future<void> onSignOut() async {
     _track('sign_out', const {});
     try {
+      _tier.clearEntitlementCache();
+      if (Get.isRegistered<InsightsRepository>()) {
+        Get.find<InsightsRepository>().clearMemoryCache();
+      }
       await _auth.signOut();
     } catch (_) {}
     Get.offAllNamed(Routes.signin);
@@ -91,6 +95,10 @@ extension SettingsActions on SettingsController {
       await _profiles.deleteAccount();
       _track('account_deleted', const {});
       // Only now is it safe to drop the session + local cache.
+      _tier.clearEntitlementCache();
+      if (Get.isRegistered<InsightsRepository>()) {
+        Get.find<InsightsRepository>().clearMemoryCache();
+      }
       await Get.find<LocalStore>().clearAll();
       await _auth.signOut();
       RecallHaptics.heavy();
@@ -189,6 +197,7 @@ extension SettingsActions on SettingsController {
       try {
         final p = await _profiles.fetchProfile(userId);
         profile.value = p;
+        if (p != null) _tier.updateCachedProfile(p);
         if ((p?.aiCreditBalance ?? 0) > before) return;
       } catch (_) {/* transient */}
       if (isClosed) return;
